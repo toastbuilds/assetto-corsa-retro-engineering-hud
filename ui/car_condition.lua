@@ -4,6 +4,8 @@ local U = require('src/utils')
 
 local M = {}
 local C = Theme.colors
+local effectBlack = rgbm(0, 0, 0, 1)
+local effectWhite = rgbm(1, 1, 1, 1)
 
 local function point(origin, scale, x, y)
   return origin + vec2(x * scale, y * scale)
@@ -11,6 +13,34 @@ end
 
 local function withAlpha(color, alpha)
   return Theme.withAlpha(color, U.clamp(alpha, 0, 1))
+end
+
+local function linearChannel(value)
+  if value <= 0.04045 then return value / 12.92 end
+  return ((value + 0.055) / 1.055) ^ 2.4
+end
+
+local function luminance(color)
+  return linearChannel(color.r) * 0.2126
+    + linearChannel(color.g) * 0.7152
+    + linearChannel(color.b) * 0.0722
+end
+
+local function contrastRatio(a, b)
+  local lighter = math.max(luminance(a), luminance(b))
+  local darker = math.min(luminance(a), luminance(b))
+  return (lighter + 0.05) / (darker + 0.05)
+end
+
+local function tyreEffectColor(surface)
+  -- Keep effects black on blue, green and amber temperature fills. A red
+  -- surface chooses the WCAG higher-contrast endpoint automatically.
+  local redSurface = surface.r > surface.g * 1.45 and surface.r > surface.b * 1.45
+  if not redSurface then return effectBlack end
+  if contrastRatio(surface, effectBlack) >= contrastRatio(surface, effectWhite) then
+    return effectBlack
+  end
+  return effectWhite
 end
 
 local function mix(a, b, amount)
@@ -120,7 +150,7 @@ local function drawDirtPatch(origin, scale, x, y, radius, shape, color)
   ui.pathFillConvex(color)
 end
 
-local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
+local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
   if not wheel or not wheel.available then return end
 
   local halfWidth = Layout.tyreWidth / 2 - 3
@@ -140,9 +170,9 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
     local radius = 1.25 + dirty * 0.75 + (i % 3) * 0.18
     local shape = dirtPatchShapes[(i - 1) % #dirtPatchShapes + 1]
     drawDirtPatch(origin, scale, centerX, centerY, radius + 1.05, shape,
-      withAlpha(C.secondary, 0.20 + dirty * 0.18))
+      withAlpha(effectColor, 0.16 + dirty * 0.16))
     drawDirtPatch(origin, scale, centerX, centerY, radius, shape,
-      withAlpha(C.outline, 0.52 + dirty * 0.24))
+      withAlpha(effectColor, 0.54 + dirty * 0.24))
   end
 
   -- Grain is shown with short diagonal scuffs, not a color shift that could
@@ -154,11 +184,11 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
     local centerY = y + mark[2] * halfHeight
     drawLine(point(origin, scale, centerX - 2.5, centerY + 1.8),
       point(origin, scale, centerX + 2.5, centerY - 1.8),
-      withAlpha(C.amber, 0.24 + grain * 0.34), 0.9 * scale)
+      withAlpha(effectColor, 0.50 + grain * 0.32), 1.1 * scale)
   end
 
-  -- Blistering appears as large, bright raised spots. The warm core makes
-  -- them legible over both cold and hot temperature fills.
+  -- Blistering keeps its circular form while using the same contrast color
+  -- as dirt and grain, so temperature remains the only color channel.
   local blisterCount = math.floor(blister * #blisterSpots + 0.5)
   for i = 1, blisterCount do
     local spot = blisterSpots[i]
@@ -166,9 +196,9 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
       x + spot[1] * halfWidth, y + spot[2] * halfHeight)
     local radius = (2.4 + blister * 0.9) * scale
     ui.drawCircleFilled(center, radius + 1.4 * scale,
-      withAlpha(C.amber, 0.14 + blister * 0.20), 12)
-    ui.drawCircleFilled(center, radius, withAlpha(C.red, 0.42 + blister * 0.28), 12)
-    ui.drawCircle(center, radius, withAlpha(C.primary, 0.64 + blister * 0.24), 12, 1.15 * scale)
+      withAlpha(effectColor, 0.14 + blister * 0.20), 12)
+    ui.drawCircleFilled(center, radius, withAlpha(effectColor, 0.38 + blister * 0.30), 12)
+    ui.drawCircle(center, radius, withAlpha(effectColor, 0.68 + blister * 0.24), 12, 1.15 * scale)
   end
 end
 
@@ -181,11 +211,12 @@ local function drawTyre(origin, scale, x, y, name, wheel, state)
   local stateColor = conditionColor(wheel)
   local punctureLit = wheel and wheel.isBlown
     and math.floor(state.clock / Layout.punctureBlinkPeriod) % 2 == 0
+  local surfaceColor = punctureLit and C.red or tempColor
 
   ui.drawRectFilled(topLeft, bottomRight,
-    withAlpha(punctureLit and C.red or tempColor, wheel and wheel.available and 0.88 or 0.42),
+    withAlpha(surfaceColor, wheel and wheel.available and 0.88 or 0.42),
     4 * scale)
-  drawTyreSurfaceEffects(origin, scale, x, y, wheel)
+  drawTyreSurfaceEffects(origin, scale, x, y, wheel, tyreEffectColor(surfaceColor))
   ui.drawRect(topLeft, bottomRight, stateColor, 4 * scale, nil, 2.4 * scale)
 
   -- Remaining tread is a separate state channel so temperature never hides wear.
