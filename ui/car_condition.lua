@@ -114,14 +114,19 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
   local grain = U.clamp(wheel.grain or 0, 0, 1)
   local blister = U.clamp(wheel.blister or 0, 0, 1)
 
-  -- Dirt reads as a soft, irregular dusting over the temperature color.
+  -- Dirt reads as clearly separated ochre flecks. Their filled, uneven shape
+  -- distinguishes them from grain scratches and outlined blistering.
   local dirtCount = math.floor(dirty * #dirtSpeckles + 0.5)
+  if dirty >= 0.05 then dirtCount = math.max(dirtCount, 1) end
   for i = 1, dirtCount do
     local mark = dirtSpeckles[i]
     local center = point(origin, scale,
       x + mark[1] * halfWidth, y + mark[2] * halfHeight)
-    ui.drawCircleFilled(center, (0.9 + dirty * 0.45) * scale,
-      withAlpha(C.secondary, 0.18 + dirty * 0.28), 8)
+    local radius = (1.25 + dirty * 0.75 + (i % 3) * 0.18) * scale
+    ui.drawCircleFilled(center, radius + 1.1 * scale,
+      withAlpha(C.secondary, 0.20 + dirty * 0.18), 10)
+    ui.drawCircleFilled(center, radius,
+      withAlpha(C.outline, 0.52 + dirty * 0.24), 10)
   end
 
   -- Grain is shown with short diagonal scuffs, not a color shift that could
