@@ -88,6 +88,67 @@ local function conditionColor(wheel)
   return C.green
 end
 
+local dirtSpeckles = {
+  { -0.55, -0.78 }, { 0.43, -0.73 }, { -0.12, -0.61 }, { 0.68, -0.45 },
+  { -0.48, -0.34 }, { 0.15, -0.18 }, { -0.65, 0.02 }, { 0.48, 0.16 },
+  { -0.22, 0.34 }, { 0.62, 0.55 }, { -0.50, 0.71 }, { 0.10, 0.80 }
+}
+
+local grainMarks = {
+  { -0.34, -0.76 }, { 0.30, -0.58 }, { -0.12, -0.40 }, { 0.22, -0.22 },
+  { -0.30, -0.04 }, { 0.08, 0.14 }, { 0.32, 0.32 }, { -0.16, 0.50 },
+  { 0.22, 0.68 }, { -0.28, 0.78 }
+}
+
+local blisterSpots = {
+  { -0.38, -0.64 }, { 0.40, -0.37 }, { -0.10, -0.05 },
+  { 0.45, 0.30 }, { -0.42, 0.61 }
+}
+
+local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
+  if not wheel or not wheel.available then return end
+
+  local halfWidth = Layout.tyreWidth / 2 - 3
+  local halfHeight = Layout.tyreHeight / 2 - 4
+  local dirty = U.clamp(wheel.dirty or 0, 0, 1)
+  local grain = U.clamp(wheel.grain or 0, 0, 1)
+  local blister = U.clamp(wheel.blister or 0, 0, 1)
+
+  -- Dirt reads as a soft, irregular dusting over the temperature color.
+  local dirtCount = math.floor(dirty * #dirtSpeckles + 0.5)
+  for i = 1, dirtCount do
+    local mark = dirtSpeckles[i]
+    local center = point(origin, scale,
+      x + mark[1] * halfWidth, y + mark[2] * halfHeight)
+    ui.drawCircleFilled(center, (0.9 + dirty * 0.45) * scale,
+      withAlpha(C.secondary, 0.18 + dirty * 0.28), 8)
+  end
+
+  -- Grain is shown with short diagonal scuffs, not a color shift that could
+  -- be mistaken for tyre temperature.
+  local grainCount = math.floor(grain * #grainMarks + 0.5)
+  for i = 1, grainCount do
+    local mark = grainMarks[i]
+    local centerX = x + mark[1] * halfWidth
+    local centerY = y + mark[2] * halfHeight
+    drawLine(point(origin, scale, centerX - 2.5, centerY + 1.8),
+      point(origin, scale, centerX + 2.5, centerY - 1.8),
+      withAlpha(C.amber, 0.24 + grain * 0.34), 0.9 * scale)
+  end
+
+  -- Blistering appears as small outlined hot spots; their count follows the
+  -- measured blister value while the normal temperature fill stays visible.
+  local blisterCount = math.floor(blister * #blisterSpots + 0.5)
+  for i = 1, blisterCount do
+    local spot = blisterSpots[i]
+    local center = point(origin, scale,
+      x + spot[1] * halfWidth, y + spot[2] * halfHeight)
+    local radius = (1.5 + blister * 0.55) * scale
+    ui.drawCircleFilled(center, radius, withAlpha(C.red, 0.18 + blister * 0.24), 10)
+    ui.drawCircle(center, radius, withAlpha(C.red, 0.48 + blister * 0.32), 10, 0.8 * scale)
+  end
+end
+
 local function drawTyre(origin, scale, x, y, name, wheel, state)
   local halfWidth = Layout.tyreWidth / 2
   local halfHeight = Layout.tyreHeight / 2
@@ -101,6 +162,7 @@ local function drawTyre(origin, scale, x, y, name, wheel, state)
   ui.drawRectFilled(topLeft, bottomRight,
     withAlpha(punctureLit and C.red or tempColor, wheel and wheel.available and 0.88 or 0.42),
     4 * scale)
+  drawTyreSurfaceEffects(origin, scale, x, y, wheel)
   ui.drawRect(topLeft, bottomRight, stateColor, 4 * scale, nil, 2.4 * scale)
 
   -- Remaining tread is a separate state channel so temperature never hides wear.
