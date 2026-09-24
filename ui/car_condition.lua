@@ -101,8 +101,8 @@ local grainMarks = {
 }
 
 local blisterSpots = {
-  { -0.38, -0.64 }, { 0.40, -0.37 }, { -0.10, -0.05 },
-  { 0.45, 0.30 }, { -0.42, 0.61 }
+  { -0.42, -0.70 }, { 0.30, -0.58 }, { -0.08, -0.34 }, { 0.44, -0.12 },
+  { -0.40, 0.12 }, { 0.12, 0.30 }, { 0.46, 0.53 }, { -0.24, 0.71 }
 }
 
 local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
@@ -136,16 +136,18 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
       withAlpha(C.amber, 0.24 + grain * 0.34), 0.9 * scale)
   end
 
-  -- Blistering appears as small outlined hot spots; their count follows the
-  -- measured blister value while the normal temperature fill stays visible.
+  -- Blistering appears as large, bright raised spots. The warm core makes
+  -- them legible over both cold and hot temperature fills.
   local blisterCount = math.floor(blister * #blisterSpots + 0.5)
   for i = 1, blisterCount do
     local spot = blisterSpots[i]
     local center = point(origin, scale,
       x + spot[1] * halfWidth, y + spot[2] * halfHeight)
-    local radius = (1.5 + blister * 0.55) * scale
-    ui.drawCircleFilled(center, radius, withAlpha(C.red, 0.18 + blister * 0.24), 10)
-    ui.drawCircle(center, radius, withAlpha(C.red, 0.48 + blister * 0.32), 10, 0.8 * scale)
+    local radius = (2.4 + blister * 0.9) * scale
+    ui.drawCircleFilled(center, radius + 1.4 * scale,
+      withAlpha(C.amber, 0.14 + blister * 0.20), 12)
+    ui.drawCircleFilled(center, radius, withAlpha(C.red, 0.42 + blister * 0.28), 12)
+    ui.drawCircle(center, radius, withAlpha(C.primary, 0.64 + blister * 0.24), 12, 1.15 * scale)
   end
 end
 
