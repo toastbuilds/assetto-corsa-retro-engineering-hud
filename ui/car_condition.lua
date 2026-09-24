@@ -94,6 +94,12 @@ local dirtSpeckles = {
   { -0.22, 0.34 }, { 0.62, 0.55 }, { -0.50, 0.71 }, { 0.10, 0.80 }
 }
 
+local dirtPatchShapes = {
+  { { -0.92, -0.34 }, { -0.20, -0.94 }, { 0.78, -0.52 }, { 0.70, 0.46 }, { -0.28, 0.88 }, { -0.96, 0.24 } },
+  { { -0.84, -0.12 }, { -0.38, -0.86 }, { 0.58, -0.66 }, { 0.94, 0.12 }, { 0.30, 0.82 }, { -0.68, 0.60 } },
+  { { -0.90, -0.48 }, { 0.06, -0.90 }, { 0.88, -0.18 }, { 0.52, 0.82 }, { -0.48, 0.74 }, { -0.96, 0.06 } }
+}
+
 local grainMarks = {
   { -0.34, -0.76 }, { 0.30, -0.58 }, { -0.12, -0.40 }, { 0.22, -0.22 },
   { -0.30, -0.04 }, { 0.08, 0.14 }, { 0.32, 0.32 }, { -0.16, 0.50 },
@@ -105,6 +111,15 @@ local blisterSpots = {
   { -0.40, 0.12 }, { 0.12, 0.30 }, { 0.46, 0.53 }, { -0.24, 0.71 }
 }
 
+local function drawDirtPatch(origin, scale, x, y, radius, shape, color)
+  ui.pathClear()
+  for _, vertex in ipairs(shape) do
+    ui.pathLineTo(point(origin, scale,
+      x + vertex[1] * radius, y + vertex[2] * radius))
+  end
+  ui.pathFillConvex(color)
+end
+
 local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
   if not wheel or not wheel.available then return end
 
@@ -114,19 +129,20 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel)
   local grain = U.clamp(wheel.grain or 0, 0, 1)
   local blister = U.clamp(wheel.blister or 0, 0, 1)
 
-  -- Dirt reads as clearly separated ochre flecks. Their filled, uneven shape
-  -- distinguishes them from grain scratches and outlined blistering.
+  -- Dirt uses filled angular patches: a deliberately different silhouette
+  -- from grain scratches and the outlined circular blistering.
   local dirtCount = math.floor(dirty * #dirtSpeckles + 0.5)
   if dirty >= 0.05 then dirtCount = math.max(dirtCount, 1) end
   for i = 1, dirtCount do
     local mark = dirtSpeckles[i]
-    local center = point(origin, scale,
-      x + mark[1] * halfWidth, y + mark[2] * halfHeight)
-    local radius = (1.25 + dirty * 0.75 + (i % 3) * 0.18) * scale
-    ui.drawCircleFilled(center, radius + 1.1 * scale,
-      withAlpha(C.secondary, 0.20 + dirty * 0.18), 10)
-    ui.drawCircleFilled(center, radius,
-      withAlpha(C.outline, 0.52 + dirty * 0.24), 10)
+    local centerX = x + mark[1] * halfWidth
+    local centerY = y + mark[2] * halfHeight
+    local radius = 1.25 + dirty * 0.75 + (i % 3) * 0.18
+    local shape = dirtPatchShapes[(i - 1) % #dirtPatchShapes + 1]
+    drawDirtPatch(origin, scale, centerX, centerY, radius + 1.05, shape,
+      withAlpha(C.secondary, 0.20 + dirty * 0.18))
+    drawDirtPatch(origin, scale, centerX, centerY, radius, shape,
+      withAlpha(C.outline, 0.52 + dirty * 0.24))
   end
 
   -- Grain is shown with short diagonal scuffs, not a color shift that could
