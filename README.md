@@ -12,9 +12,10 @@ mostrarse a la vez. **Retro UI Settings** ofrece una pestaña por instrumento.
 
 ## Instalación nueva
 
-Ejecuta `tools/build-package.ps1` y arrastra `dist/RetroUI-v1.0.0.zip` a
-Content Manager. El ZIP instala `apps/lua/RetroUI`. Activa **Retro UI** y abre
-las ventanas que necesites desde la barra lateral CSP.
+Descarga `RetroUI-vX.Y.Z.zip` desde la [última versión publicada](https://github.com/yukkine0704/assetto-corsa-retro-engineering-hud/releases/latest)
+y arrastra el ZIP a Content Manager para instalarlo. No necesitas ejecutar
+scripts ni compilar nada. El ZIP instala `apps/lua/RetroUI`. Activa **Retro UI**
+y abre las ventanas que necesites desde la barra lateral CSP.
 
 ## Migración desde las apps separadas
 
@@ -60,6 +61,10 @@ Los archivos de las cuatro apps externas están integrados bajo `modules/`.
 Cada uno usa rutas `require()` y claves de almacenamiento separadas. El
 manifiesto CSP expone ocho ventanas en un único proceso. El paquete distribuye
 los archivos Lua, los mapas de clases, los recursos y las licencias.
+
+Para crear un ZIP local desde el código fuente, ejecuta
+`tools/build-package.ps1`. Las etiquetas `vX.Y.Z` publican el mismo paquete
+automáticamente mediante GitHub Actions.
 
 ## Licencia
 
