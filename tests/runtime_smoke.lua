@@ -15,12 +15,14 @@ function rgbm(r, g, b, mult) return { r = r, g = g, b = b, mult = mult } end
 
 local saved = { layoutVersion = 4, instrumentMode = 'analog' }
 local car
+local radarCars = {}
 local sim = { raceFlagType = nil }
 local carId = 'test_car'
 local windowWidth, windowHeight = 460, 460
 local pressInstrumentMode = false
 local pressSpeedNeedleMode = false
 local pressRpmNeedleMode = false
+local pressUseIndicatorsAsRadar = false
 local pressLowerPanelMode = false
 local lastWindowConstraint
 local lastRequestedWindowSize
@@ -34,6 +36,9 @@ ac = {
     return saved
   end,
   getCar = function() return car end,
+  iterateCars = setmetatable({}, {
+    __call = function() return ipairs(radarCars) end
+  }),
   getCarID = function() return carId end,
   getFolder = function() return 'cars' end,
   getSim = function() return sim end,
@@ -75,7 +80,13 @@ ui = {
   separator = noop,
   text = noop,
   textWrapped = noop,
-  checkbox = function() return false end,
+  checkbox = function(label)
+    if pressUseIndicatorsAsRadar and label == 'Use indicators as radar' then
+      pressUseIndicatorsAsRadar = false
+      return true
+    end
+    return false
+  end,
   slider = function(_, value) return value, false end,
   button = function(label)
     if pressInstrumentMode and label:find('Instrument mode:', 1, true) == 1 then
@@ -102,11 +113,13 @@ script = {}
 require('app')
 local Settings = require('src/settings')
 local Telemetry = require('src/telemetry')
+local Gt7Retro = require('ui/gt7_retro')
+local Theme = require('src/theme')
 local DialLayout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
 
 assert(Settings.values.instrumentMode == 'analog', 'v5 migration must preserve analog')
-assert(Settings.values.layoutVersion == 7, 'v7 migration must complete')
+assert(Settings.values.layoutVersion == 9, 'v9 migration must complete')
 assert(Settings.values.gt7SpeedNeedleMode == 'digital'
   and Settings.values.gt7RpmNeedleMode == 'digital',
   'v6 migration must preserve the former direct GT7 needle response')
@@ -131,14 +144,29 @@ Settings.draw()
 assert(Settings.values.gt7SpeedNeedleMode == 'analog'
   and Settings.values.gt7RpmNeedleMode == 'analog',
   'GT7 RPM needle selection must be independent')
+assert(Settings.values.gt7RadarStyle == 'arcs', 'GT7 radar must default to arcs')
+pressUseIndicatorsAsRadar = true
+Settings.draw()
+assert(Settings.values.gt7RadarStyle == 'lights', 'indicator radar option must enable arrow and dots')
+pressUseIndicatorsAsRadar = true
+Settings.draw()
+assert(Settings.values.gt7RadarStyle == 'arcs', 'indicator radar option must restore arcs')
+pressLowerPanelMode = true
+Settings.draw()
+assert(Settings.values.gt7LowerPanelMode == 'ffb',
+  'GT7 lower panel selector must retain the FFB gauge')
 pressLowerPanelMode = true
 Settings.draw()
 assert(Settings.values.gt7LowerPanelMode == 'pedal_history',
   'GT7 lower panel selector must expose pedal history')
 pressLowerPanelMode = true
 Settings.draw()
-assert(Settings.values.gt7LowerPanelMode == 'ffb',
-  'GT7 lower panel selector must restore the FFB gauge')
+assert(Settings.values.gt7LowerPanelMode == 'invisible',
+  'GT7 lower panel selector must expose the invisible radar space')
+pressLowerPanelMode = true
+Settings.draw()
+assert(Settings.values.gt7LowerPanelMode == 'limit',
+  'GT7 lower panel selector must restore the LIMIT gauge after invisible')
 
 local function makeCar(overrides)
   local function wheel(overrides)
@@ -152,12 +180,23 @@ local function makeCar(overrides)
       tyreBlister = 0,
       tyreFlatSpot = 0,
       suspensionDamage = 0,
-      isBlown = false
+      isBlown = false,
+      tyreSlip = 0.12,
+      slipRatio = 0.02,
+      slipAngle = 0.03,
+      load = 1
     }
     for key, override in pairs(overrides or {}) do value[key] = override end
     return value
   end
   local value = {
+    index = 0,
+    isConnected = true,
+    isActive = true,
+    position = { x = 0, y = 0, z = 0 },
+    look = { x = 0, y = 0, z = 1 },
+    side = { x = 1, y = 0, z = 0 },
+    aabbSize = { x = 2, y = 1, z = 4.5 },
     physicsAvailable = true,
     speedKmh = 128,
     rpm = 4200,
@@ -219,6 +258,8 @@ assert(telemetry.gt7RpmNeedleNormalized > 0.45 and telemetry.gt7RpmNeedleNormali
   'GT7 analog RPM needle must track its own normalized target')
 assert(telemetry.ffbNeedle > 0.55 and telemetry.ffbNeedle < 0.70,
   'FFB needle must settle near the live magnitude')
+assert(telemetry.limitAvailable and telemetry.limitNeedle > 0.08 and telemetry.limitNeedle < 0.20,
+  'LIMIT must follow normalized tyre slip independently of FFB')
 assert(telemetry.condition.available and telemetry.condition.wheels[1].temperatureRatio > 0.9,
   'car-condition telemetry must normalize tyre temperature against its optimum')
 assert(telemetry.condition.wheels[4].isBlown
@@ -232,6 +273,205 @@ assert(telemetry.speedGaugeMaximum == 175 and telemetry.speedGaugeStep == 25,
 Settings.values.speedUnit = 'km/h'
 
 local primaryCar = car
+
+-- GT7 side radar: the nearest left car is alongside (all three lamps), while
+-- the right car is close but still longitudinally offset (arrow + upper dot).
+Settings.values.instrumentMode = 'gt7_retro'
+local radarPlayer = makeCar({
+  position = { x = 0, y = 0, z = 0 },
+  side = { x = -1, y = 0, z = 0 }
+})
+local radarLeft = makeCar({ index = 1, position = { x = 6, y = 0, z = 0 } })
+local radarRight = makeCar({ index = 2, position = { x = -4, y = 0, z = -6 } })
+car, radarCars = radarPlayer, { radarLeft, radarRight }
+local radarTelemetry = Telemetry.new()
+Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+assert(radarTelemetry.proximityRadarAvailable
+  and radarTelemetry.radarLeftLevel == 3
+  and radarTelemetry.radarRightLevel == 2,
+  'GT7 radar must distinguish alongside traffic from a close offset car')
+
+local leftRedArcs = 0
+local lastArcX
+local outerLeftArcRadius = 0
+local gearPodWidth, gearPodCenter
+local radarArcCalls = 0
+local indicatorTriangles = { left = 0, right = 0 }
+local amberIndicators = { left = 0, right = 0 }
+local flagLampHits = { left = 0, right = 0 }
+local pathPoints = {}
+ui.drawCircleFilled = function(center, _, color)
+  if color == Theme.get('dark').flagYellow then
+    if math.abs(center.x - (Gt7Layout.indicatorLeftX + Gt7Layout.flagLampSideOffset)) < 0.01 then
+      flagLampHits.left = flagLampHits.left + 1
+    elseif math.abs(center.x - (Gt7Layout.indicatorRightX - Gt7Layout.flagLampSideOffset)) < 0.01 then
+      flagLampHits.right = flagLampHits.right + 1
+    end
+  end
+end
+ui.pathClear = function() pathPoints = {}; lastArcX = nil end
+ui.pathLineTo = function(position) pathPoints[#pathPoints + 1] = position end
+ui.pathFillConvex = function(color)
+  if #pathPoints == 8 and math.abs(pathPoints[1].y - Gt7Layout.gearPodTop) < 0.01 then
+    local minimum, maximum = pathPoints[1].x, pathPoints[1].x
+    for _, position in ipairs(pathPoints) do
+      minimum = math.min(minimum, position.x)
+      maximum = math.max(maximum, position.x)
+    end
+    gearPodWidth = maximum - minimum
+    gearPodCenter = (maximum + minimum) / 2
+  elseif #pathPoints == 3 then
+    local x = pathPoints[1].x
+    if math.abs(x - (Gt7Layout.indicatorLeftX - 13)) < 0.01 then
+      indicatorTriangles.left = indicatorTriangles.left + 1
+      if color == Theme.get('dark').amber then
+        amberIndicators.left = amberIndicators.left + 1
+      end
+    elseif math.abs(x - (Gt7Layout.indicatorRightX + 13)) < 0.01 then
+      indicatorTriangles.right = indicatorTriangles.right + 1
+      if color == Theme.get('dark').amber then
+        amberIndicators.right = amberIndicators.right + 1
+      end
+    end
+  end
+end
+ui.pathArcTo = function(center, radius, startAngle, endAngle)
+  lastArcX = center.x
+  local left = math.abs(center.x - Gt7Layout.radarArcLeftX) < 0.01
+  local right = math.abs(center.x - Gt7Layout.radarArcRightX) < 0.01
+  if left then
+    outerLeftArcRadius = math.max(outerLeftArcRadius, radius)
+  end
+  if left or right then
+    assert(math.abs(endAngle - startAngle - math.pi / 2) < 0.01,
+      'each radar ring must remain a complete quarter arc')
+    assert(math.abs(center.y - Gt7Layout.radarArcY) < 0.01,
+      'all three radar rings must share one center')
+    for step = 0, 20 do
+      local angle = startAngle + (endAngle - startAngle) * step / 20
+      local x = center.x + radius * math.cos(angle)
+      local y = center.y + radius * math.sin(angle)
+      local inset = left and x - Gt7Layout.centerLeft or Gt7Layout.centerRight - x
+      local panelBottom = math.min(Gt7Layout.centerBottom,
+        Gt7Layout.centerBottom - Gt7Layout.centerBackdropChamfer
+        + Gt7Layout.centerBackdropChamfer * inset
+        / (Gt7Layout.centerBackdropBottomInset + Gt7Layout.centerBackdropChamfer))
+      assert(inset >= 6 and panelBottom - y >= 6,
+        'every radar ring must stay inside the panel with room for its glow')
+    end
+    radarArcCalls = radarArcCalls + 1
+  end
+end
+ui.pathStroke = function(color)
+  if lastArcX and math.abs(lastArcX - Gt7Layout.radarArcLeftX) < 0.01
+      and color == Theme.get('dark').red then
+    leftRedArcs = leftRedArcs + 1
+  end
+end
+Settings.values.gt7RadarStyle = 'arcs'
+Settings.values.theme = 'dark'
+Settings.values.hudScale = 0.72
+windowWidth, windowHeight = Gt7Layout.width, Gt7Layout.height
+radarTelemetry.clock = 0
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(leftRedArcs == 3, 'all three nearby arcs must illuminate together')
+assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2
+  and gearPodCenter == Gt7Layout.gearPodCenterX and gearPodCenter == 875,
+  'gear pod must stay compact in its right-side position')
+assert(Gt7Layout.radarArcRightX
+  - (Gt7Layout.radarArcFirstRadius + 2 * Gt7Layout.radarArcRadiusStep)
+  - (gearPodCenter + gearPodWidth / 2) >= 12,
+  'gear pod must leave visible clearance before the right radar arc')
+assert(outerLeftArcRadius == 56 and radarArcCalls >= 6,
+  'the reference-style radar arcs must be visible on both sides')
+assert(indicatorTriangles.left == 0 and indicatorTriangles.right == 0,
+  'arcs must replace indicators only on sides with nearby cars')
+leftRedArcs = 0
+radarTelemetry.clock = Gt7Layout.radarBlinkPeriod
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(leftRedArcs == 0, 'all three nearby arcs must extinguish together on blink')
+assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
+  'gear pod must not change size during a radar blink')
+radarTelemetry.radarLeftLevel, radarTelemetry.radarRightLevel = 0, 0
+radarTelemetry.raceFlagType, radarTelemetry.clock = 2, 0
+radarTelemetry.leftIndicator, radarTelemetry.rightIndicator = true, false
+indicatorTriangles.left, indicatorTriangles.right = 0, 0
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
+  'gear pod must remain compact when the arc radar has no nearby cars')
+assert(indicatorTriangles.left == 1 and indicatorTriangles.right == 1,
+  'both default indicators must appear with no nearby cars')
+assert(flagLampHits.left == 2 and flagLampHits.right == 2,
+  'default flag lamps must remain visible while radar is ready')
+assert(amberIndicators.left == 1 and amberIndicators.right == 0,
+  'default turn indicators must follow the correct side')
+radarTelemetry.radarLeftLevel = 3
+indicatorTriangles.left, indicatorTriangles.right = 0, 0
+flagLampHits.left, flagLampHits.right = 0, 0
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(indicatorTriangles.left == 0 and indicatorTriangles.right == 1,
+  'a nearby car must replace only its own side indicator with arcs')
+assert(flagLampHits.left == 0 and flagLampHits.right == 2,
+  'a nearby car must hide flag lamps only on its own side')
+radarTelemetry.radarLeftLevel, radarTelemetry.radarRightLevel = 3, 2
+radarTelemetry.raceFlagType = nil
+radarTelemetry.leftIndicator = false
+Settings.values.gt7RadarStyle = 'lights'
+local arcCountBeforeIndicatorRadar = radarArcCalls
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
+  'gear pod must keep its compact width with the indicator radar style')
+assert(radarArcCalls == arcCountBeforeIndicatorRadar,
+  'indicator radar option must use lights instead of arcs')
+local leftRedTriangle, leftRedDots = 0, 0
+local pathTouchesLeftIndicator = false
+ui.pathClear = function() pathTouchesLeftIndicator = false end
+ui.pathLineTo = function(position)
+  if position.x > 445 and position.x < 475 and position.y > 245 and position.y < 275 then
+    pathTouchesLeftIndicator = true
+  end
+end
+ui.pathFillConvex = function(color)
+  if pathTouchesLeftIndicator and color == Theme.get('dark').red then
+    leftRedTriangle = leftRedTriangle + 1
+  end
+end
+ui.drawCircleFilled = function(center, _, color)
+  if math.abs(center.x - (Gt7Layout.indicatorLeftX + Gt7Layout.flagLampSideOffset)) < 0.01
+      and color == Theme.get('dark').red then
+    leftRedDots = leftRedDots + 1
+  end
+end
+radarTelemetry.clock = 0
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(leftRedTriangle == 1 and leftRedDots == 2,
+  'arrow and both dots must illuminate together for a car alongside')
+leftRedTriangle, leftRedDots = 0, 0
+radarTelemetry.clock = Gt7Layout.radarBlinkPeriod
+Gt7Retro.draw(radarTelemetry, Settings.values)
+assert(leftRedTriangle == 0 and leftRedDots == 0,
+  'arrow and both dots must extinguish together on blink')
+ui.pathArcTo, ui.pathStroke = noop, noop
+ui.pathClear, ui.pathLineTo, ui.pathFillConvex, ui.drawCircleFilled = noop, noop, noop, noop
+
+radarCars = { makeCar({ index = 3, position = { x = -4, y = 0, z = 6 } }) }
+Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
+  'GT7 radar must ignore laterally offset cars beyond the forward allowance')
+radarCars[1].position.z = Gt7Layout.radarFrontAllowance
+Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel >= 1,
+  'GT7 radar must retain a side car up to five meters ahead')
+radarCars[1].position.z = Gt7Layout.radarFrontAllowance + 0.1
+Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
+  'GT7 radar must clear a side car beyond the forward allowance')
+radarCars[1].position.x, radarCars[1].position.z = 0, 3
+Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
+  'GT7 side radar must still ignore a car directly ahead')
+
+car, radarCars = primaryCar, {}
 local metadataLoader = io.load
 carId = 'missing_metadata_car'
 io.load = function() return nil end
@@ -262,6 +502,37 @@ assert(not telemetry.ffbAvailable and telemetry.ffbPercent == 0,
   'missing physics must use explicit FFB fallback')
 assert(telemetry.ffbNeedle == 0 and telemetry.ffbNeedleVelocity == 0,
   'missing physics must park the FFB needle')
+assert(not telemetry.limitAvailable and telemetry.limitNeedle == 0,
+  'missing wheel physics must park LIMIT rather than estimate it')
+
+local limitTelemetry = Telemetry.new()
+car = makeCar({ ffbFinal = 0, wheels = {
+  [0] = { tyreSlip = 0.16, slipRatio = 0.02, slipAngle = 0.03, load = 1 },
+  [1] = { tyreSlip = 0.18, slipRatio = 0.02, slipAngle = 0.03, load = 1 },
+  [2] = { tyreSlip = 0.82, slipRatio = 0.14, slipAngle = 0.03, load = 1 },
+  [3] = { tyreSlip = 0.76, slipRatio = 0.12, slipAngle = 0.03, load = 1 }
+} })
+for _ = 1, 30 do Telemetry.update(limitTelemetry, 1 / 60, Settings.values) end
+assert(limitTelemetry.limitRear > limitTelemetry.limitFront and limitTelemetry.limitNeedle > 0.65,
+  'LIMIT must prioritize the more utilized axle and retain its worst-wheel peak')
+car.tractionControlInAction = true
+car.absInAction = true
+Telemetry.update(limitTelemetry, 1 / 60, Settings.values)
+assert(limitTelemetry.limitTcWarning and limitTelemetry.limitAbsWarning,
+  'TC and ABS must warn without being part of the LIMIT calculation')
+car.tractionControlInAction = false
+car.absInAction = false
+for _ = 1, 25 do Telemetry.update(limitTelemetry, 1 / 60, Settings.values) end
+assert(not limitTelemetry.limitTcWarning and not limitTelemetry.limitAbsWarning,
+  'LIMIT assist warnings must release after their visible hold')
+
+local unavailableLimitTelemetry = Telemetry.new()
+car = makeCar({ wheels = {
+  [0] = { load = 1 }, [1] = { load = 1 }, [2] = { load = 1 }, [3] = { load = 1 }
+} })
+Telemetry.update(unavailableLimitTelemetry, 1 / 60, Settings.values)
+assert(not unavailableLimitTelemetry.limitAvailable and unavailableLimitTelemetry.limitNeedle == 0,
+  'LIMIT must not derive an estimate when wheel-slip telemetry is absent')
 
 local boostTelemetry = Telemetry.new()
 car = makeCar({ turboCount = 1, turboBoost = 1.2 })
@@ -287,7 +558,19 @@ local scenarios = {
     engineLifeLeft = 600, absInAction = true
   }), unit = 'km/h', scale = 0.72, flag = 2 },
   { mode = 'gt7_retro', width = 1000, height = 420, car = makeCar({ gas = 0.82, brake = 0.36 }),
-    unit = 'km/h', scale = 0.80, lowerPanel = 'pedal_history' }
+    unit = 'km/h', scale = 0.80, lowerPanel = 'pedal_history' },
+  { mode = 'gt7_retro', width = 1000, height = 420, car = makeCar({ ffbFinal = 0.82 }),
+    unit = 'km/h', scale = 0.80, lowerPanel = 'ffb' },
+  { mode = 'gt7_retro', width = 1000, height = 420, car = makeCar({
+    wheels = {
+      [0] = { tyreSlip = 0.12, slipRatio = 0.01, slipAngle = 0.02, load = 1 },
+      [1] = { tyreSlip = 0.14, slipRatio = 0.01, slipAngle = 0.02, load = 1 },
+      [2] = { tyreSlip = 0.92, slipRatio = 0.14, slipAngle = 0.04, load = 1 },
+      [3] = { tyreSlip = 0.84, slipRatio = 0.13, slipAngle = 0.04, load = 1 }
+    }
+  }), unit = 'km/h', scale = 0.80, lowerPanel = 'limit' },
+  { mode = 'gt7_retro', width = 1000, height = 420, car = makeCar(),
+    unit = 'km/h', scale = 0.80, lowerPanel = 'invisible' }
 }
 
 for _, scenario in ipairs(scenarios) do

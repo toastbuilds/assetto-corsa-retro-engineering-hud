@@ -1,46 +1,66 @@
-# Retro Engineering HUD
+# Retro UI
 
-The HUD broadcasts its selected theme and opacity settings to compatible CSP Lua apps once per second, allowing companion instruments to stay visually synchronized.
+Retro UI reúne los instrumentos CSP Lua de Assetto Corsa en una sola app. El
+dial digital/analógico, GT7, Car Condition, Multiclass Relative, Delta Bar,
+Leaderboard y Telemetry son ventanas independientes. GT7 y el dial pueden
+mostrarse a la vez. **Retro UI Settings** ofrece una pestaña por instrumento.
 
-A compact retro motorsport HUD for Assetto Corsa, built as a native Custom Shaders Patch Lua app.
+## Requisitos
 
-![Retro Engineering HUD in Assetto Corsa](assets/retro-engineering-hud.png)
+- Assetto Corsa para PC y Custom Shaders Patch con Lua apps habilitadas.
+- Content Manager es recomendable para instalar el ZIP y activar la app.
 
-## Features
+## Instalación nueva
 
-- Digital, analog and panoramic GT7 Retro instrument modes.
-- Central speed/gear readout, RPM arc, redline and shift alerts.
-- Digital race-flag alerts and GT7 Retro dial bezels that share the active flag color and blink.
-- Embedded, blinking bezel indicators.
-- Brake/throttle bars, TC, ABS, lights, pit status and clutch display.
-- Optional turbo or fuel lower gauge in analog mode.
-- Primitive-drawn panoramic cluster with independently selectable digital bars or inertial speed/RPM needles, inertial boost, fuel and a live analog FFB magnitude meter.
-- Optional GT7 Retro lower panel with a compact brake/throttle usage history graph in place of the FFB gauge.
-- Per-car GT7 Retro RPM and speed ranges with dense, readable scale labels; speed falls back explicitly when car metadata is unavailable.
-- Independent car-condition mini app with primitive-drawn body damage, tyre temperatures, wear and puncture state.
-- Light and dark dial themes.
-- Persistent visual, RPM and display settings.
+Ejecuta `tools/build-package.ps1` y arrastra `dist/RetroUI-v1.0.0.zip` a
+Content Manager. El ZIP instala `apps/lua/RetroUI`. Activa **Retro UI** y abre
+las ventanas que necesites desde la barra lateral CSP.
 
-## Requirements
+## Migración desde las apps separadas
 
-- Assetto Corsa (PC).
-- Custom Shaders Patch with Lua apps enabled.
-- Content Manager is recommended.
+Con el juego cerrado, ejecuta:
 
-## Install
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/install-retro-ui.ps1 -AssettoCorsaRoot 'RUTA\assettocorsa'
+```
 
-1. Download `RetroEngineeringHUD-v1.2.1.zip` from [Releases](../../releases).
-2. Drag the ZIP into Content Manager and accept the install prompt.
-3. Enable **Retro Engineering HUD** in the in-game Lua app sidebar.
+El script crea el ZIP, respalda las carpetas antiguas, copia los `classes.ini`
+instalados de Relative y Leaderboard e instala Retro UI. Los récords históricos
+del Delta Bar permanecen en `Documents/Assetto Corsa/CMRTRetroDeltaBar` y se
+respaldan si están presentes. Las preferencias guardadas por `ac.storage` de
+las apps anteriores vuelven a sus valores por defecto porque CSP las asocia a
+cada app. El almacenamiento de `AC Hud` también puede reiniciarse al cambiar
+el nombre de instalación. Las nuevas opciones de GT7 toman sus valores
+iniciales de los ajustes del dial disponibles en Retro UI.
 
-For a manual install, extract the archive into the Assetto Corsa root. It contains `apps/lua/RetroEngineeringHUD/`.
+Abre Retro UI en el juego y comprueba los instrumentos antes de retirar las
+apps anteriores. Después, con el juego cerrado, ejecuta:
 
-Use the app settings window to cycle through the three layouts, choose the light or dark theme, set the RPM thresholds, and tune scale and transparency. GT7 Retro preserves a wide aspect ratio inside the existing app window; widen the window for its largest presentation.
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/install-retro-ui.ps1 -AssettoCorsaRoot 'RUTA\assettocorsa' -Finalize -Validated
+```
 
-**Retro Engineering Car Condition** appears as a separate entry in CSP's in-game app sidebar. It can be moved and resized independently while sharing the HUD theme and opacity settings.
+La retirada mueve las carpetas antiguas a `_RetroUI-Backups`; no borra sus
+preferencias CSP ni los récords. Para revertirla, mueve las carpetas
+`retired-*` del último respaldo de nuevo a `apps/lua/`.
 
-The GT7 Retro FFB gauge reads CSP's `ac.getCar(0).ffbFinal` and moves its inertial needle using the absolute 0–100% magnitude. Its saturation warning briefly holds when the raw value reaches 98% or more. In replays or other contexts where physics telemetry is unavailable the needle parks at zero instead of substituting an estimate. The panoramic window starts rectangular and widens an older square layout once when GT7 Retro is selected.
+## Ajustes
 
-## License
+**General** controla el tema y las unidades de velocidad y temperatura de toda
+la app. La lista lateral abre los ajustes de cada instrumento, ordenados en
+secciones; **Advanced** contiene opciones menos frecuentes. Escala y opacidad
+siguen siendo independientes por ventana. **Reset appearance** solo restaura el
+aspecto; **Reset all** pide confirmación y restaura los ajustes del instrumento.
+Para Relative y Leaderboard, Reset all también restaura `classes.ini` y guarda
+una copia anterior en `Documents/Assetto Corsa/RetroUI/Class Backups`.
 
-[MIT](LICENSE)
+## Desarrollo
+
+Los archivos de las cuatro apps externas están integrados bajo `modules/`.
+Cada uno usa rutas `require()` y claves de almacenamiento separadas. El
+manifiesto CSP expone ocho ventanas en un único proceso. El paquete distribuye
+los archivos Lua, los mapas de clases, los recursos y las licencias.
+
+## Licencia
+
+MIT. Consulta [LICENSE](LICENSE) y [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,0 +1,72 @@
+local Classes = {}
+local ClassReset = require('src/class_reset')
+
+Classes.colors = {
+  HY = rgb(0.95, 0.26, 0.32), LMP1 = rgb(0.95, 0.26, 0.32), LMP2 = rgb(0.98, 0.58, 0.18),
+  LMP3 = rgb(0.98, 0.78, 0.20), GT3 = rgb(0.20, 0.64, 1.00), GT4 = rgb(0.28, 0.82, 0.52),
+  GTE = rgb(0.66, 0.38, 1.00), TCR = rgb(0.22, 0.83, 0.82), TC = rgb(0.22, 0.83, 0.82),
+  CUP = rgb(0.92, 0.92, 0.92), UNKNOWN = rgb(0.58, 0.60, 0.64)
+}
+
+-- Deliberately conservative default hierarchy for traffic warnings. UNKNOWN
+-- never qualifies as faster, avoiding false preparation prompts.
+Classes.speedRank = {
+  HY = 100, LMP1 = 95, LMP2 = 80, LMP3 = 70, GTE = 60, GT3 = 60,
+  GT4 = 45, CUP = 42, TCR = 35, TC = 35, UNKNOWN = 0
+}
+
+function Classes.isFaster(classA, classB)
+  return (Classes.speedRank[classA] or 0) > (Classes.speedRank[classB] or 0)
+end
+
+local known = {
+  { 'hypercar', 'HY' }, { 'lmdh', 'HY' }, { 'lmh', 'HY' }, { 'lmp1', 'LMP1' },
+  { 'lmp2', 'LMP2' }, { 'lmp3', 'LMP3' }, { 'gt3', 'GT3' }, { 'gt4', 'GT4' },
+  { 'gte', 'GTE' }, { 'tcr', 'TCR' }, { 'touring', 'TC' }, { ' cup', 'CUP' }
+}
+
+local ini = ac.INIConfig.load(__dirname .. '/../classes.ini')
+local epochKey = 'retro-ui.relative.classEpoch'
+
+local function epoch()
+  return tonumber(ac.storage[epochKey]) or 0
+end
+
+local function storageKey(id)
+  local value = epoch()
+  return value == 0 and ('multiclass-relative.class.' .. id)
+    or ('retro-ui.relative.class.' .. value .. '.' .. id)
+end
+
+local function classOverride(id)
+  return ac.storage[storageKey(id)]
+end
+
+function Classes.setOverride(id, classID)
+  ac.storage[storageKey(id)] = classID
+end
+
+function Classes.resetAll()
+  local ok, err = ClassReset.restore(__dirname .. '/..', 'Relative', function()
+    ini = ac.INIConfig.load(__dirname .. '/../classes.ini')
+    if not ini then error('CSP did not load classes.ini') end
+  end)
+  if not ok then return false, err end
+  ac.storage[epochKey] = epoch() + 1
+  return true
+end
+
+function Classes.detect(id, name, automatic)
+  local override = classOverride(id)
+  if override and override ~= '' then return override, 'OVERRIDE' end
+  local exact = ini and ini:get('EXACT', id, '') or ''
+  if exact ~= '' then return exact, 'MAPPING' end
+  if not automatic then return 'UNKNOWN', 'UNKNOWN' end
+  local value = (id .. ' ' .. (name or '')):lower()
+  for _, rule in ipairs(known) do
+    if value:find(rule[1], 1, true) then return rule[2], 'INFERRED' end
+  end
+  return 'UNKNOWN', 'UNKNOWN'
+end
+
+return Classes

@@ -1,0 +1,118 @@
+param(
+  [string]$AssettoCorsaRoot,
+  [switch]$Finalize,
+  [switch]$Validated
+)
+
+$ErrorActionPreference = 'Stop'
+$project = Split-Path -Parent $PSScriptRoot
+
+function Resolve-GameRoot {
+  param([string]$Requested)
+  $candidates = @()
+  if ($Requested) { $candidates += $Requested }
+  $candidates += @(
+    'C:\Program Files (x86)\Steam\steamapps\common\assettocorsa',
+    'D:\SteamLibrary\steamapps\common\assettocorsa',
+    'D:\Steam\steamapps\common\assettocorsa'
+  )
+  foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath (Join-Path $candidate 'apps\lua')) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+  throw 'Assetto Corsa was not found. Pass -AssettoCorsaRoot with the game directory.'
+}
+
+function Assert-ChildPath {
+  param([string]$Parent, [string]$Child)
+  $parentFull = [System.IO.Path]::GetFullPath($Parent).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+  $childFull = [System.IO.Path]::GetFullPath($Child)
+  if (-not $childFull.StartsWith($parentFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Path escapes the intended directory: $childFull"
+  }
+}
+
+$game = Resolve-GameRoot $AssettoCorsaRoot
+$luaApps = Join-Path $game 'apps\lua'
+$backupRoot = Join-Path $game '_RetroUI-Backups'
+$stateFile = Join-Path $backupRoot 'migration.json'
+$target = Join-Path $luaApps 'RetroUI'
+Assert-ChildPath $game $backupRoot
+Assert-ChildPath $game $target
+
+$legacyNames = @('RetroEngineeringHUD', 'MulticlassRelative', 'CMRTRetroDeltaBar',
+  'RetroEngineeringLeaderboard', 'RetroEngineeringTelemetry')
+
+if ($Finalize) {
+  if (-not $Validated) { throw 'First validate Retro UI in Assetto Corsa, then rerun with -Finalize -Validated.' }
+  if (-not (Test-Path -LiteralPath $stateFile)) { throw 'Migration state was not found. Install Retro UI first.' }
+  if (-not (Test-Path -LiteralPath (Join-Path $target 'manifest.ini'))) { throw 'Retro UI installation was not found.' }
+  $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+  foreach ($name in $legacyNames) {
+    $old = Join-Path $luaApps $name
+    $retired = Join-Path $state.backupPath ('retired-' + $name)
+    Assert-ChildPath $game $old
+    Assert-ChildPath $backupRoot $retired
+    if ((Test-Path -LiteralPath $old) -and -not (Test-Path -LiteralPath $retired)) {
+      Move-Item -LiteralPath $old -Destination $retired
+      Write-Output "Retired $name to $retired"
+    }
+  }
+  Write-Output 'Legacy apps retired. Their backups and CSP preferences remain available.'
+  return
+}
+
+$build = Join-Path $PSScriptRoot 'build-package.ps1'
+$zip = & $build
+$backup = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
+$legacyBackup = Join-Path $backup 'legacy-apps'
+New-Item -ItemType Directory -Path $legacyBackup -Force | Out-Null
+
+foreach ($name in $legacyNames) {
+  $old = Join-Path $luaApps $name
+  if (Test-Path -LiteralPath $old) {
+    Copy-Item -LiteralPath $old -Destination $legacyBackup -Recurse
+  }
+}
+
+$documentsDelta = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Assetto Corsa\CMRTRetroDeltaBar'
+if (Test-Path -LiteralPath $documentsDelta) {
+  Copy-Item -LiteralPath $documentsDelta -Destination $backup -Recurse
+}
+
+$stage = Join-Path $backup 'stage'
+Expand-Archive -LiteralPath $zip -DestinationPath $stage
+$stagedApp = Join-Path $stage 'apps\lua\RetroUI'
+if (-not (Test-Path -LiteralPath (Join-Path $stagedApp 'manifest.ini'))) {
+  throw 'Built package is missing the Retro UI manifest.'
+}
+
+foreach ($pair in @(
+  @{ app = 'MulticlassRelative'; module = 'relative' },
+  @{ app = 'RetroEngineeringLeaderboard'; module = 'leaderboard' }
+)) {
+  $currentMap = Join-Path $target ('modules\' + $pair.module + '\classes.ini')
+  $oldMap = Join-Path (Join-Path $luaApps $pair.app) 'classes.ini'
+  $sourceMap = if (Test-Path -LiteralPath $currentMap) { $currentMap }
+    elseif (Test-Path -LiteralPath $oldMap) { $oldMap }
+    else { $null }
+  if ($sourceMap) {
+    Copy-Item -LiteralPath $sourceMap -Destination (Join-Path $stagedApp ('modules\' + $pair.module + '\classes.ini')) -Force
+  }
+}
+
+if (Test-Path -LiteralPath $target) {
+  $previous = Join-Path $backup 'previous-RetroUI'
+  Move-Item -LiteralPath $target -Destination $previous
+}
+Move-Item -LiteralPath $stagedApp -Destination $target
+# CSP can notice the brief gap while the old folder is moved away. Touch the
+# entry script after installation so a running game retries loading the app.
+(Get-Item -LiteralPath (Join-Path $target 'RetroUI.lua')).LastWriteTime = Get-Date
+@{ backupPath = $backup; installedAt = (Get-Date).ToString('o'); gameRoot = $game } |
+  ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding UTF8
+
+Write-Output "Installed Retro UI at $target"
+Write-Output "Backup: $backup"
+Write-Output 'Validate all panels in Assetto Corsa. Then run this script with -Finalize -Validated to retire old apps.'

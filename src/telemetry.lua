@@ -83,6 +83,20 @@ local function blankState()
     ffbPercent = 0,
     ffbClipping = false,
     ffbClipHold = 0,
+    limitAvailable = false,
+    limitRaw = 0,
+    limitFront = 0,
+    limitRear = 0,
+    limitPeak = 0,
+    limitPeakHold = 0,
+    limitNeedle = 0,
+    limitTcHold = 0,
+    limitAbsHold = 0,
+    limitTcWarning = false,
+    limitAbsWarning = false,
+    limitWheels = {
+      { available = false }, { available = false }, { available = false }, { available = false }
+    },
     pedalHistory = PedalHistory.new(),
     tcSupported = false,
     tcLevel = nil,
@@ -97,6 +111,9 @@ local function blankState()
     rightIndicator = nil,
     hazardLights = nil,
     indicatorPhase = nil,
+    proximityRadarAvailable = false,
+    radarLeftLevel = 0,
+    radarRightLevel = 0,
     raceFlagType = nil,
     pitLane = false,
     pitLimiter = nil,
@@ -386,6 +403,206 @@ local function updateFfb(state, car, dt)
   state.ffbClipping = state.ffbClipHold > 0
 end
 
+local function resetLimit(state)
+  state.limitAvailable = false
+  state.limitRaw = 0
+  state.limitFront = 0
+  state.limitRear = 0
+  state.limitPeak = 0
+  state.limitPeakHold = 0
+  state.limitNeedle = 0
+  state.limitTcHold = 0
+  state.limitAbsHold = 0
+  state.limitTcWarning = false
+  state.limitAbsWarning = false
+  for _, wheel in ipairs(state.limitWheels) do
+    wheel.available = false
+    wheel.tyreSlip = nil
+    wheel.slipRatio = nil
+    wheel.slipAngle = nil
+    wheel.load = nil
+    wheel.utilization = 0
+  end
+end
+
+local function firstFinite(object, keys)
+  for _, key in ipairs(keys) do
+    local value = finiteNumber(U.read(object, key, nil), nil)
+    if value ~= nil then return value end
+  end
+  return nil
+end
+
+local function updateLimit(state, car, dt)
+  local physicsAvailable = U.read(car, 'physicsAvailable', true)
+  local sourceWheels = U.read(car, 'wheels', nil)
+  local step = U.clamp(dt or 0, 0, 0.05)
+  local candidates = {}
+  local maximumLoad = 0
+
+  for sourceIndex = 0, 3 do
+    local source = U.read(sourceWheels, sourceIndex, nil)
+    local wheel = state.limitWheels[sourceIndex + 1]
+    local tyreSlip = firstFinite(source, { 'tyreSlip', 'wheelTyreSlip' })
+    local slipRatio = firstFinite(source, { 'slipRatio', 'tyreSlipRatio', 'wheelSlipRatio' })
+    local slipAngle = firstFinite(source, { 'slipAngle', 'tyreSlipAngle', 'wheelSlipAngle' })
+    local load = firstFinite(source, { 'load', 'tyreLoad', 'wheelLoad' })
+
+    wheel.tyreSlip = tyreSlip
+    wheel.slipRatio = slipRatio
+    wheel.slipAngle = slipAngle
+    wheel.load = load
+    wheel.utilization = 0
+    wheel.available = load ~= nil and (tyreSlip ~= nil or (slipRatio ~= nil and slipAngle ~= nil))
+
+    if wheel.available then
+      maximumLoad = math.max(maximumLoad, math.max(load, 0))
+      candidates[sourceIndex + 1] = wheel
+    end
+  end
+
+  if physicsAvailable == false or maximumLoad <= 0 or #candidates < 2 then
+    resetLimit(state)
+    return
+  end
+
+  local axleUsage = { 0, 0 }
+  local axleLoad = { 0, 0 }
+  local worst = 0
+  for index, wheel in ipairs(candidates) do
+    local loadFraction = U.clamp(math.max(wheel.load, 0) / maximumLoad, 0, 1)
+    if loadFraction >= Gt7Layout.limitMinimumLoadFraction then
+      local direct = wheel.tyreSlip and U.clamp(math.abs(wheel.tyreSlip), 0, 1) or nil
+      local ratio = wheel.slipRatio and U.clamp(math.abs(wheel.slipRatio)
+        / Gt7Layout.limitSlipRatioAtLimit, 0, 1) or 0
+      local angle = wheel.slipAngle and U.clamp(math.abs(wheel.slipAngle)
+        / Gt7Layout.limitSlipAngleAtLimit, 0, 1) or 0
+      wheel.utilization = direct or math.max(ratio, angle)
+      local axle = index <= 2 and 1 or 2
+      axleUsage[axle] = axleUsage[axle] + wheel.utilization * loadFraction
+      axleLoad[axle] = axleLoad[axle] + loadFraction
+      worst = math.max(worst, wheel.utilization)
+    end
+  end
+
+  state.limitFront = axleLoad[1] > 0 and axleUsage[1] / axleLoad[1] or 0
+  state.limitRear = axleLoad[2] > 0 and axleUsage[2] / axleLoad[2] or 0
+  local axleTarget = math.max(state.limitFront, state.limitRear)
+  if worst >= state.limitPeak then
+    state.limitPeak = worst
+    state.limitPeakHold = Gt7Layout.limitPeakHold
+  elseif state.limitPeakHold > 0 then
+    state.limitPeakHold = math.max(0, state.limitPeakHold - step)
+  else
+    state.limitPeak = state.limitPeak + (worst - state.limitPeak)
+      * (step > 0 and (1 - math.exp(-step / Gt7Layout.limitReleaseTime)) or 1)
+  end
+
+  state.limitRaw = U.clamp(math.max(axleTarget,
+    state.limitPeak * Gt7Layout.limitPeakContribution), 0, 1)
+  local timeConstant = state.limitRaw > state.limitNeedle
+    and Gt7Layout.limitAttackTime or Gt7Layout.limitReleaseTime
+  local alpha = step > 0 and (1 - math.exp(-step / timeConstant)) or 1
+  state.limitNeedle = state.limitNeedle + (state.limitRaw - state.limitNeedle) * alpha
+  state.limitAvailable = true
+end
+
+local function updateLimitAssistWarnings(state, dt)
+  local step = U.clamp(dt or 0, 0, 0.05)
+  if state.tcActive == true then
+    state.limitTcHold = Gt7Layout.limitAssistHold
+  else
+    state.limitTcHold = math.max(0, state.limitTcHold - step)
+  end
+  if state.absActive == true then
+    state.limitAbsHold = Gt7Layout.limitAssistHold
+  else
+    state.limitAbsHold = math.max(0, state.limitAbsHold - step)
+  end
+  state.limitTcWarning = state.limitTcHold > 0
+  state.limitAbsWarning = state.limitAbsHold > 0
+end
+
+local function vectorComponent(vector, key)
+  return U.number(U.read(vector, key, nil), nil)
+end
+
+local function updateProximityRadar(state, playerCar, settings)
+  state.proximityRadarAvailable = false
+  state.radarLeftLevel = 0
+  state.radarRightLevel = 0
+
+  -- The radar is specific to the GT7 panoramic layout. Keep the old turn
+  -- indicators available in every other instrument mode and on CSP builds
+  -- that do not expose the full-grid iterator.
+  if settings.instrumentMode ~= 'gt7_retro' then return end
+
+  local ok = pcall(function()
+    local position = U.read(playerCar, 'position', nil)
+    local look = U.read(playerCar, 'look', nil)
+    local px, pz = vectorComponent(position, 'x'), vectorComponent(position, 'z')
+    local lookX, lookZ = vectorComponent(look, 'x'), vectorComponent(look, 'z')
+    if not px or not pz or not lookX or not lookZ then return end
+
+    local lookLength = math.sqrt(lookX * lookX + lookZ * lookZ)
+    if lookLength < 0.0001 then return end
+    lookX, lookZ = lookX / lookLength, lookZ / lookLength
+
+    -- AC's horizontal right axis is the heading rotated toward negative X
+    -- when the car faces positive Z. Keep this sign aligned with the HUD.
+    local sideX, sideZ = -lookZ, lookX
+
+    local playerSize = U.read(playerCar, 'aabbSize', nil)
+    local playerLength = math.max(2, math.abs(vectorComponent(playerSize, 'z') or 4.5))
+    local foundGridData = false
+
+    for _, opponent in ac.iterateCars() do
+      local index = U.number(U.read(opponent, 'index', -1), -1)
+      local usable = index > 0 and (U.read(opponent, 'isConnected', false)
+        or U.read(opponent, 'isActive', false))
+      local opponentPosition = U.read(opponent, 'position', nil)
+      local ox, oz = vectorComponent(opponentPosition, 'x'), vectorComponent(opponentPosition, 'z')
+      if usable and ox and oz then
+        foundGridData = true
+        local dx, dz = ox - px, oz - pz
+        local distance = math.sqrt(dx * dx + dz * dz)
+        local longitudinal = dx * lookX + dz * lookZ
+        -- Keep a short forward allowance so the side warning does not vanish
+        -- as soon as the other car's center passes the player's center.
+        if distance <= Gt7Layout.radarRange
+            and longitudinal <= Gt7Layout.radarFrontAllowance then
+          local lateral = dx * sideX + dz * sideZ
+          local lateralAbs = math.abs(lateral)
+          if lateralAbs >= Gt7Layout.radarMinLateral
+              and lateralAbs <= Gt7Layout.radarMaxLateral then
+            local opponentSize = U.read(opponent, 'aabbSize', nil)
+            local opponentLength = math.max(2, math.abs(vectorComponent(opponentSize, 'z') or 4.5))
+            local overlapLength = (playerLength + opponentLength) * 0.5
+            local level = distance <= Gt7Layout.radarNearRange and 2 or 1
+            if math.abs(longitudinal) <= overlapLength
+                and distance <= Gt7Layout.radarAlongsideRange then
+              level = 3
+            end
+            if lateral < 0 then
+              state.radarLeftLevel = math.max(state.radarLeftLevel, level)
+            else
+              state.radarRightLevel = math.max(state.radarRightLevel, level)
+            end
+          end
+        end
+      end
+    end
+
+    state.proximityRadarAvailable = foundGridData
+  end)
+
+  if not ok then
+    state.proximityRadarAvailable = false
+    state.radarLeftLevel = 0
+    state.radarRightLevel = 0
+  end
+end
+
 function M.update(state, dt, settings)
   state.clock = state.clock + math.max(dt or 0, 0)
   state.raceFlagType = U.read(SIM, 'raceFlagType', nil)
@@ -402,12 +619,16 @@ function M.update(state, dt, settings)
     state.ffbPercent = 0
     state.ffbClipping = false
     state.ffbClipHold = 0
+    resetLimit(state)
     state.gt7SpeedNeedleNormalized = 0
     state.gt7SpeedNeedleVelocity = 0
     state.gt7RpmNeedleNormalized = 0
     state.gt7RpmNeedleVelocity = 0
     state.boostNeedleNormalized = 0
     state.boostNeedleVelocity = 0
+    state.proximityRadarAvailable = false
+    state.radarLeftLevel = 0
+    state.radarRightLevel = 0
     PedalHistory.clear(state.pedalHistory)
     resetCondition(state)
     return
@@ -475,6 +696,7 @@ function M.update(state, dt, settings)
   state.engineWarning = state.engineLifeLeft ~= nil and state.engineLifeLeft < 850
   updateCondition(state, car)
   updateFfb(state, car, dt)
+  updateLimit(state, car, dt)
 
   state.fuel = U.number(U.read(car, 'fuel', nil), nil)
   state.maxFuel = U.number(U.read(car, 'maxFuel', nil), nil)
@@ -513,6 +735,7 @@ function M.update(state, dt, settings)
   else
     state.absActive = nil
   end
+  updateLimitAssistWarnings(state, dt)
 
   state.headlights = U.read(car, 'headlightsActive', nil)
   local lowBeams = U.read(car, 'lowBeams', nil)
@@ -527,6 +750,8 @@ function M.update(state, dt, settings)
   state.rightIndicator = U.read(car, 'turningRightLights', nil)
   state.hazardLights = U.read(car, 'hazardLights', nil)
   state.indicatorPhase = U.read(car, 'turningLightsActivePhase', nil)
+
+  updateProximityRadar(state, car, settings)
 
   state.pitLane = U.read(car, 'isInPit', false) or U.read(car, 'isInPitlane', false)
 

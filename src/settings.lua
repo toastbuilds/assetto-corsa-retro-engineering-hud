@@ -1,4 +1,5 @@
 local M = {}
+local SettingsUI = require('src/settings_ui')
 
 M.lastChange = 'Ready'
 
@@ -8,12 +9,16 @@ M.values = ac.storage({
   opacity = 1.0,
   backgroundOpacity = 0.72,
   speedUnit = 'km/h',
+  temperatureUnit = 'C',
+  sharedUnitsVersion = 0,
   instrumentMode = 'digital',
   theme = 'dark',
   analogAuxiliaryMode = 'auto',
   gt7SpeedNeedleMode = 'digital',
   gt7RpmNeedleMode = 'digital',
-  gt7LowerPanelMode = 'ffb',
+  gt7LowerPanelMode = 'limit',
+  gt7ProximityRadar = true,
+  gt7RadarStyle = 'arcs',
   rpmWarningFraction = 0.86,
   rpmRedlineFraction = 0.96,
   fallbackRpm = 8000,
@@ -37,6 +42,7 @@ if (M.values.layoutVersion or 1) < 3 then
 end
 
 M.values.theme = M.values.theme == 'light' and 'light' or 'dark'
+if M.values.instrumentMode == 'gt7_retro' then M.values.instrumentMode = 'digital' end
 
 -- A previous settings build could leave both RPM thresholds at 100%. That
 -- makes the shift band look permanently dim and prevents the core from ever
@@ -76,11 +82,26 @@ M.values.gt7RpmNeedleMode = validNeedleMode(M.values.gt7RpmNeedleMode)
 if (M.values.layoutVersion or 1) < 6 then M.values.layoutVersion = 6 end
 
 local function validGt7LowerPanelMode(value)
-  return value == 'pedal_history' and 'pedal_history' or 'ffb'
+  if value == 'pedal_history' or value == 'ffb' or value == 'limit' or value == 'invisible' then return value end
+  return 'limit'
 end
 
 M.values.gt7LowerPanelMode = validGt7LowerPanelMode(M.values.gt7LowerPanelMode)
 if (M.values.layoutVersion or 1) < 7 then M.values.layoutVersion = 7 end
+
+-- v8 makes the GT7 Retro lower instrument a grip-limit meter by default.
+-- FFB remains selectable, but existing installs should receive the new HUD
+-- behavior rather than silently retaining the superseded default.
+if (M.values.layoutVersion or 1) < 8 then
+  M.values.gt7LowerPanelMode = 'limit'
+  M.values.layoutVersion = 8
+end
+
+-- v9 adds an invisible lower metrics panel for overlays such as a radar.
+-- Keep existing installations visually unchanged by default.
+if (M.values.layoutVersion or 1) < 9 then M.values.layoutVersion = 9 end
+
+if M.values.gt7RadarStyle ~= 'arcs' then M.values.gt7RadarStyle = 'lights' end
 
 local function normalizeRpmThresholds()
   local redline = math.max(0.82, math.min(M.values.rpmRedlineFraction or 0.96, 1.0))
@@ -120,139 +141,59 @@ local function resetVisualSettings()
   M.values.hudScale = 0.72
   M.values.backgroundOpacity = 0.72
   M.values.opacity = 1.0
-  M.values.theme = 'dark'
   M.lastChange = 'Visual settings reset'
-end
-
-local function themeLabel()
-  return M.values.theme == 'light' and 'Light' or 'Dark'
-end
-
-local function nextAnalogAuxiliaryMode()
-  local modes = { 'auto', 'turbo', 'fuel', 'off' }
-  local current = M.values.analogAuxiliaryMode or 'auto'
-  for i, mode in ipairs(modes) do
-    if mode == current then
-      M.values.analogAuxiliaryMode = modes[i % #modes + 1]
-      return
-    end
-  end
-  M.values.analogAuxiliaryMode = 'auto'
-end
-
-local function nextNeedleMode(key)
-  M.values[key] = M.values[key] == 'analog' and 'digital' or 'analog'
-end
-
-local function needleModeLabel(key)
-  return M.values[key] == 'analog' and 'Analog' or 'Digital'
-end
-
-local function nextGt7LowerPanelMode()
-  M.values.gt7LowerPanelMode = M.values.gt7LowerPanelMode == 'ffb' and 'pedal_history' or 'ffb'
-end
-
-local function gt7LowerPanelModeLabel()
-  return M.values.gt7LowerPanelMode == 'pedal_history' and 'Pedal history' or 'FFB gauge'
 end
 
 local instrumentModes = {
   { value = 'digital', label = 'Digital dial' },
-  { value = 'analog', label = 'Analog dial' },
-  { value = 'gt7_retro', label = 'GT7 Retro' }
+  { value = 'analog', label = 'Analog dial' }
 }
 
-local function instrumentModeLabel()
-  for _, mode in ipairs(instrumentModes) do
-    if M.values.instrumentMode == mode.value then return mode.label end
-  end
-  return instrumentModes[1].label
-end
-
-local function nextInstrumentMode()
-  for i, mode in ipairs(instrumentModes) do
-    if M.values.instrumentMode == mode.value then
-      M.values.instrumentMode = instrumentModes[i % #instrumentModes + 1].value
-      return
-    end
-  end
-  M.values.instrumentMode = instrumentModes[1].value
-end
-
 function M.draw()
-  ui.header('Retro Engineering HUD')
-  ui.text('v1.1  /  three instrument layouts')
-  ui.separator()
-
-  slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
-  percentageSlider('Backdrop opacity', 'backgroundOpacity', 0.18, 0.82)
-  percentageSlider('Instrument opacity', 'opacity', 0.55, 1.0)
-
-  if ui.button('Reset visual settings') then
-    resetVisualSettings()
-  end
-
-  if ui.button('Theme: ' .. themeLabel()) then
-    M.values.theme = M.values.theme == 'light' and 'dark' or 'light'
-    M.lastChange = 'Theme'
-  end
-
-  if ui.button('Speed unit: ' .. M.values.speedUnit) then
-    M.values.speedUnit = M.values.speedUnit == 'km/h' and 'mph' or 'km/h'
-    M.lastChange = 'Speed unit'
-  end
-
-  if ui.button('Instrument mode: ' .. instrumentModeLabel()) then
-    nextInstrumentMode()
-    M.lastChange = 'Instrument mode'
-  end
-
-  if M.values.instrumentMode == 'analog' then
-    if ui.button('Analog lower gauge: ' .. string.upper(M.values.analogAuxiliaryMode or 'auto')) then
-      nextAnalogAuxiliaryMode()
-      M.lastChange = 'Analog lower gauge'
+  ui.header('Dial')
+  SettingsUI.section('dial', 'appearance', 'Appearance', true, function()
+    slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
+    percentageSlider('Backdrop opacity', 'backgroundOpacity', 0.18, 0.82)
+    percentageSlider('Instrument opacity', 'opacity', 0.55, 1.0)
+    SettingsUI.resetAppearance('dial', resetVisualSettings)
+  end)
+  SettingsUI.section('dial', 'gauge', 'Gauge and display', true, function()
+    SettingsUI.choice('dial', 'mode', 'Instrument mode', M.values.instrumentMode,
+      instrumentModes, function(value) M.values.instrumentMode = value end)
+    if M.values.instrumentMode == 'analog' then
+      SettingsUI.choice('dial', 'lower', 'Analog lower gauge', M.values.analogAuxiliaryMode,
+        { { label = 'Auto', value = 'auto' }, { label = 'Turbo', value = 'turbo' },
+          { label = 'Fuel', value = 'fuel' }, { label = 'Off', value = 'off' } },
+        function(value) M.values.analogAuxiliaryMode = value end)
     end
-  elseif M.values.instrumentMode == 'gt7_retro' then
-    if ui.button('Speed dial needle: ' .. needleModeLabel('gt7SpeedNeedleMode')) then
-      nextNeedleMode('gt7SpeedNeedleMode')
-      M.lastChange = 'GT7 speed needle'
-    end
-    if ui.button('RPM dial needle: ' .. needleModeLabel('gt7RpmNeedleMode')) then
-      nextNeedleMode('gt7RpmNeedleMode')
-      M.lastChange = 'GT7 RPM needle'
-    end
-    if ui.button('Lower panel: ' .. gt7LowerPanelModeLabel()) then
-      nextGt7LowerPanelMode()
-      M.lastChange = 'GT7 lower panel'
-    end
-  end
-
-  ui.separator()
-  ui.text('RPM behavior')
-  percentageSlider('Warning threshold', 'rpmWarningFraction', 0.70, 0.98)
-  percentageSlider('Redline threshold', 'rpmRedlineFraction', 0.82, 1.0)
-  normalizeRpmThresholds()
-  slider('Fallback RPM', 'fallbackRpm', 4000, 16000, '%.0f rpm')
-
-  ui.separator()
-  ui.text('Display')
-  checkbox('Show steering marker', 'showSteering')
-  checkbox('Show clutch', 'showClutch')
-  checkbox('Show lights', 'showLights')
-  checkbox('Show TC / ABS levels', 'showTcAbsLevels')
-  checkbox('Blink turn indicators', 'animateIndicators')
-  checkbox('Blink race flag alert', 'animateFlagAlert')
-  checkbox('Blink shift zone', 'animateShiftAlert')
-  checkbox('Blink redline alert', 'animateRedlineAlert')
-  checkbox('Developer debug view', 'debug')
-
-  ui.separator()
-  ui.text('Last change: ' .. M.lastChange)
-  if M.values.instrumentMode == 'gt7_retro' then
-    ui.textWrapped('Resize GT7 Retro by dragging the app window borders or corners. Its panoramic aspect ratio is preserved; HUD scale is a secondary fine adjustment. The lower panel can show the live FFB gauge or a compact brake/throttle history graph.')
-  else
-    ui.textWrapped('The dial is transparent outside its circular surface. Adjust its compact scale and frosted backdrop here; resize or move it through the normal AC app controls.')
-  end
+    checkbox('Show steering marker', 'showSteering')
+    checkbox('Show clutch', 'showClutch')
+    checkbox('Show lights', 'showLights')
+    checkbox('Show TC / ABS levels', 'showTcAbsLevels')
+  end)
+  SettingsUI.section('dial', 'alerts', 'RPM and alerts', true, function()
+    percentageSlider('Warning threshold', 'rpmWarningFraction', 0.70, 0.98)
+    percentageSlider('Redline threshold', 'rpmRedlineFraction', 0.82, 1.0)
+    normalizeRpmThresholds()
+    slider('Fallback RPM', 'fallbackRpm', 4000, 16000, '%.0f rpm')
+    checkbox('Blink turn indicators', 'animateIndicators')
+    checkbox('Blink race flag alert', 'animateFlagAlert')
+    checkbox('Blink shift zone', 'animateShiftAlert')
+    checkbox('Blink redline alert', 'animateRedlineAlert')
+  end)
+  SettingsUI.section('dial', 'advanced', 'Advanced', false, function()
+    checkbox('Developer debug view', 'debug')
+    SettingsUI.resetAll('dial', function()
+      resetVisualSettings()
+      M.values.instrumentMode, M.values.analogAuxiliaryMode = 'digital', 'auto'
+      M.values.rpmWarningFraction, M.values.rpmRedlineFraction, M.values.fallbackRpm = 0.86, 0.96, 8000
+      for _, key in ipairs({ 'showSteering', 'showClutch', 'showLights', 'showTcAbsLevels',
+          'animateIndicators', 'animateFlagAlert', 'animateShiftAlert', 'animateRedlineAlert' }) do
+        M.values[key] = true
+      end
+      M.values.debug = false
+    end, 'Restore every Dial setting? Shared theme and units will stay as they are.')
+  end)
 end
 
 return M
