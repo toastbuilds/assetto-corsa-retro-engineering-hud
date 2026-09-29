@@ -52,14 +52,22 @@ Settings > Map** se elige entre el circuito completo y el mini mapa centrado
 en el coche. **Orientation** permite girarlo con el coche o mantener fija la
 orientación del circuito mientras el mapa se desplaza. El cambio de modo conserva
 el tamaño y la posición de la ventana. El radio visible del mini mapa empieza
-en 500 m; **Background dots** controla la intensidad de los puntos y 0 % los
-oculta por completo.
+en 500 m. **Background** permite elegir entre puntos o una superficie radial;
+solo se dibuja el modo seleccionado. **Radial surface** controla la opacidad
+de la superficie en el centro, que baja a 0 en el borde circular.
+**Background dots** controla la intensidad de los puntos; **Dot thickness**
+permite ampliarlos hasta 4×. Por defecto son un 15 % más gruesos que antes y se
+desvanecen hacia los bordes. **Radial dot taper** reduce su grosor desde el
+centro hacia el exterior y se puede desactivar. Las alertas amarillas, rojas o
+azules producen una onda repetida en los puntos; en modo Superficie, colorean el
+trazado de la pista. Una opacidad de 0 % deja el fondo transparente.
 El trazado, la meta y los sectores dependen de los datos de la pista cargada.
 El mapa resalta tu coche, líder, último y dos posiciones por delante y detrás,
-con su posición dentro del marcador; el resto son puntos sin etiquetas.
+con su posición dentro del marcador; el resto son puntos sin etiquetas. El
+encuadre reserva espacio para los marcadores grandes cerca del borde.
 **Highlighted markers** permite ajustar el tamaño de los indicadores con
 posición sin modificar los puntos normales. **Track width** controla el grosor
-del trazado y **Car dots** el tamaño de los coches sin número.
+del trazado hasta 4× y **Car dots** el tamaño de los coches sin número.
 
 **General** controla el tema y las unidades de velocidad y temperatura de toda
 la app. La lista lateral abre los ajustes de cada instrumento, ordenados en
