@@ -1,0 +1,60 @@
+name: Check and release Retro UI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install check dependencies
+        run: npm ci
+      - name: Check Lua files and CSP callbacks
+        run: npm run check:lua
+      - name: Build Content Manager ZIP
+        shell: pwsh
+        run: |
+          $line = Select-String -Path manifest.ini -Pattern '^VERSION = (\d+\.\d+\.\d+)$'
+          if (-not $line) { throw 'manifest.ini has no semantic version.' }
+          $version = $line.Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match manifest version $version."
+          }
+          & ./tools/build-package.ps1 -Version $version
+      - name: Upload release package
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: retro-ui-package
+          path: dist/RetroUI-v*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: retro-ui-package
+          path: dist
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/RetroUI-$GITHUB_REF_NAME.zip" \
+            --title "Retro UI $GITHUB_REF_NAME" --generate-notes --verify-tag
