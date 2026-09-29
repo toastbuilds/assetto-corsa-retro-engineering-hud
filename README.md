@@ -2,7 +2,7 @@
 
 Retro UI reúne los instrumentos CSP Lua de Assetto Corsa en una sola app. El
 dial digital/analógico, GT7, Car Condition, Multiclass Relative, Delta Bar,
-Leaderboard y Telemetry son ventanas independientes. GT7 y el dial pueden
+Leaderboard, Telemetry y Map son ventanas independientes. GT7 y el dial pueden
 mostrarse a la vez. **Retro UI Settings** ofrece una pestaña por instrumento.
 
 ## Requisitos
@@ -47,6 +47,20 @@ preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 
 ## Ajustes
 
+**Map** abre una ventana transparente y redimensionable. En **Retro UI
+Settings > Map** se elige entre el circuito completo y el mini mapa centrado
+en el coche. **Orientation** permite girarlo con el coche o mantener fija la
+orientación del circuito mientras el mapa se desplaza. El cambio de modo conserva
+el tamaño y la posición de la ventana. El radio visible del mini mapa empieza
+en 500 m; **Background dots** controla la intensidad de los puntos y 0 % los
+oculta por completo.
+El trazado, la meta y los sectores dependen de los datos de la pista cargada.
+El mapa resalta tu coche, líder, último y dos posiciones por delante y detrás,
+con su posición dentro del marcador; el resto son puntos sin etiquetas.
+**Highlighted markers** permite ajustar el tamaño de los indicadores con
+posición sin modificar los puntos normales. **Track width** controla el grosor
+del trazado y **Car dots** el tamaño de los coches sin número.
+
 **General** controla el tema y las unidades de velocidad y temperatura de toda
 la app. La lista lateral abre los ajustes de cada instrumento, ordenados en
 secciones; **Advanced** contiene opciones menos frecuentes. Escala y opacidad
@@ -59,7 +73,7 @@ una copia anterior en `Documents/Assetto Corsa/RetroUI/Class Backups`.
 
 Los archivos de las cuatro apps externas están integrados bajo `modules/`.
 Cada uno usa rutas `require()` y claves de almacenamiento separadas. El
-manifiesto CSP expone ocho ventanas en un único proceso. El paquete distribuye
+manifiesto CSP expone nueve ventanas en un único proceso. El paquete distribuye
 los archivos Lua, los mapas de clases, los recursos y las licencias.
 
 Para crear un ZIP local desde el código fuente, ejecuta

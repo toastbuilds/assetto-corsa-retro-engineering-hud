@@ -11,7 +11,8 @@ local panels = {
   relative = require('modules/relative/main'),
   delta = require('modules/delta/main'),
   leaderboard = require('modules/leaderboard/main'),
-  telemetry = require('modules/telemetry/main')
+  telemetry = require('modules/telemetry/main'),
+  map = require('modules/map/main')
 }
 
 if (DialSettings.values.sharedUnitsVersion or 0) < 1 then
@@ -97,6 +98,7 @@ function script.relativeMain(_) invoke('relative', 'windowMain', _) end
 function script.deltaMain(_) invoke('delta', 'windowMain', _) end
 function script.leaderboardMain(_) invoke('leaderboard', 'windowMain', _) end
 function script.telemetryMain(_) invoke('telemetry', 'windowMain', _) end
+function script.mapMain(_) invoke('map', 'windowMain', _) end
 
 function script.deltaShow(_) invoke('delta', 'windowShow', _) end
 function script.deltaHide(_) invoke('delta', 'windowHide', _) end
@@ -133,7 +135,8 @@ local pages = {
   { id = 'relative', label = 'Relative', draw = function() invoke('relative', 'windowSettings') end },
   { id = 'delta', label = 'Delta', draw = function() invoke('delta', 'windowSettings') end },
   { id = 'leaderboard', label = 'Leaderboard', draw = function() invoke('leaderboard', 'windowSettings') end },
-  { id = 'telemetry', label = 'Telemetry', draw = function() invoke('telemetry', 'settingsMain') end }
+  { id = 'telemetry', label = 'Telemetry', draw = function() invoke('telemetry', 'settingsMain') end },
+  { id = 'map', label = 'Map', draw = function() invoke('map', 'windowSettings') end }
 }
 
 function script.settingsMain(_)
