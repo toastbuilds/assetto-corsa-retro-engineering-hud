@@ -6,6 +6,7 @@ local Telemetry = require('src/telemetry')
 local Dial = require('ui/dial')
 local Gt7 = require('ui/gt7_retro')
 local Condition = require('ui/car_condition')
+local ConditionLayout = require('src/car_condition_layout')
 
 local panels = {
   relative = require('modules/relative/main'),
@@ -28,6 +29,7 @@ local gt7State = Telemetry.new()
 local themeTimer = 1
 local lastTheme
 local gt7SizeChecked = false
+local conditionSizeChecked = false
 local settingsSizeChecked = false
 local lastErrors = {}
 
@@ -91,6 +93,17 @@ function script.gt7Main(_)
 end
 
 function script.conditionMain(_)
+  if ac.setWindowSizeConstraints then
+    ac.setWindowSizeConstraints('condition', vec2(240, 210), vec2(1280, 1120))
+  end
+  if not conditionSizeChecked then
+    conditionSizeChecked = true
+    local width, height = ui.windowWidth(), ui.windowHeight()
+    if height > 0 and width / height < 1.05 and ui.setNextWindowSize then
+      ui.setNextWindowSize(vec2(math.max(ConditionLayout.width,
+        height * ConditionLayout.width / ConditionLayout.height), math.max(height, ConditionLayout.height)))
+    end
+  end
   Condition.draw(dialState, ConditionSettings.current(DialSettings.values))
 end
 

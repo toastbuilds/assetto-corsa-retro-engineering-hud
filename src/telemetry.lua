@@ -2,6 +2,7 @@ local U = require('src/utils')
 local Layout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
+local TyreTemperature = require('src/tyre_temperature')
 
 local M = {}
 local SIM = ac.getSim()
@@ -10,7 +11,12 @@ local function blankWheelCondition()
   return {
     available = false,
     temperature = nil,
+    temperatureInside = nil,
+    temperatureMiddle = nil,
+    temperatureOutside = nil,
     optimumTemperature = nil,
+    optimumTemperatureMin = nil,
+    optimumTemperatureMax = nil,
     temperatureRatio = nil,
     wear = 0,
     remaining = 1,
@@ -266,7 +272,12 @@ local function resetCondition(state)
   for _, wheel in ipairs(condition.wheels) do
     wheel.available = false
     wheel.temperature = nil
+    wheel.temperatureInside = nil
+    wheel.temperatureMiddle = nil
+    wheel.temperatureOutside = nil
     wheel.optimumTemperature = nil
+    wheel.optimumTemperatureMin = nil
+    wheel.optimumTemperatureMax = nil
     wheel.temperatureRatio = nil
     wheel.wear = 0
     wheel.remaining = 1
@@ -300,6 +311,7 @@ local function updateCondition(state, car)
   condition.gearboxDamage = U.clamp(finiteNumber(U.read(car, 'gearboxDamage', 0), 0), 0, 1)
 
   local sourceWheels = U.read(car, 'wheels', nil)
+  local temperatureWindows = TyreTemperature.windows(car)
   for sourceIndex = 0, 3 do
     local source = U.read(sourceWheels, sourceIndex, nil)
     local wheel = condition.wheels[sourceIndex + 1]
@@ -309,7 +321,17 @@ local function updateCondition(state, car)
       local middleTemperature = finiteNumber(U.read(source, 'tyreMiddleTemperature', nil), nil)
       local optimum = finiteNumber(U.read(source, 'tyreOptimumTemperature', nil), nil)
       wheel.temperature = coreTemperature or middleTemperature
+      wheel.temperatureInside = finiteNumber(U.read(source, 'tyreInsideTemperature', nil), nil)
+      wheel.temperatureMiddle = middleTemperature
+      wheel.temperatureOutside = finiteNumber(U.read(source, 'tyreOutsideTemperature', nil), nil)
       wheel.optimumTemperature = optimum
+      local window
+      if temperatureWindows then
+        if sourceIndex < 2 then window = temperatureWindows.front
+        else window = temperatureWindows.rear end
+      end
+      wheel.optimumTemperatureMin = window and window.minimum or nil
+      wheel.optimumTemperatureMax = window and window.maximum or nil
       wheel.temperatureRatio = wheel.temperature and optimum and optimum > 1
         and U.clamp(wheel.temperature / optimum, 0, 2) or nil
 
@@ -328,7 +350,12 @@ local function updateCondition(state, car)
         wheel.blister, wheel.flatSpot, wheel.suspensionDamage, wheel.isBlown and 1 or 0)
     else
       wheel.temperature = nil
+      wheel.temperatureInside = nil
+      wheel.temperatureMiddle = nil
+      wheel.temperatureOutside = nil
       wheel.optimumTemperature = nil
+      wheel.optimumTemperatureMin = nil
+      wheel.optimumTemperatureMax = nil
       wheel.temperatureRatio = nil
       wheel.wear = 0
       wheel.remaining = 1

@@ -6,6 +6,15 @@ local M = {}
 local C = Theme.colors
 local effectBlack = rgbm(0, 0, 0, 1)
 local effectWhite = rgbm(1, 1, 1, 1)
+local lifeFonts = { Regular = 'Consolas;Weight=Regular', Bold = 'Consolas;Weight=Bold' }
+local thermalStops = {
+  { position = 0, color = rgbm(0.08, 0.16, 0.44, 1) },
+  { position = 1, color = rgbm(0.20, 0.47, 0.85, 1) },
+  { position = 2, color = rgbm(0.34, 0.78, 0.32, 1) },
+  { position = 3, color = rgbm(1, 0.82, 0.16, 1) },
+  { position = 4, color = rgbm(0.98, 0.43, 0.12, 1) },
+  { position = 5, color = rgbm(0.85, 0.20, 0.16, 1) }
+}
 
 local function point(origin, scale, x, y)
   return origin + vec2(x * scale, y * scale)
@@ -33,10 +42,7 @@ local function contrastRatio(a, b)
 end
 
 local function tyreEffectColor(surface)
-  -- Keep effects black on blue, green and amber temperature fills. A red
-  -- surface chooses the WCAG higher-contrast endpoint automatically.
-  local redSurface = surface.r > surface.g * 1.45 and surface.r > surface.b * 1.45
-  if not redSurface then return effectBlack end
+  -- Choose a readable effect color on both cold blue and warm fills.
   if contrastRatio(surface, effectBlack) >= contrastRatio(surface, effectWhite) then
     return effectBlack
   end
@@ -88,34 +94,54 @@ local function damageFill(value)
   return withAlpha(damageColor(value), 0.20 + value * 0.34)
 end
 
-local function temperatureColor(wheel)
-  if not wheel or not wheel.temperatureRatio then return C.metalDim end
-  local temperature = wheel.temperature
-  if temperature and temperature >= Layout.tyreHotTemperature then
-    return C.red
+local function thermalColor(position)
+  for i = 2, #thermalStops do
+    local previous, current = thermalStops[i - 1], thermalStops[i]
+    if position <= current.position then
+      return mix(previous.color, current.color,
+        (position - previous.position) / (current.position - previous.position))
+    end
   end
-  local ratio = wheel.temperatureRatio
-  if temperature and temperature >= Layout.tyreWarmTemperature then
-    ratio = math.max(ratio, Layout.tyreOptimumLowRatio)
+  return thermalStops[#thermalStops].color
+end
+
+local function temperatureWindow(wheel)
+  local minimum, maximum = wheel.optimumTemperatureMin, wheel.optimumTemperatureMax
+  if not minimum or not maximum then
+    local optimum = wheel.optimumTemperature
+      or (wheel.temperatureRatio and wheel.temperatureRatio > 0
+        and wheel.temperature and wheel.temperature / wheel.temperatureRatio)
+      or Layout.tyreFallbackOptimumTemperature
+    minimum, maximum = optimum - 5, optimum + 5
   end
-  if ratio <= Layout.tyreColdRatio then return C.cyan end
-  if ratio < Layout.tyreOptimumLowRatio then
-    return mix(C.cyan, C.green,
-      (ratio - Layout.tyreColdRatio) / (Layout.tyreOptimumLowRatio - Layout.tyreColdRatio))
+  return minimum, maximum
+end
+
+local function temperatureColor(temperature, minimum, maximum)
+  if temperature == nil then return C.metalDim end
+  local position = 2
+  if temperature < minimum - Layout.tyreBlueOffset then
+    position = (temperature - (minimum - Layout.tyreDarkBlueOffset))
+      / (Layout.tyreDarkBlueOffset - Layout.tyreBlueOffset)
+  elseif temperature < minimum then
+    position = 1 + (temperature - (minimum - Layout.tyreBlueOffset)) / Layout.tyreBlueOffset
+  elseif temperature > maximum + Layout.tyreOrangeOffset then
+    position = 4 + (temperature - maximum - Layout.tyreOrangeOffset)
+      / (Layout.tyreRedOffset - Layout.tyreOrangeOffset)
+  elseif temperature > maximum + Layout.tyreYellowOffset then
+    position = 3 + (temperature - maximum - Layout.tyreYellowOffset)
+      / (Layout.tyreOrangeOffset - Layout.tyreYellowOffset)
+  elseif temperature > maximum then
+    position = 2 + (temperature - maximum) / Layout.tyreYellowOffset
   end
-  if ratio <= Layout.tyreOptimumHighRatio then return C.green end
-  if ratio < Layout.tyreHotRatio then
-    return mix(C.green, C.amber,
-      (ratio - Layout.tyreOptimumHighRatio) / (Layout.tyreHotRatio - Layout.tyreOptimumHighRatio))
-  end
-  return mix(C.amber, C.red, U.clamp((ratio - Layout.tyreHotRatio) / 0.24, 0, 1))
+  return thermalColor(position)
 end
 
 local function conditionColor(wheel)
   if not wheel or not wheel.available then return C.outlineDim end
   if wheel.isBlown or (wheel.conditionSeverity or 0) >= Layout.conditionDanger then return C.red end
   if (wheel.conditionSeverity or 0) >= Layout.conditionWarn then return C.amber end
-  return C.green
+  return C.outlineSoft
 end
 
 local dirtSpeckles = {
@@ -150,7 +176,7 @@ local function drawDirtPatch(origin, scale, x, y, radius, shape, color)
   ui.pathFillConvex(color)
 end
 
-local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
+local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColorAt)
   if not wheel or not wheel.available then return end
 
   local halfWidth = Layout.tyreWidth / 2 - 3
@@ -167,6 +193,7 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
     local mark = dirtSpeckles[i]
     local centerX = x + mark[1] * halfWidth
     local centerY = y + mark[2] * halfHeight
+    local effectColor = effectColorAt(centerX)
     local radius = 1.25 + dirty * 0.75 + (i % 3) * 0.18
     local shape = dirtPatchShapes[(i - 1) % #dirtPatchShapes + 1]
     drawDirtPatch(origin, scale, centerX, centerY, radius + 1.05, shape,
@@ -182,6 +209,7 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
     local mark = grainMarks[i]
     local centerX = x + mark[1] * halfWidth
     local centerY = y + mark[2] * halfHeight
+    local effectColor = effectColorAt(centerX)
     drawLine(point(origin, scale, centerX - 2.5, centerY + 1.8),
       point(origin, scale, centerX + 2.5, centerY - 1.8),
       withAlpha(effectColor, 0.50 + grain * 0.32), 1.1 * scale)
@@ -192,6 +220,7 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
   local blisterCount = math.floor(blister * #blisterSpots + 0.5)
   for i = 1, blisterCount do
     local spot = blisterSpots[i]
+    local effectColor = effectColorAt(x + spot[1] * halfWidth)
     local center = point(origin, scale,
       x + spot[1] * halfWidth, y + spot[2] * halfHeight)
     local radius = (2.4 + blister * 0.9) * scale
@@ -202,31 +231,96 @@ local function drawTyreSurfaceEffects(origin, scale, x, y, wheel, effectColor)
   end
 end
 
-local function drawTyre(origin, scale, x, y, name, wheel, state)
+local function sameColor(a, b)
+  return a.r == b.r and a.g == b.g and a.b == b.b
+end
+
+local function tyreColorAt(x, left, middle, right, colorLeft, colorMiddle, colorRight)
+  if x <= middle then return mix(colorLeft, colorMiddle, (x - left) / (middle - left)) end
+  return mix(colorMiddle, colorRight, (x - middle) / (right - middle))
+end
+
+local function drawTyreGradient(origin, scale, x, y, colorAt, alpha)
+  local left, right = x - Layout.tyreWidth / 2, x + Layout.tyreWidth / 2
+  local top, bottom = y - Layout.tyreHeight / 2, y + Layout.tyreHeight / 2
+  local radius = 4
+  local middleColor = withAlpha(colorAt(x), alpha)
+  local function band(y1, y2, inset)
+    local leftColor, rightColor = withAlpha(colorAt(left + inset), alpha),
+      withAlpha(colorAt(right - inset), alpha)
+    ui.drawRectFilledMultiColor(point(origin, scale, left + inset, y1),
+      point(origin, scale, x, y2), leftColor, middleColor, middleColor, leftColor)
+    ui.drawRectFilledMultiColor(point(origin, scale, x, y1),
+      point(origin, scale, right - inset, y2), middleColor, rightColor, rightColor, middleColor)
+  end
+  band(top + radius, bottom - radius, 0)
+  -- Native multicolor rectangles have no rounding: clip the two end caps
+  -- into small bands following the existing four-unit corner radius.
+  local rows = math.max(4, math.min(16, math.ceil(radius * scale)))
+  local step = radius / rows
+  for i = 0, rows - 1 do
+    local distance = radius - (i + 0.5) * step
+    local inset = radius - math.sqrt(radius * radius - distance * distance)
+    band(top + i * step, top + (i + 1) * step, inset)
+    band(bottom - (i + 1) * step, bottom - i * step, inset)
+  end
+end
+
+local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
   local halfWidth = Layout.tyreWidth / 2
   local halfHeight = Layout.tyreHeight / 2
   local topLeft = point(origin, scale, x - halfWidth, y - halfHeight)
   local bottomRight = point(origin, scale, x + halfWidth, y + halfHeight)
-  local tempColor = temperatureColor(wheel)
+  local colorLeft, colorMiddle, colorRight = C.metalDim, C.metalDim, C.metalDim
+  if wheel and wheel.available then
+    local minimum, maximum = temperatureWindow(wheel)
+    colorMiddle = temperatureColor(wheel.temperature, minimum, maximum)
+    colorLeft, colorRight = colorMiddle, colorMiddle
+    if wheel.temperatureInside and wheel.temperatureMiddle and wheel.temperatureOutside then
+      colorMiddle = temperatureColor(wheel.temperatureMiddle, minimum, maximum)
+      local inside = temperatureColor(wheel.temperatureInside, minimum, maximum)
+      local outside = temperatureColor(wheel.temperatureOutside, minimum, maximum)
+      if x < Layout.carCenterX then colorLeft, colorRight = outside, inside
+      else colorLeft, colorRight = inside, outside end
+    end
+  end
   local stateColor = conditionColor(wheel)
   local punctureLit = wheel and wheel.isBlown
     and math.floor(state.clock / Layout.punctureBlinkPeriod) % 2 == 0
-  local surfaceColor = punctureLit and C.red or tempColor
-
-  ui.drawRectFilled(topLeft, bottomRight,
-    withAlpha(surfaceColor, wheel and wheel.available and 0.88 or 0.42),
-    4 * scale)
-  drawTyreSurfaceEffects(origin, scale, x, y, wheel, tyreEffectColor(surfaceColor))
+  if punctureLit then colorLeft, colorMiddle, colorRight = C.red, C.red, C.red end
+  local function colorAt(sampleX)
+    return tyreColorAt(sampleX, x - halfWidth, x, x + halfWidth,
+      colorLeft, colorMiddle, colorRight)
+  end
+  local alpha = wheel and wheel.available and 0.88 or 0.42
+  if sameColor(colorLeft, colorMiddle) and sameColor(colorMiddle, colorRight) then
+    ui.drawRectFilled(topLeft, bottomRight, withAlpha(colorMiddle, alpha), 4 * scale)
+  else
+    drawTyreGradient(origin, scale, x, y, colorAt, alpha)
+  end
+  drawTyreSurfaceEffects(origin, scale, x, y, wheel,
+    function(sampleX) return tyreEffectColor(colorAt(sampleX)) end)
   ui.drawRect(topLeft, bottomRight, stateColor, 4 * scale, nil, 2.4 * scale)
 
   -- Remaining tread is a separate state channel so temperature never hides wear.
-  local railX = x < Layout.carCenterX and x - halfWidth - 5 or x + halfWidth + 3
+  local railWidth = 4
+  local railX = x < Layout.carCenterX and x - halfWidth - 9 or x + halfWidth + 5
   local railTop = point(origin, scale, railX, y - halfHeight)
-  local railBottom = point(origin, scale, railX + 2, y + halfHeight)
+  local railBottom = point(origin, scale, railX + railWidth, y + halfHeight)
   ui.drawRectFilled(railTop, railBottom, C.inactive)
   local remaining = wheel and wheel.wearAvailable and U.clamp(wheel.remaining, 0, 1) or 0
   local fillTop = y + halfHeight - Layout.tyreHeight * remaining
-  ui.drawRectFilled(point(origin, scale, railX, fillTop), railBottom, stateColor)
+  ui.drawRectFilled(point(origin, scale, railX, fillTop), railBottom, C.primary)
+  local lifeX = x < Layout.carCenterX and 34 or Layout.width - 34
+  local life = wheel and wheel.available and wheel.wearAvailable
+    and string.format('%d', U.round(remaining * 100)) or '--'
+  ui.pushDWriteFont(lifeFonts[settings.lifeTextWeight] or lifeFonts.Regular)
+  local lifeSize = U.clamp(settings.lifeTextSize or 24, 12, 36) * scale
+  local measured = ui.measureDWriteText(life, lifeSize)
+  local availableWidth = 60 * scale
+  if measured.x > availableWidth then lifeSize = lifeSize * availableWidth / measured.x end
+  centeredText(life, lifeSize, point(origin, scale, lifeX, y), C.primary)
+  ui.popDWriteFont()
 
   if wheel and wheel.isBlown then
     drawLine(point(origin, scale, x - 7, y - 13), point(origin, scale, x + 7, y + 13), C.primary, 2 * scale)
@@ -240,6 +334,7 @@ local function drawTyre(origin, scale, x, y, name, wheel, state)
 end
 
 local function drawBody(origin, scale, condition)
+  origin = origin + vec2((Layout.carCenterX - 120) * scale, 0)
   local front = condition.body.front or 0
   local rear = condition.body.rear or 0
   local left = condition.body.left or 0
@@ -282,15 +377,26 @@ local function drawBody(origin, scale, condition)
 end
 
 local function drawLegend(origin, scale)
-  local y = 246
+  local left, right, y = 24, Layout.width - 24, 246
+  local segments = 96
+  for i = 0, segments - 1 do
+    local fraction = i / (segments - 1)
+    local position = fraction <= 0.5 and fraction * 4 or 2 + (fraction - 0.5) * 6
+    ui.drawRectFilled(point(origin, scale, left + (right - left) * i / segments, y),
+      point(origin, scale, left + (right - left) * (i + 1) / segments, y + 7),
+      thermalColor(position))
+  end
+  ui.drawRect(point(origin, scale, left, y), point(origin, scale, right, y + 7),
+    C.metal, 0, nil, scale)
   local items = {
-    { x = 42, label = 'COLD', color = C.cyan },
-    { x = 120, label = 'OPT', color = C.green },
-    { x = 196, label = 'HOT', color = C.red }
+    { x = left + 15, label = 'COLD' },
+    { x = Layout.carCenterX, label = 'OPT' },
+    { x = right - 12, label = 'HOT' }
   }
   for _, item in ipairs(items) do
-    ui.drawCircleFilled(point(origin, scale, item.x - 19, y), 3.5 * scale, item.color, 12)
-    centeredText(item.label, 9 * scale, point(origin, scale, item.x + 5, y), C.secondary)
+    drawLine(point(origin, scale, item.x, y + 8), point(origin, scale, item.x, y + 12),
+      C.secondary, scale)
+    centeredText(item.label, 9 * scale, point(origin, scale, item.x, y + 22), C.secondary)
   end
 end
 
@@ -306,14 +412,15 @@ function M.draw(state, settings)
   ui.pushDWriteFont(Theme.fonts.utility)
 
   if not condition or not condition.available then
-    centeredText('NO CAR DATA', 14 * scale, point(origin, scale, 120, 130), C.secondary)
+    centeredText('NO CAR DATA', 14 * scale,
+      point(origin, scale, Layout.carCenterX, Layout.height / 2), C.secondary)
   else
     drawBody(origin, scale, condition)
-    drawTyre(origin, scale, Layout.leftWheelX, Layout.frontWheelY, 'FL', condition.wheels[1], state)
-    drawTyre(origin, scale, Layout.rightWheelX, Layout.frontWheelY, 'FR', condition.wheels[2], state)
-    drawTyre(origin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state)
-    drawTyre(origin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state)
-    drawLegend(origin, scale)
+    drawTyre(origin, scale, Layout.leftWheelX, Layout.frontWheelY, 'FL', condition.wheels[1], state, settings)
+    drawTyre(origin, scale, Layout.rightWheelX, Layout.frontWheelY, 'FR', condition.wheels[2], state, settings)
+    drawTyre(origin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state, settings)
+    drawTyre(origin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state, settings)
+    if settings.showTemperatureLegend ~= false then drawLegend(origin, scale) end
   end
 
   ui.popDWriteFont()
