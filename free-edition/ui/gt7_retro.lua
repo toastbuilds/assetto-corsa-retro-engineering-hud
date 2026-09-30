@@ -560,7 +560,7 @@ local function drawPedalHistory(origin, scale, state, backdropOpacity)
   end
 end
 
-local function drawPedalBar(origin, scale, x, value, activeColor)
+local function drawPedalBar(origin, scale, x, value, activeColor, assistColor)
   local segmentCount = Layout.pedalSegments
   local gap = Layout.pedalGap * scale
   local segmentHeight = (Layout.pedalHeight * scale - gap * (segmentCount - 1)) / segmentCount
@@ -569,8 +569,9 @@ local function drawPedalBar(origin, scale, x, value, activeColor)
   for i = 1, segmentCount do
     local y = Layout.pedalTop * scale + (segmentCount - i) * (segmentHeight + gap)
     local topLeft = origin + vec2(x * scale, y)
-    ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight),
-      i <= filled and activeColor or C.inactive)
+    local color = i <= filled and activeColor or C.inactive
+    if i > segmentCount - 2 and assistColor then color = assistColor end
+    ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight), color)
   end
 end
 
@@ -661,8 +662,10 @@ local function drawSideIndicators(origin, scale, state, settings)
 end
 
 local function drawPedalsAndFlagLights(origin, scale, state)
-  drawPedalBar(origin, scale, Layout.brakeX, state.brake, C.red)
-  drawPedalBar(origin, scale, Layout.throttleX, state.throttle, C.cyan)
+  drawPedalBar(origin, scale, Layout.brakeX, state.brake, C.red,
+    state.absActive == true and C.flagWhite or nil)
+  drawPedalBar(origin, scale, Layout.throttleX, state.throttle, C.cyan,
+    state.tcActive == true and C.red or nil)
 end
 
 local function drawBrakeIcon(center, scale, color)

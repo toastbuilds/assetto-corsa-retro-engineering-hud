@@ -444,18 +444,33 @@ for _, theme in ipairs({ 'dark', 'light' }) do
 end
 state.absLevel, state.absActive, state.tcActive = nil, true, true
 state.brake, state.throttle = 0, 0
-for _, id in ipairs({ 'classic', 'outer_pedals', 'steering_dial' }) do
+for _, id in ipairs(ids) do
   local layout = Layouts.get(id)
-  draw(id)
-  local bars = 0
-  for _, call in ipairs(calls) do
-    if call.kind == 'rect_fill' and (near(call.a.x, layout.brakeX) or near(call.a.x, layout.throttleX))
-        and call.a.y >= layout.pedalTop - 0.001 and call.b.y <= layout.pedalTop + layout.pedalHeight + 0.001 then
-      assert(call.color == Theme.colors.inactive, 'intervention recoloring must be limited to Modern wider blocks')
-      bars = bars + 1
+  for _, theme in ipairs({ 'dark', 'light' }) do
+    local palette = Theme.get(theme)
+    draw(id, { theme = theme })
+    for _, side in ipairs({ 'left', 'right' }) do
+      local blocks = {}
+      if id == 'modern' then
+        for _, segment in ipairs(pedals(side)) do blocks[#blocks + 1] = segment end
+      else
+        local x = side == 'left' and layout.brakeX or layout.throttleX
+        for _, call in ipairs(calls) do
+          if call.kind == 'rect_fill' and near(call.a.x, x)
+              and call.a.y >= layout.pedalTop - 0.001
+              and call.b.y <= layout.pedalTop + layout.pedalHeight + 0.001 then
+            blocks[#blocks + 1] = call
+          end
+        end
+      end
+      assert(#blocks == 12, id .. ' must retain twelve blocks per pedal')
+      local assistColor = side == 'left' and palette.flagWhite or palette.red
+      for index, block in ipairs(blocks) do
+        assert(block.color == (index > 10 and assistColor or palette.inactive),
+          id .. ' must show ABS/TC cut on the top two blocks in both themes')
+      end
     end
   end
-  assert(bars == 24, 'the other layouts must retain their two twelve-segment pedal bars')
 end
 state.absActive, state.tcActive = nil, nil
 for _, value in ipairs({ 0, 10.5 / 12 - 0.001, 10.5 / 12 + 0.001, 11.5 / 12 - 0.001, 11.5 / 12 + 0.001, 1 }) do

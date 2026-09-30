@@ -695,12 +695,10 @@ local function drawPedalBar(origin, scale, x, value, activeColor, side, assistCo
   for i = 1, segmentCount do
     local y = Layout.pedalTop * scale + (segmentCount - i) * (segmentHeight + gap)
     local color = i <= filled and activeColor or C.inactive
+    local intervention = i > segmentCount - 2 and assistColor ~= nil
+    if intervention then color = assistColor end
     if Layout.pedalUpperExtraWidth then
       local extra = i > segmentCount - 2 and Layout.pedalUpperExtraWidth or 0
-      -- The two wider blocks become a filled intervention indicator even
-      -- when the current pedal input has not reached those segments.
-      local intervention = extra > 0 and assistColor ~= nil
-      if intervention then color = assistColor end
       local left = x - (side == 'left' and extra or 0)
       drawChamferedPanel(origin, scale, left, y / scale,
         left + Layout.pedalWidth + extra, (y + segmentHeight) / scale, 2,
