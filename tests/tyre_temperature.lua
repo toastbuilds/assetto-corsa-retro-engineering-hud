@@ -68,6 +68,7 @@ local settings = { speedUnit = 'km/h', fallbackRpm = 8000,
   rpmWarningFraction = 0.8, rpmRedlineFraction = 0.95, instrumentMode = 'digital' }
 Telemetry.update(state, 1 / 60, settings)
 assert(state.condition.wheels[1].temperature == 80
+  and state.condition.wheels[1].temperatureCore == 80
   and state.condition.wheels[1].temperatureInside == 90
   and state.condition.wheels[1].temperatureMiddle == 80
   and state.condition.wheels[1].temperatureOutside == 65,
@@ -96,6 +97,7 @@ assert(state.condition.wheels[1].optimumTemperatureMin == nil,
   'disconnecting must clear the previous working window')
 assert(state.condition.wheels[1].temperatureMiddle == nil,
   'disconnecting must clear previous surface readings')
+assert(state.condition.wheels[1].temperatureCore == nil, 'disconnecting must clear the previous core reading')
 -- GT3 uses the requested 75-85 C profile even if the compound curve is wider.
 carId, car.compoundIndex = 'cf_bentley_continental_gt3_2018', 0
 local previousLoads = loads
@@ -121,4 +123,30 @@ JSON.parse = function() return { name = 'Porsche 911 GT3', class = 'street', tag
 carId = 'ks_porsche_991_gt3'
 assert(Temperatures.windows(car).front.maximum == 102,
   'a street car named GT3 must retain the compound curve')
+local general = Temperatures.generalTemperature
+assert(math.abs(general({temperatureCore = 80, temperatureInside = 65,
+  temperatureMiddle = 65, temperatureOutside = 65}) - 77) < 0.001,
+  'general temperature must weight core 80% and the mean surface 20%')
+assert(general({temperatureCore = 80}) == 80, 'missing surface must use the core')
+assert(general({temperatureInside = 75, temperatureMiddle = 80, temperatureOutside = 85}) == 80,
+  'missing core must use the surface average')
+assert(general({temperatureCore = 80, temperatureInside = 0 / 0,
+  temperatureMiddle = 70, temperatureOutside = math.huge}) == 78,
+  'invalid samples must not enter the surface average')
+assert(general({temperature = 70}) == 70 and general({}) == nil,
+  'legacy fallback and fully missing temperatures must remain valid')
+local zone = Temperatures.zoneTemperature
+local blendedWheel = {temperatureCore = 80, temperatureInside = 50,
+  temperatureMiddle = 65, temperatureOutside = 95}
+assert(math.abs(zone(blendedWheel, 50) - 74) < 0.001
+  and math.abs(zone(blendedWheel, 65) - 77) < 0.001
+  and math.abs(zone(blendedWheel, 95) - 83) < 0.001,
+  'each zone must blend its own surface sample with 80% core')
+assert(math.abs((zone(blendedWheel, 50) + zone(blendedWheel, 65)
+  + zone(blendedWheel, 95)) / 3 - general(blendedWheel)) < 0.001,
+  'average of weighted zones must equal the uniform general temperature')
+assert(zone({}, 65) == 65, 'missing core must preserve the real zone temperature')
+assert(zone(blendedWheel, nil) == general(blendedWheel)
+  and zone(blendedWheel, math.huge) == general(blendedWheel),
+  'invalid or missing zone readings must use the general fallback')
 print('Tyre temperature: working windows, axle separation, caching, compound changes and missing data passed')

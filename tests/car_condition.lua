@@ -56,6 +56,8 @@ end
 local function draw(theme, settings)
   texts, rectangles, gradients, pathColors = {}, {}, {}, {}
   settings = settings or {}
+  -- Existing zone scenarios explicitly exercise the optional surface mode.
+  if settings.temperatureDisplay == nil then settings.temperatureDisplay = 'surface' end
   settings.theme, settings.opacity = theme or 'dark', 1
   Condition.draw(state, settings)
   assert(#fontStack == 0, 'life font changes must restore the surrounding font')
@@ -247,4 +249,45 @@ for _, item in ipairs(texts) do
   smallLife = smallLife or (item.text == '100' and item.size == 12 and item.font == 'Consolas;Weight=Regular')
 end
 assert(legendFound and smallLife, 'legend and regular smaller life numbers must be selectable')
+for _, tyre in ipairs(state.condition.wheels) do
+  tyre.temperature, tyre.temperatureCore = 80, 80
+  tyre.optimumTemperatureMin, tyre.optimumTemperatureMax = 75, 85
+  tyre.temperatureInside, tyre.temperatureMiddle, tyre.temperatureOutside = 50, 65, 75
+end
+draw('dark', {temperatureDisplay = 'general'})
+halves = centralHalves()
+assert(#halves == 8 and halves[1].left.g > halves[1].left.r * 1.5
+  and halves[1].right.g > halves[1].right.r * 1.5,
+  'general zones must preserve a gradient with optimal outside and middle despite cooler shoulders')
+assert(halves[2].right.g > halves[2].right.b,
+  'core weighting must reduce the cold shoulder color')
+assert(halves[3].left.g > halves[3].left.b and halves[4].right.g > halves[4].right.r * 1.5,
+  'weighted zones must preserve the mirrored right-wheel orientation')
+draw('dark', {temperatureDisplay = 'uniform'})
+assert(#gradients == 0 and rectangles[1].color.g > rectangles[1].color.r * 1.5,
+  'uniform mode must retain the blended general temperature')
+wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 65, 120, 65
+draw('dark', {temperatureDisplay = 'general'})
+halves = centralHalves()
+assert(halves[1].left.g > halves[1].left.r * 1.5
+  and halves[1].right.r > halves[1].right.g
+  and halves[2].right.g > halves[2].right.r * 1.5,
+  'weighted gradient must preserve a hot middle independently of both shoulders')
+wheel.temperatureCore, wheel.temperature = 95, 95
+wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 80, 80, 80
+draw('dark', {temperatureDisplay = 'general'})
+assert(rectangles[1].color.r > rectangles[1].color.g * 1.45,
+  'hot core must remain hot despite optimal surface readings')
+wheel.temperatureCore, wheel.temperature = nil, 80
+wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 95, 95, 95
+draw('dark', {temperatureDisplay = 'general'})
+assert(rectangles[1].color.r > rectangles[1].color.g * 1.45,
+  'missing core must use the actual surface average')
+wheel.temperatureCore, wheel.temperature = 80, 80
+wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 50, 65, 95
+draw('dark', {temperatureDisplay = 'surface'})
+assert(#gradients > 0, 'surface mode must remain selectable independently of the general reading')
+texts, rectangles, gradients, pathColors = {}, {}, {}, {}
+Condition.draw(state, {theme = 'dark', opacity = 1})
+assert(#centralHalves() == 8, 'weighted zone gradient must be the default when no mode is specified')
 print('Car condition: life, temperature, four-wheel zone orientation, center readings, fallback, contrast and punctures passed')

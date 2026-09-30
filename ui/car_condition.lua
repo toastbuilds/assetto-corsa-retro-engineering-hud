@@ -1,6 +1,7 @@
 local Theme = require('src/theme')
 local Layout = require('src/car_condition_layout')
 local U = require('src/utils')
+local TyreTemperature = require('src/tyre_temperature')
 
 local M = {}
 local C = Theme.colors
@@ -274,12 +275,22 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
   local colorLeft, colorMiddle, colorRight = C.metalDim, C.metalDim, C.metalDim
   if wheel and wheel.available then
     local minimum, maximum = temperatureWindow(wheel)
-    colorMiddle = temperatureColor(wheel.temperature, minimum, maximum)
+    local temperature
+    if settings.temperatureDisplay == 'surface' then temperature = wheel.temperature
+    else temperature = TyreTemperature.generalTemperature(wheel) end
+    colorMiddle = temperatureColor(temperature, minimum, maximum)
     colorLeft, colorRight = colorMiddle, colorMiddle
-    if wheel.temperatureInside and wheel.temperatureMiddle and wheel.temperatureOutside then
-      colorMiddle = temperatureColor(wheel.temperatureMiddle, minimum, maximum)
-      local inside = temperatureColor(wheel.temperatureInside, minimum, maximum)
-      local outside = temperatureColor(wheel.temperatureOutside, minimum, maximum)
+    if settings.temperatureDisplay ~= 'uniform'
+      and wheel.temperatureInside and wheel.temperatureMiddle and wheel.temperatureOutside then
+      local function zoneColor(value)
+        if settings.temperatureDisplay ~= 'surface' then
+          value = TyreTemperature.zoneTemperature(wheel, value)
+        end
+        return temperatureColor(value, minimum, maximum)
+      end
+      colorMiddle = zoneColor(wheel.temperatureMiddle)
+      local inside = zoneColor(wheel.temperatureInside)
+      local outside = zoneColor(wheel.temperatureOutside)
       if x < Layout.carCenterX then colorLeft, colorRight = outside, inside
       else colorLeft, colorRight = inside, outside end
     end

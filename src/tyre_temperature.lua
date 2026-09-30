@@ -3,6 +3,7 @@ local Layout = require('src/car_condition_layout')
 local M = {}
 local cacheKey, cachedWindows
 local profileCarId, profileIsGT3
+local surfaceFields = { 'temperatureInside', 'temperatureMiddle', 'temperatureOutside' }
 
 local function gt3Name(value)
   return type(value) == 'string' and value:lower():find('%f[%w]gt3%f[%W]') ~= nil
@@ -32,6 +33,28 @@ end
 local function finite(value)
   return type(value) == 'number' and value == value
     and value ~= math.huge and value ~= -math.huge
+end
+
+function M.generalTemperature(wheel)
+  local sum, count = 0, 0
+  for _, field in ipairs(surfaceFields) do
+    local value = wheel[field]
+    if finite(value) then sum, count = sum + value, count + 1 end
+  end
+  local core = wheel.temperatureCore
+  if finite(core) then
+    if count == 0 then return core end
+    return core * Layout.tyreGeneralCoreWeight + (sum / count) * (1 - Layout.tyreGeneralCoreWeight)
+  end
+  if count > 0 then return sum / count end
+  return finite(wheel.temperature) and wheel.temperature or nil
+end
+
+function M.zoneTemperature(wheel, surfaceTemperature)
+  if not finite(surfaceTemperature) then return M.generalTemperature(wheel) end
+  if not finite(wheel.temperatureCore) then return surfaceTemperature end
+  return wheel.temperatureCore * Layout.tyreGeneralCoreWeight
+    + surfaceTemperature * (1 - Layout.tyreGeneralCoreWeight)
 end
 
 local function crossing(a, b, grip)

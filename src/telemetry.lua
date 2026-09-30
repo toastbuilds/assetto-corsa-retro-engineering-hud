@@ -11,6 +11,7 @@ local function blankWheelCondition()
   return {
     available = false,
     temperature = nil,
+    temperatureCore = nil,
     temperatureInside = nil,
     temperatureMiddle = nil,
     temperatureOutside = nil,
@@ -272,6 +273,7 @@ local function resetCondition(state)
   for _, wheel in ipairs(condition.wheels) do
     wheel.available = false
     wheel.temperature = nil
+    wheel.temperatureCore = nil
     wheel.temperatureInside = nil
     wheel.temperatureMiddle = nil
     wheel.temperatureOutside = nil
@@ -321,6 +323,7 @@ local function updateCondition(state, car)
       local middleTemperature = finiteNumber(U.read(source, 'tyreMiddleTemperature', nil), nil)
       local optimum = finiteNumber(U.read(source, 'tyreOptimumTemperature', nil), nil)
       wheel.temperature = coreTemperature or middleTemperature
+      wheel.temperatureCore = coreTemperature
       wheel.temperatureInside = finiteNumber(U.read(source, 'tyreInsideTemperature', nil), nil)
       wheel.temperatureMiddle = middleTemperature
       wheel.temperatureOutside = finiteNumber(U.read(source, 'tyreOutsideTemperature', nil), nil)
@@ -350,6 +353,7 @@ local function updateCondition(state, car)
         wheel.blister, wheel.flatSpot, wheel.suspensionDamage, wheel.isBlown and 1 or 0)
     else
       wheel.temperature = nil
+      wheel.temperatureCore = nil
       wheel.temperatureInside = nil
       wheel.temperatureMiddle = nil
       wheel.temperatureOutside = nil

@@ -4,6 +4,7 @@ M.values = ac.storage({
   opacity = 1,
   lifeTextSize = 24,
   lifeTextWeight = 'Regular',
+  temperatureDisplay = 'general',
   showTemperatureLegend = true
 }, 'retro-ui.condition.')
 
@@ -11,6 +12,7 @@ local function resetAppearance()
   M.values.opacity = 1
   M.values.lifeTextSize = 24
   M.values.lifeTextWeight = 'Regular'
+  M.values.temperatureDisplay = 'general'
   M.values.showTemperatureLegend = true
 end
 
@@ -27,6 +29,11 @@ function M.draw()
     if ui.checkbox('Show temperature scale', M.values.showTemperatureLegend) then
       M.values.showTemperatureLegend = not M.values.showTemperatureLegend
     end
+    SettingsUI.choice('condition', 'temperatureDisplay', 'Tyre temperature', M.values.temperatureDisplay,
+      { { label = 'General zones (80% core + 20% surface)', value = 'general' },
+        { label = 'General (uniform)', value = 'uniform' },
+        { label = 'Surface zones', value = 'surface' } },
+      function(mode) M.values.temperatureDisplay = mode end)
     SettingsUI.resetAppearance('condition', resetAppearance)
   end)
   SettingsUI.section('condition', 'advanced', 'Advanced', false, function()
@@ -42,6 +49,7 @@ function M.current(base)
     opacity = M.values.opacity,
     lifeTextSize = M.values.lifeTextSize,
     lifeTextWeight = M.values.lifeTextWeight,
+    temperatureDisplay = M.values.temperatureDisplay,
     showTemperatureLegend = M.values.showTemperatureLegend
   }
 end

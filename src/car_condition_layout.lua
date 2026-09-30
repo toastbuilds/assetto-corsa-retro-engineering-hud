@@ -22,6 +22,7 @@ return {
   gt3TyreOptimumMax = 85,
   -- Used only when the car does not provide its tyre optimum temperature.
   tyreFallbackOptimumTemperature = 85,
+  tyreGeneralCoreWeight = 0.80,
 
   conditionWarn = 0.35,
   conditionDanger = 0.72,
