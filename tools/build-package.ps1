@@ -1,11 +1,14 @@
-param([string]$Version = '2.0.0')
+param(
+  [string]$Version = '2.1.0',
+  [ValidateSet('free', 'premium')][string]$Edition = 'premium'
+)
 
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $project 'dist'
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('retro-ui-' + [guid]::NewGuid().ToString('N'))
 $app = Join-Path $stage 'apps\lua\RetroUI'
-$package = Join-Path $dist "RetroUI-v$Version.zip"
+$package = Join-Path $dist "RetroUI-$($Edition.ToUpperInvariant())-v$Version.zip"
 
 New-Item -ItemType Directory -Path $app, $dist -Force | Out-Null
 try {
@@ -15,6 +18,18 @@ try {
   foreach ($name in @('app.lua', 'RetroUI.lua', 'manifest.ini', 'LICENSE', 'THIRD_PARTY_NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app
   }
+  if ($Edition -eq 'free') {
+    foreach ($name in @('src/gt7_retro_layout.lua', 'src/gt7_settings.lua', 'src/theme.lua', 'ui/gt7_retro.lua')) {
+      $snapshot = Join-Path $project ('free-edition/' + $name)
+      Copy-Item -LiteralPath $snapshot -Destination (Join-Path $app $name) -Force
+    }
+  }
+  $editionLabel = if ($Edition -eq 'free') { 'Free' } else { 'Premium' }
+  Set-Content -LiteralPath (Join-Path $app 'EDITION.txt') -Value @(
+    "Retro UI $editionLabel edition v$Version"
+    if ($Edition -eq 'free') { 'Includes the Classic GT7 layout.' }
+    else { 'Includes Classic, Modern, Outer Pedals, and Steering Dial GT7 layouts.' }
+  ) -Encoding UTF8
   Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }

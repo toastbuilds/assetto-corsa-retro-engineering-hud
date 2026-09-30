@@ -1,5 +1,6 @@
 local DialSettings = require('src/settings')
 local SettingsUI = require('src/settings_ui')
+local Layout = require('src/gt7_retro_layout')
 local M = {}
 
 M.values = ac.storage({
@@ -8,6 +9,7 @@ M.values = ac.storage({
   opacity = 1,
   backgroundOpacity = 0.72,
   speedUnit = 'km/h',
+  gt7Layout = 'classic',
   gt7SpeedNeedleMode = 'digital',
   gt7RpmNeedleMode = 'digital',
   gt7LowerPanelMode = 'limit',
@@ -56,7 +58,7 @@ function M.current()
   -- guaranteed to enumerate stored fields with pairs().
   local values = {}
   for _, key in ipairs({
-    'hudScale', 'opacity', 'backgroundOpacity', 'speedUnit',
+    'hudScale', 'opacity', 'backgroundOpacity', 'speedUnit', 'gt7Layout',
     'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7LowerPanelMode',
     'gt7ProximityRadar', 'gt7RadarStyle', 'rpmWarningFraction',
     'rpmRedlineFraction', 'fallbackRpm', 'showSteering', 'showLights',
@@ -66,6 +68,7 @@ function M.current()
     values[key] = M.values[key]
   end
   values.theme = DialSettings.values.theme
+  values.gt7Layout = Layout.get(values.gt7Layout).id
   values.speedUnit = DialSettings.values.speedUnit
   values.instrumentMode = 'gt7_retro'
   return values
@@ -82,6 +85,11 @@ function M.draw()
     end)
   end)
   SettingsUI.section('gt7', 'gauges', 'Gauges and layout', true, function()
+    SettingsUI.choice('gt7', 'layout', 'Layout', Layout.get(M.values.gt7Layout).id,
+      { { label = 'Classic', value = 'classic' }, { label = 'Modern', value = 'modern' },
+        { label = 'Outer Pedals', value = 'outer_pedals' },
+        { label = 'Steering Dial', value = 'steering_dial' } },
+      function(value) M.values.gt7Layout = value end)
     local needles = { { label = 'Digital', value = 'digital' }, { label = 'Analog', value = 'analog' } }
     SettingsUI.choice('gt7', 'speedNeedle', 'Speed needle', M.values.gt7SpeedNeedleMode,
       needles, function(value) M.values.gt7SpeedNeedleMode = value end)
@@ -96,7 +104,7 @@ function M.draw()
   end)
   SettingsUI.section('gt7', 'radar', 'Radar', true, function()
     checkbox('Side proximity radar', 'gt7ProximityRadar')
-    if M.values.gt7ProximityRadar then
+    if M.values.gt7ProximityRadar and Layout.get(M.values.gt7Layout).id == 'classic' then
       SettingsUI.choice('gt7', 'radarStyle', 'Radar style', M.values.gt7RadarStyle,
         { { label = 'Arcs', value = 'arcs' }, { label = 'Lights', value = 'lights' } },
         function(value) M.values.gt7RadarStyle = value end)
@@ -117,6 +125,7 @@ function M.draw()
     SettingsUI.resetAll('gt7', function()
       M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
       M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
+      M.values.gt7Layout = 'classic'
       M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true
       M.values.rpmWarningFraction, M.values.rpmRedlineFraction, M.values.fallbackRpm = 0.86, 0.96, 8000
       for _, key in ipairs({ 'showSteering', 'showLights', 'animateIndicators',

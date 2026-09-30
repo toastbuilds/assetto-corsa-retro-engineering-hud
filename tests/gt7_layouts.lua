@@ -1,0 +1,561 @@
+package.path = './?.lua;./?/init.lua;' .. package.path
+
+local Vec2 = {}
+Vec2.__index = Vec2
+function Vec2.__add(a, b) return vec2(a.x + b.x, a.y + b.y) end
+function Vec2.__sub(a, b) return vec2(a.x - b.x, a.y - b.y) end
+function Vec2.__mul(a, b)
+  if type(a) == 'number' then return vec2(a * b.x, a * b.y) end
+  return vec2(a.x * b, a.y * b)
+end
+function Vec2.__div(a, b) return vec2(a.x / b, a.y / b) end
+function vec2(x, y) return setmetatable({ x = x or 0, y = y or 0 }, Vec2) end
+function rgbm(r, g, b, mult) return { r = r, g = g, b = b, mult = mult } end
+
+local stores = { [''] = { layoutVersion = 9, sharedUnitsVersion = 1 } }
+ac = { getSim = function() return {} end, storage = function(defaults, prefix)
+  prefix = prefix or ''
+  local stored = stores[prefix] or {}
+  stores[prefix] = stored
+  for key, value in pairs(defaults) do if stored[key] == nil then stored[key] = value end end
+  -- CSP's storage proxy is readable but need not enumerate stored fields.
+  return setmetatable({}, { __index = stored, __newindex = stored,
+    __pairs = function() return next, {}, nil end })
+end }
+
+local width, height = 1440, 500
+local calls, path, arc = {}, {}, nil
+local fonts, alphaDepth = 0, 0
+local pendingCombos, pendingButtons, comboCalls = {}, {}, {}
+local function noop() end
+local function record(kind, values)
+  values.kind = kind
+  calls[#calls + 1] = values
+end
+ui = {
+  ComboFlags = { None = 0 },
+  windowWidth = function() return width end,
+  windowHeight = function() return height end,
+  measureDWriteText = function(text, size) return vec2(#tostring(text) * size * 0.55, size) end,
+  dwriteDrawText = function(text, size, position, color)
+    assert(size > 0 and size == size, 'text size must be finite and positive')
+    record('text', { text = text, size = size, a = position, color = color })
+  end,
+  drawLine = function(a, b, color, thickness)
+    record('line', { a = a, b = b, color = color, thickness = thickness })
+  end,
+  drawCircle = function(center, radius, color, _, thickness)
+    record('circle', { a = center, radius = radius, color = color, thickness = thickness })
+  end,
+  drawCircleFilled = function(center, radius, color)
+    record('circle_fill', { a = center, radius = radius, color = color })
+  end,
+  drawRect = function(a, b, color, rounding, _, thickness)
+    record('rect', { a = a, b = b, color = color, rounding = rounding, thickness = thickness })
+  end,
+  drawRectFilled = function(a, b, color, rounding)
+    record('rect_fill', { a = a, b = b, color = color, rounding = rounding })
+  end,
+  pathClear = function() path, arc = {}, nil end,
+  pathLineTo = function(position) path[#path + 1] = position end,
+  pathArcTo = function(center, radius, startAngle, endAngle)
+    arc = { a = center, radius = radius, startAngle = startAngle, endAngle = endAngle }
+  end,
+  pathFillConvex = function(color)
+    local area = 0
+    for i, p in ipairs(path) do
+      local following = path[i % #path + 1]
+      area = area + p.x * following.y - following.x * p.y
+    end
+    assert(area > 0, 'mirrored shapes must retain clockwise convex-fill winding')
+    record('polygon', { points = path, color = color })
+  end,
+  pathStroke = function(color, closed, thickness)
+    if arc then
+      record('arc', { a = arc.a, radius = arc.radius, startAngle = arc.startAngle,
+        endAngle = arc.endAngle, color = color, thickness = thickness })
+    else
+      record('path', { points = path, color = color, closed = closed, thickness = thickness })
+    end
+  end,
+  pushDWriteFont = function() fonts = fonts + 1 end,
+  popDWriteFont = function() fonts = fonts - 1 end,
+  pushStyleVarAlpha = function() alphaDepth = alphaDepth + 1 end,
+  popStyleVar = function() alphaDepth = alphaDepth - 1 end,
+  header = noop, separator = noop, text = noop, textWrapped = noop, sameLine = noop,
+  time = function() return 0 end,
+  availableSpaceX = function() return 640 end,
+  checkbox = function() return false end,
+  slider = function(_, value) return value, false end,
+  combo = function(label, index)
+    comboCalls[label] = true
+    local value = pendingCombos[label]
+    pendingCombos[label] = nil
+    return value or index, value ~= nil
+  end,
+  button = function(label)
+    local pressed = pendingButtons[label]
+    pendingButtons[label] = nil
+    return pressed or false
+  end
+}
+
+local Layouts = require('src/gt7_retro_layout')
+local Theme = require('src/theme')
+local Telemetry = require('src/telemetry')
+local PedalHistory = require('src/pedal_history')
+local Renderer = require('ui/gt7_retro')
+local DialSettings = require('src/settings')
+local Settings = require('src/gt7_settings')
+local ids = { 'classic', 'modern', 'outer_pedals', 'steering_dial' }
+
+assert(Settings.current().gt7Layout == 'classic', 'existing installs must default to Classic')
+Settings.values.gt7Layout = 'unknown'
+assert(Settings.current().gt7Layout == 'classic' and Layouts.get('unknown') == Layouts,
+  'unknown stored values must safely select Classic')
+Settings.values.gt7LowerPanelMode = 'pedal_history'
+Settings.values.gt7RadarStyle = 'lights'
+Settings.values.gt7SpeedNeedleMode = 'analog'
+for index, id in ipairs(ids) do
+  pendingCombos['##gt7.layout'] = index - 1
+  comboCalls = {}
+  Settings.draw()
+  assert(Settings.current().gt7Layout == id, 'layout selector must select ' .. id)
+  assert(Settings.values.gt7LowerPanelMode == 'pedal_history'
+    and Settings.values.gt7SpeedNeedleMode == 'analog' and Settings.values.gt7RadarStyle == 'lights',
+    'switching layouts must preserve independent settings')
+  assert((comboCalls['##gt7.radarStyle'] == true) == (index == 1),
+    'only Classic must expose the radar style selector')
+end
+Settings.values.gt7Layout = 'modern'
+pendingButtons['Reset appearance##gt7'] = true
+Settings.draw()
+assert(Settings.values.gt7Layout == 'modern', 'appearance reset must preserve the selected layout')
+package.loaded['src/gt7_settings'] = nil
+Settings = require('src/gt7_settings')
+assert(Settings.current().gt7Layout == 'modern'
+  and Settings.current().gt7LowerPanelMode == 'pedal_history', 'preferences must survive reload')
+DialSettings.values.speedUnit, DialSettings.values.theme = 'mph', 'light'
+assert(Settings.current().speedUnit == 'mph' and Settings.current().theme == 'light',
+  'shared units and theme must still apply')
+pendingButtons['>  Advanced##gt7.advanced'] = true
+pendingButtons['Reset all##gt7'] = true
+Settings.draw()
+assert(Settings.values.gt7Layout == 'modern', 'reset must wait for confirmation')
+pendingButtons['Confirm reset##gt7'] = true
+Settings.draw()
+assert(Settings.current().gt7Layout == 'classic' and Settings.values.gt7LowerPanelMode == 'limit'
+  and DialSettings.values.speedUnit == 'mph' and DialSettings.values.theme == 'light',
+  'confirmed reset must restore GT7 defaults and preserve shared settings')
+
+local state = Telemetry.new()
+state.speedText, state.speedUnit, state.gearText = '139', 'km/h', '2'
+state.speedValue, state.speedGaugeMaximum, state.speedGaugeStep = 139, 320, 40
+state.rpm, state.rpmNormalized, state.rpmGaugeNormalized = 5200, 0.65, 0.65
+state.rpmDisplayLimiter, state.rpmGaugeLimiter = 8000, 8000
+state.gt7SpeedNeedleNormalized, state.gt7RpmNeedleNormalized = 139 / 320, 0.65
+state.throttle, state.brake, state.fuelNormalized, state.fuel = 0.82, 0.36, 0.6, 35
+state.proximityRadarAvailable, state.indicatorPhase = true, true
+state.turboAvailable, state.turboBoost, state.turboDisplayMax = true, 0.7, 1.5
+state.boostNeedleNormalized = 0.7 / 1.5
+for i = 1, 180 do PedalHistory.update(state.pedalHistory, 1 / 30,
+  math.max(0, math.sin(i / 24)), math.max(0, math.sin(i / 17)) * 0.4) end
+
+local function draw(id, overrides, drawState, window)
+  local settings = { gt7Layout = id, theme = 'dark', speedUnit = 'km/h',
+    hudScale = 0.72, opacity = 1, backgroundOpacity = 0.72,
+    gt7SpeedNeedleMode = 'analog', gt7RpmNeedleMode = 'analog', gt7RadarStyle = 'arcs',
+    gt7LowerPanelMode = 'pedal_history', gt7ProximityRadar = true, showSteering = true, showLights = true }
+  for key, value in pairs(overrides or {}) do settings[key] = value end
+  local layout = Layouts.get(id)
+  width, height = layout.width, layout.height
+  if window then width, height = window[1], window[2] end
+  calls = {}
+  Renderer.draw(drawState or state, settings)
+  assert(fonts == 0 and alphaDepth == 0, 'drawing must balance fonts and styles')
+  return calls
+end
+
+local function equalColor(a, b)
+  return a and b and a.r == b.r and a.g == b.g and a.b == b.b
+end
+local function bounds(call)
+  if call.a and call.b then return call.a.x, call.a.y, call.b.x, call.b.y end
+  local left, top, right, bottom = math.huge, math.huge, -math.huge, -math.huge
+  for _, p in ipairs(call.points or {}) do
+    left, top, right, bottom = math.min(left, p.x), math.min(top, p.y), math.max(right, p.x), math.max(bottom, p.y)
+  end
+  return left, top, right, bottom
+end
+local function near(a, b) return math.abs(a - b) < 0.001 end
+local function lampColors(layout, side)
+  local x = side == 'left' and layout.verticalLampLeftX or layout.verticalLampRightX
+  local result = {}
+  for _, call in ipairs(calls) do
+    if call.kind == 'circle_fill' and near(call.a.x, x) and near(call.radius, layout.flagLampRadius) then
+      result[#result + 1] = { color = call.color, y = call.a.y }
+    end
+  end
+  assert(#result == layout.verticalLampCount, 'exactly one column must be drawn per side')
+  return result
+end
+local function expectLamps(layout, side, filled, color)
+  for i, lamp in ipairs(lampColors(layout, side)) do
+    assert(near(lamp.y, layout.verticalLampBottom - (i - 1) * layout.verticalLampSpacing),
+      'lamps must fill bottom to top')
+    assert(equalColor(lamp.color, i <= filled and color or Theme.colors.outlineDim),
+      'unexpected ' .. side .. ' lamp color at level ' .. i)
+  end
+end
+local function indicatorColor(layout, side)
+  local tipX = side == 'left' and layout.indicatorLeftX - 13 or layout.indicatorRightX + 13
+  for _, call in ipairs(calls) do
+    if call.kind == 'polygon' and #call.points == 3
+        and near(call.points[1].x, tipX) and near(call.points[1].y, layout.indicatorY) then return call.color end
+  end
+  error('turn indicator must remain present')
+end
+
+for _, id in ipairs({ 'outer_pedals', 'steering_dial' }) do
+  local layout = Layouts.get(id)
+  state.raceFlagType, state.clock, state.leftIndicator, state.rightIndicator = 2, 0, true, false
+  state.radarRightLevel = 0
+  for level = 0, 3 do
+    state.radarLeftLevel = level
+    draw(id, { gt7RadarStyle = 'arcs' })
+    expectLamps(layout, 'left', level > 0 and level * layout.verticalLampCount / 3 or layout.verticalLampCount,
+      level == 0 and Theme.colors.flagYellow or (level == 3 and Theme.colors.red or Theme.colors.amber))
+    expectLamps(layout, 'right', layout.verticalLampCount, Theme.colors.flagYellow)
+    assert(indicatorColor(layout, 'left') == Theme.colors.amber
+      and indicatorColor(layout, 'right') == Theme.colors.outlineDim, 'radar must not replace turn signals')
+  end
+  state.clock = layout.radarBlinkPeriod
+  draw(id)
+  expectLamps(layout, 'left', 0, Theme.colors.red)
+  expectLamps(layout, 'right', layout.verticalLampCount, Theme.colors.flagYellow)
+  state.clock = 0
+  draw(id, { gt7ProximityRadar = false })
+  expectLamps(layout, 'left', layout.verticalLampCount, Theme.colors.flagYellow)
+  state.proximityRadarAvailable = false
+  draw(id)
+  expectLamps(layout, 'left', layout.verticalLampCount, Theme.colors.flagYellow)
+  state.proximityRadarAvailable = true
+  state.radarRightLevel, state.hazardLights = 2, true
+  draw(id)
+  expectLamps(layout, 'right', layout.verticalLampCount * 2 / 3, Theme.colors.amber)
+  assert(indicatorColor(layout, 'left') == Theme.colors.amber
+    and indicatorColor(layout, 'right') == Theme.colors.amber, 'hazards must remain independent')
+  state.indicatorPhase = false
+  draw(id)
+  assert(indicatorColor(layout, 'left') == Theme.colors.outlineDim
+    and indicatorColor(layout, 'right') == Theme.colors.outlineDim, 'turn blink must remain independent')
+  draw(id, { animateIndicators = false })
+  assert(indicatorColor(layout, 'left') == Theme.colors.amber, 'turn animation toggle must still work')
+  state.radarLeftLevel, state.radarRightLevel = 0, 0
+  state.clock = layout.flagBlinkPeriod
+  draw(id)
+  expectLamps(layout, 'left', 0, Theme.colors.flagYellow)
+  draw(id, { animateFlagAlert = false })
+  expectLamps(layout, 'left', layout.verticalLampCount, Theme.colors.flagYellow)
+  state.indicatorPhase, state.hazardLights, state.clock, state.raceFlagType = true, false, 0, nil
+end
+
+local modern = Layouts.get('modern')
+local function topFlagStrip(side)
+  local x = side == 'left' and modern.centerLeft + 14 or modern.centerRight - 14
+  local top, bottom = modern.centerTop + 40, modern.centerTop + 67
+  local base, tiles, outline = nil, {}, nil
+  for _, call in ipairs(calls) do
+    if call.kind == 'rect_fill' or call.kind == 'rect' then
+      local left, y1, right, y2 = bounds(call)
+      if near(left, x - 2) and near(right, x + 2) and near(y1, top) and near(y2, bottom) then
+        if call.kind == 'rect_fill' then base = call else outline = call end
+      elseif call.kind == 'rect_fill' and left >= x - 2 and right <= x + 2
+          and y1 >= top and y2 <= bottom then tiles[#tiles + 1] = call end
+    end
+  end
+  return assert(base, 'upper flag strip must always be lit'), tiles, assert(outline, 'flag strip must retain its outline')
+end
+local flagCases = {
+  { role = 'green' }, { flag = 0, role = 'green' }, { flag = 1, role = 'green' },
+  { flag = 2, role = 'flagYellow' }, { flag = 3, role = 'flagYellow', pattern = 'slippery' },
+  { flag = 4, role = 'red' }, { flag = 5, role = 'flagBlack' },
+  { flag = 6, role = 'flagWhite' }, { flag = 7, role = 'flagWhite' },
+  { flag = 8, role = 'flagBlack' }, { flag = 9, role = 'flagBlack', pattern = 'mechanical' },
+  { flag = 10, role = 'flagWhite', pattern = 'split' }, { flag = 11, role = 'green' },
+  { flag = 12, role = 'shiftBlue' }, { flag = 13, role = 'flagWhite', pattern = 'checkered' },
+  { flag = 14, role = 'flagWhite' }, { flag = 15, role = 'red' },
+  { flag = 16, role = 'flagPurple' }, { flag = 999, role = 'green' }
+}
+state.radarLeftLevel, state.radarRightLevel = 3, 2
+for _, theme in ipairs({ 'dark', 'light' }) do
+  local palette = Theme.get(theme)
+  for _, case in ipairs(flagCases) do
+    state.raceFlagType = case.flag
+    for _, clock in ipairs({ 0, modern.flagBlinkPeriod, modern.flagBlinkPeriod * 2 }) do
+      state.clock = clock
+      draw('modern', { theme = theme, animateFlagAlert = true, showLights = false })
+      for _, side in ipairs({ 'left', 'right' }) do
+        local strip, tiles, outline = topFlagStrip(side)
+        assert(strip.color == palette[case.role] and strip.color.mult == 1,
+          'upper flag strips must show the current flag steadily, despite blink phase or radar')
+        assert(outline.color == (case.role == 'flagBlack' and palette.flagWhite or strip.color),
+          'black flags must remain visible with a lit white outline')
+        if case.pattern == 'checkered' then
+          assert(#tiles == 9, 'finished flag must draw nine alternating black checker tiles per strip')
+          for i, tile in ipairs(tiles) do
+            local left, top, right, bottom = bounds(tile)
+            local x = side == 'left' and modern.centerLeft + 14 or modern.centerRight - 14
+            local row, column = i - 1, (i - 1) % 2
+            assert(tile.color == palette.flagBlack and near(left, x - 2 + column * 2)
+              and near(right - left, 2) and near(top, modern.centerTop + 40 + row * 3)
+              and near(bottom - top, 3), 'checker tiles must alternate in two columns')
+          end
+        elseif case.pattern == 'slippery' then
+          assert(#tiles == 5, 'slippery flag must display alternating red and yellow stripes')
+          for _, tile in ipairs(tiles) do assert(tile.color == palette.red) end
+        elseif case.pattern == 'split' then
+          assert(#tiles == 1 and tiles[1].color == palette.flagBlack, 'unsportsmanlike flag must show black and white halves')
+        elseif case.pattern ~= 'mechanical' then
+          assert(#tiles == 0, 'solid flags must not inherit the previous flag pattern')
+        end
+      end
+    end
+  end
+end
+state.raceFlagType, state.clock, state.radarLeftLevel, state.radarRightLevel = nil, 0, 0, 0
+state.radarLeftLevel, state.radarRightLevel = 3, 0
+state.raceFlagType, state.leftIndicator = 2, true
+for _, style in ipairs({ 'arcs', 'lights' }) do
+  for _, clock in ipairs({ 0, modern.radarBlinkPeriod }) do
+    state.clock = clock
+    draw('modern', { gt7RadarStyle = style })
+    local leftFlags, rightFlags, redArcs, redLamps, redBars = 0, 0, 0, 0, 0
+    for _, call in ipairs(calls) do
+      if call.kind == 'circle_fill' and near(call.radius, modern.flagLampRadius) then
+        if near(call.a.x, modern.indicatorLeftX + modern.flagLampSideOffset) then
+          if call.color == Theme.colors.flagYellow then leftFlags = leftFlags + 1 end
+          if call.color == Theme.colors.red then redLamps = redLamps + 1 end
+        elseif near(call.a.x, modern.indicatorRightX - modern.flagLampSideOffset)
+            and call.color == Theme.colors.flagYellow then rightFlags = rightFlags + 1 end
+      elseif call.kind == 'arc' and near(call.a.x, modern.radarArcLeftX)
+          and near(call.a.y, modern.radarArcY) and call.color == Theme.colors.red then redArcs = redArcs + 1 end
+      if call.kind == 'polygon' and #call.points == 4 and call.color == Theme.colors.red then redBars = redBars + 1 end
+    end
+    assert(leftFlags == 0 and rightFlags == 2, 'Modern radar must reserve only its own side throughout the blink')
+    assert(redArcs == 0 and redLamps == 0 and redBars == (clock == 0 and 3 or 0),
+      'Modern must use its three side bars exclusively, regardless of the saved radar style')
+    assert(indicatorColor(modern, 'left') == Theme.colors.amber, 'Modern radar must preserve turn signals')
+  end
+end
+state.radarLeftLevel, state.raceFlagType, state.clock = 0, nil, 0
+local function modernRadarBars(side)
+  local edge = side == 'left' and modern.centerLeft or modern.centerRight
+  local bars = {}
+  for _, call in ipairs(calls) do
+    if call.kind == 'arc' then
+      assert(not (near(call.a.x, modern.radarArcLeftX) or near(call.a.x, modern.radarArcRightX)),
+        'Modern must never draw a separate radar arc, including inactive arcs')
+    elseif call.kind == 'polygon' and #call.points == 4 then
+      local left, top, right = bounds(call)
+      if (side == 'left' and near(left, edge + 16) and near(right, edge + 32))
+          or (side == 'right' and near(left, edge - 32) and near(right, edge - 16)) then
+        -- Count the solid segment, without counting its translucent glow.
+        if call.color == Theme.colors.outlineDim or call.color == Theme.colors.amber or call.color == Theme.colors.red then
+          bars[#bars + 1] = { top = top, color = call.color }
+        end
+      end
+    end
+  end
+  assert(#bars == 3, 'Modern must draw exactly three radar bars per side')
+  return bars
+end
+for level = 0, 3 do
+  state.radarLeftLevel, state.radarRightLevel = level, 3 - level
+  draw('modern')
+  for _, side in ipairs({ 'left', 'right' }) do
+    local currentLevel = side == 'left' and level or 3 - level
+    for i, bar in ipairs(modernRadarBars(side)) do
+      assert(near(bar.top, modern.centerTop + 102 + (3 - i) * 15), 'Modern radar must fill bottom to top')
+      assert(bar.color == (i <= currentLevel and (currentLevel == 3 and Theme.colors.red or Theme.colors.amber)
+        or Theme.colors.outlineDim), 'Modern radar must preserve the three proximity levels')
+    end
+  end
+end
+for _, override in ipairs({ { gt7ProximityRadar = false }, {} }) do
+  state.proximityRadarAvailable = override.gt7ProximityRadar == false
+  draw('modern', override)
+  for _, side in ipairs({ 'left', 'right' }) do
+    for _, bar in ipairs(modernRadarBars(side)) do
+      assert(bar.color == Theme.colors.outlineDim, 'disabled or unavailable radar must leave its bars inactive')
+    end
+  end
+end
+state.proximityRadarAvailable, state.radarLeftLevel, state.radarRightLevel = true, 0, 0
+
+local function pedals(side)
+  local x = side == 'left' and modern.brakeX or modern.throttleX
+  local result = {}
+  for _, call in ipairs(calls) do
+    if call.kind == 'polygon' then
+      local left, top, right, bottom = bounds(call)
+      if top >= modern.pedalTop - 0.001 and bottom <= modern.pedalTop + modern.pedalHeight + 0.001
+          and left >= x - 10 and right <= x + modern.pedalWidth + 10 then
+        result[#result + 1] = { left = left, right = right, color = call.color }
+      end
+    end
+  end
+  assert(#result == 12, 'Modern must retain twelve segments per pedal')
+  return result
+end
+for _, theme in ipairs({ 'dark', 'light' }) do
+  local palette = Theme.get(theme)
+  for _, intervention in ipairs({ { tc = false, abs = false }, { tc = true, abs = false },
+      { tc = false, abs = true }, { tc = true, abs = true }, {} }) do
+    state.tcActive, state.absActive = intervention.tc, intervention.abs
+    state.absLevel = 0 -- Disabled ABS alone must not color the intervention blocks.
+    for _, value in ipairs({ 0, 0.5, 0.9, 1 }) do
+      state.brake, state.throttle = value, value
+      draw('modern', { theme = theme })
+      for _, side in ipairs({ 'left', 'right' }) do
+        local active = side == 'left' and intervention.abs == true or side == 'right' and intervention.tc == true
+        local interventionColor = side == 'left' and palette.flagWhite or palette.red
+        local pedalColor = side == 'left' and palette.red or palette.cyan
+        for i, segment in ipairs(pedals(side)) do
+          local expected = active and i > 10 and interventionColor
+            or (i <= math.floor(value * 12 + 0.5) and pedalColor or palette.inactive)
+          assert(segment.color == expected,
+            'only the two wider blocks must fill with the intervention color, independently of pedal input')
+        end
+      end
+      for _, call in ipairs(calls) do
+        if call.kind == 'text' and (call.text == 'ABS' or call.text == 'TC') then
+          assert(call.a.y > modern.pedalTop, 'the extra pedal-top indicator row must be removed')
+        elseif call.kind == 'polygon' then
+          local left, top, right, bottom = bounds(call)
+          assert(not (top >= modern.pedalTop - 30 and bottom <= modern.pedalTop - 8
+            and ((left >= modern.brakeX - 10 and right <= modern.brakeX + modern.pedalWidth)
+              or (left >= modern.throttleX and right <= modern.throttleX + modern.pedalWidth + 10))),
+            'no extra assist panel may remain above either pedal')
+        end
+      end
+    end
+  end
+end
+state.absLevel, state.absActive, state.tcActive = nil, true, true
+state.brake, state.throttle = 0, 0
+for _, id in ipairs({ 'classic', 'outer_pedals', 'steering_dial' }) do
+  local layout = Layouts.get(id)
+  draw(id)
+  local bars = 0
+  for _, call in ipairs(calls) do
+    if call.kind == 'rect_fill' and (near(call.a.x, layout.brakeX) or near(call.a.x, layout.throttleX))
+        and call.a.y >= layout.pedalTop - 0.001 and call.b.y <= layout.pedalTop + layout.pedalHeight + 0.001 then
+      assert(call.color == Theme.colors.inactive, 'intervention recoloring must be limited to Modern wider blocks')
+      bars = bars + 1
+    end
+  end
+  assert(bars == 24, 'the other layouts must retain their two twelve-segment pedal bars')
+end
+state.absActive, state.tcActive = nil, nil
+for _, value in ipairs({ 0, 10.5 / 12 - 0.001, 10.5 / 12 + 0.001, 11.5 / 12 - 0.001, 11.5 / 12 + 0.001, 1 }) do
+  state.brake, state.throttle = value, value
+  draw('modern')
+  for _, side in ipairs({ 'left', 'right' }) do
+    local x = side == 'left' and modern.brakeX or modern.throttleX
+    for i, segment in ipairs(pedals(side)) do
+      local extra = i > 10 and 10 or 0
+      assert(segment.left == x - (side == 'left' and extra or 0)
+        and segment.right == x + modern.pedalWidth + (side == 'right' and extra or 0),
+        'only the upper two blocks must grow away from the center')
+      assert(equalColor(segment.color, i <= math.floor(value * 12 + 0.5)
+        and (side == 'left' and Theme.colors.red or Theme.colors.cyan) or Theme.colors.inactive),
+        'pedal activation must reach the wider blocks at the right threshold')
+    end
+  end
+end
+state.brake, state.throttle = 0.36, 0.82
+assert(modern.brakeX - 10 > modern.leftCenterX + modern.dialRadius + 6
+  and modern.throttleX + modern.pedalWidth + 10 < modern.rightCenterX - modern.dialRadius - 6,
+  'wider segments must clear both dials')
+local outer = Layouts.get('outer_pedals')
+assert(outer.brakeX + outer.pedalWidth < outer.leftCenterX - outer.dialRadius - 6
+  and outer.throttleX > outer.rightCenterX + outer.dialRadius + 6,
+  'outer pedals must lie outside both dials with clearance')
+
+local steeringLayout = Layouts.get('steering_dial')
+local function steeringNeedle()
+  for _, call in ipairs(calls) do
+    if call.kind == 'line' and call.color == Theme.colors.cyan and call.thickness == 4
+        and near(call.a.x, steeringLayout.steeringCenterX)
+        and near(call.a.y, steeringLayout.steeringCenterY) then return call end
+  end
+end
+for _, value in ipairs({ -2, -1, 0, 1, 2 }) do
+  state.steeringInput = value
+  draw('steering_dial')
+  local needle = assert(steeringNeedle(), 'steering dial must draw a needle')
+  local clamped = math.max(-1, math.min(1, value))
+  assert(near(needle.b.x, steeringLayout.steeringCenterX + clamped * steeringLayout.steeringRadius)
+    and near(needle.b.y, steeringLayout.steeringCenterY - (clamped == 0 and steeringLayout.steeringRadius or 0)),
+    'steering dial must clamp to a centered semicircle')
+end
+draw('steering_dial', { showSteering = false })
+assert(not steeringNeedle(), 'steering toggle must hide the needle')
+assert(indicatorColor(steeringLayout, 'left'), 'hiding steering must preserve turn indicators')
+state.steeringInput = 0
+
+local function rpmBlocks(layout)
+  local count = 0
+  for _, call in ipairs(calls) do
+    if call.kind == 'rect_fill' and near(call.a.y, layout.rpmTop)
+        and near(call.b.y, layout.rpmTop + layout.rpmHeight)
+        and call.a.x >= layout.rpmLeft and call.b.x <= layout.rpmRight + 0.001 then count = count + 1 end
+  end
+  return count
+end
+for _, id in ipairs(ids) do
+  local layout = Layouts.get(id)
+  draw(id)
+  assert(rpmBlocks(layout) == (id == 'modern' and 0 or layout.rpmSegments), 'RPM bar visibility must match layout')
+  draw(id, { gt7LowerPanelMode = 'invisible' })
+  for _, call in ipairs(calls) do
+    if call.kind == 'polygon' or call.kind == 'rect_fill' then
+      local _, top = bounds(call)
+      assert(not near(top, layout.historyTop), 'Hidden must remove the entire lower panel')
+    end
+  end
+end
+local classicCalls = #draw('classic')
+assert(#draw('invalid') == classicCalls and Layouts.width == 1440 and Layouts.gearPodCenterX == 875,
+  'new compositions must not mutate Classic or telemetry constants')
+
+local scenarios = 0
+for _, id in ipairs(ids) do
+  for _, lower in ipairs({ 'limit', 'ffb', 'pedal_history', 'invisible' }) do
+    for _, theme in ipairs({ 'dark', 'light' }) do
+      for _, unit in ipairs({ 'km/h', 'mph' }) do
+        for _, needle in ipairs({ 'digital', 'analog' }) do
+          for _, window in ipairs({ {460, 460}, {900, 360}, {1200, 420} }) do
+            state.speedText, state.speedUnit, state.gearText = '1234', unit, unit == 'mph' and 'R' or 'N'
+            draw(id, { gt7LowerPanelMode = lower, theme = theme, speedUnit = unit,
+              gt7SpeedNeedleMode = needle, gt7RpmNeedleMode = needle == 'analog' and 'digital' or 'analog',
+              hudScale = window[1] == 460 and 0.55 or (window[1] == 900 and 1.15 or 0.72) }, state, window)
+            scenarios = scenarios + 1
+          end
+        end
+      end
+    end
+  end
+end
+state.speedText, state.speedUnit, state.gearText = '139', 'km/h', '2'
+state.rpmWarning, state.rpmRedline = true, true
+for _, id in ipairs(ids) do draw(id) end
+state.rpmWarning, state.rpmRedline = false, false
+local history = state.pedalHistory
+state.pedalHistory, state.proximityRadarAvailable = nil, false
+for _, id in ipairs(ids) do draw(id) end
+state.pedalHistory, state.proximityRadarAvailable = history, true
+
+print('GT7 layouts: settings, persistence, pedal geometry, radar/flags, steering and ' .. scenarios .. ' drawing scenarios passed')
+return { draw = draw, state = state }

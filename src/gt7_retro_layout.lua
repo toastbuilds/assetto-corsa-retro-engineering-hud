@@ -3,7 +3,25 @@ local DialLayout = require('src/layout')
 -- Dedicated panoramic design space. The renderer always fits this rectangle
 -- uniformly into the current CSP app window, so no coordinate depends on the
 -- user's resolution and the cluster can safely coexist with the square dials.
-return {
+local Classic = {
+  id = 'classic',
+  centerStyle = 'classic',
+  showRpmBar = true,
+  steeringStyle = 'linear',
+  lowerFrame = false,
+  verticalLampCount = 0,
+  speedCenterX = 620,
+  speedCenterY = 172,
+  speedTextSize = 76,
+  speedReadoutWidth = 200,
+  speedUnitY = 224,
+  gearCenterY = 174,
+  gearLabelY = 232,
+  steeringCenterX = 720,
+  steeringCenterY = 258,
+  steeringHalfWidth = 110,
+  steeringLabelY = 278,
+  debugLeft = 445,
   width = 1440,
   height = 500,
 
@@ -125,3 +143,71 @@ return {
   shiftBlinkPeriod = 0.14,
   redlineBlinkPeriod = 0.12
 }
+
+-- Build once: drawing a different composition never changes the shared
+-- telemetry constants exported by this module.
+local function composition(id, overrides)
+  local result = {}
+  for key, value in pairs(Classic) do result[key] = value end
+  for key, value in pairs(overrides) do result[key] = value end
+  result.id = id
+  return result
+end
+
+local Modern = composition('modern', {
+  centerStyle = 'modern', showRpmBar = false, lowerFrame = true,
+  centerTop = 78, centerBottom = 302, centerBackdropBottomInset = 20,
+  speedCenterY = 168, speedTextSize = 88, speedUnitY = 229,
+  gearPodBottom = 250, gearCenterY = 176, gearLabelY = 234,
+  steeringCenterY = 273, steeringHalfWidth = 140, steeringLabelY = 293,
+  indicatorY = 273,
+  brakeX = 370, throttleX = 1041, pedalUpperExtraWidth = 10,
+  historyLeft = 480, historyRight = 960, historyTop = 320, historyBottom = 478
+})
+
+local OuterPedals = composition('outer_pedals', {
+  width = 1560, centerStyle = 'outer', lowerFrame = true,
+  leftCenterX = 235, rightCenterX = 1325,
+  centerLeft = 480, centerRight = 1080, centerBottom = 300,
+  centerBackdropBottomInset = 24,
+  gearPodCenterX = 935, speedCenterX = 680,
+  steeringCenterX = 780, steeringCenterY = 273, steeringLabelY = 293,
+  indicatorLeftX = 520, indicatorRightX = 1040, indicatorY = 273,
+  verticalLampCount = 3, verticalLampLeftX = 500, verticalLampRightX = 1060,
+  verticalLampBottom = 251, verticalLampSpacing = 14,
+  rpmLeft = 508, rpmRight = 1052,
+  brakeX = 15, throttleX = 1516,
+  ffbCenterX = 780, historyLeft = 570, historyRight = 990,
+  radarArcLeftX = 500, radarArcRightX = 1060, debugLeft = 505
+})
+
+local SteeringDial = composition('steering_dial', {
+  centerStyle = 'steering_dial', steeringStyle = 'dial', lowerFrame = true,
+  centerLeft = 408, centerRight = 1032, centerBottom = 306,
+  centerBackdropBottomInset = 0,
+  speedCenterX = 550, speedCenterY = 194, speedTextSize = 98,
+  speedReadoutWidth = 180, speedUnitY = 258,
+  speedLabelX = 490, speedLabelY = 136,
+  readoutLeft = 448, readoutRight = 862, readoutTop = 124, readoutBottom = 289,
+  readoutDividerX = 666,
+  gearPodCenterX = 943, gearPodTop = 124, gearPodBottom = 282,
+  gearCenterY = 191, gearLabelY = 266,
+  steeringCenterX = 756, steeringCenterY = 248, steeringRadius = 58,
+  steeringLabelY = 171,
+  indicatorLeftX = 680, indicatorRightX = 832, indicatorY = 248,
+  verticalLampCount = 9, verticalLampLeftX = 428, verticalLampRightX = 1012,
+  verticalLampBottom = 269, verticalLampSpacing = 18,
+  historyLeft = 420, historyRight = 1020, historyTop = 322, historyBottom = 478,
+  ffbRadiusX = 200
+})
+
+local compositions = {
+  classic = Classic, modern = Modern,
+  outer_pedals = OuterPedals, steering_dial = SteeringDial
+}
+
+function Classic.get(id)
+  return compositions[id] or Classic
+end
+
+return Classic

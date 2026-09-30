@@ -1,5 +1,6 @@
 param(
   [string]$AssettoCorsaRoot,
+  [ValidateSet('free', 'premium')][string]$Edition = 'premium',
   [switch]$Finalize,
   [switch]$Validated
 )
@@ -64,7 +65,7 @@ if ($Finalize) {
 }
 
 $build = Join-Path $PSScriptRoot 'build-package.ps1'
-$zip = & $build
+$zip = & $build -Edition $Edition
 $backup = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
 $legacyBackup = Join-Path $backup 'legacy-apps'
 New-Item -ItemType Directory -Path $legacyBackup -Force | Out-Null
@@ -113,6 +114,6 @@ Move-Item -LiteralPath $stagedApp -Destination $target
 @{ backupPath = $backup; installedAt = (Get-Date).ToString('o'); gameRoot = $game } |
   ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding UTF8
 
-Write-Output "Installed Retro UI at $target"
+Write-Output "Installed Retro UI ($Edition edition) at $target"
 Write-Output "Backup: $backup"
 Write-Output 'Validate all panels in Assetto Corsa. Then run this script with -Finalize -Validated to retire old apps.'

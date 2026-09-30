@@ -1,5 +1,6 @@
 local Theme = require('src/theme')
-local Layout = require('src/gt7_retro_layout')
+local Layouts = require('src/gt7_retro_layout')
+local Layout = Layouts
 local PedalHistory = require('src/pedal_history')
 local U = require('src/utils')
 
@@ -44,9 +45,19 @@ local function drawEllipseSegment(center, radiusX, radiusY, startAngle, endAngle
 end
 
 local function buildPolygon(origin, scale, coordinates)
+  -- Mirrored accents and arrows must keep clockwise winding for convex fill
+  -- antialiasing. Preserve the first vertex when reversing the remaining ones.
+  local area = 0
+  for i, coordinate in ipairs(coordinates) do
+    local following = coordinates[i % #coordinates + 1]
+    area = area + coordinate[1] * following[2] - following[1] * coordinate[2]
+  end
   ui.pathClear()
-  for _, coordinate in ipairs(coordinates) do
-    ui.pathLineTo(point(origin, scale, coordinate[1], coordinate[2]))
+  ui.pathLineTo(point(origin, scale, coordinates[1][1], coordinates[1][2]))
+  local first, last, step = 2, #coordinates, 1
+  if area < 0 then first, last, step = #coordinates, 2, -1 end
+  for i = first, last, step do
+    ui.pathLineTo(point(origin, scale, coordinates[i][1], coordinates[i][2]))
   end
 end
 
@@ -55,6 +66,15 @@ local function drawPolygon(origin, scale, coordinates, fill, stroke, strokeWidth
   ui.pathFillConvex(fill)
   buildPolygon(origin, scale, coordinates)
   ui.pathStroke(stroke, true, strokeWidth * scale)
+end
+
+local function drawChamferedPanel(origin, scale, left, top, right, bottom, chamfer, fill, stroke, width)
+  drawPolygon(origin, scale, {
+    { left + chamfer, top }, { right - chamfer, top },
+    { right, top + chamfer }, { right, bottom - chamfer },
+    { right - chamfer, bottom }, { left + chamfer, bottom },
+    { left, bottom - chamfer }, { left, top + chamfer }
+  }, fill, stroke, width)
 end
 
 local function alertPulse(state, settings, redline)
@@ -165,7 +185,50 @@ local function drawTriangle(origin, scale, x, y, direction, color)
   }, color, color, 1)
 end
 
-local function drawCenterBackdrop(origin, scale, backdropOpacity)
+local function modernFlagAppearance(state)
+  -- ac.FlagType values from CSP's SDK. These dedicated strips never blink
+  -- or yield to radar. Clear/start/cancelled-stop conditions stay green.
+  local flag = tonumber(state.raceFlagType) or 0
+  if flag == 2 then return C.flagYellow end
+  if flag == 3 then return C.flagYellow, 'slippery' end
+  if flag == 4 or flag == 15 then return C.red end
+  if flag == 5 or flag == 8 then return C.flagBlack end
+  if flag == 6 or flag == 7 or flag == 14 then return C.flagWhite end
+  if flag == 9 then return C.flagBlack, 'mechanical' end
+  if flag == 10 then return C.flagWhite, 'split' end
+  if flag == 12 then return C.shiftBlue end
+  if flag == 13 then return C.flagWhite, 'checkered' end
+  if flag == 16 then return C.flagPurple end
+  return C.green
+end
+
+local function drawModernFlagStrip(origin, scale, x, top, bottom, state)
+  local color, pattern = modernFlagAppearance(state)
+  local left, right = x - 2, x + 2
+  ui.drawRectFilled(point(origin, scale, left, top), point(origin, scale, right, bottom), color)
+  if pattern == 'checkered' or pattern == 'slippery' then
+    local rows = 9
+    local columns = pattern == 'checkered' and 2 or 1
+    local cellWidth, cellHeight = (right - left) / columns, (bottom - top) / rows
+    for row = 0, rows - 1 do
+      for column = 0, columns - 1 do
+        if (row + column) % 2 == 0 then
+          ui.drawRectFilled(point(origin, scale, left + column * cellWidth, top + row * cellHeight),
+            point(origin, scale, left + (column + 1) * cellWidth, top + (row + 1) * cellHeight),
+            pattern == 'checkered' and C.flagBlack or C.red)
+        end
+      end
+    end
+  elseif pattern == 'split' then
+    ui.drawRectFilled(point(origin, scale, left, top), point(origin, scale, right, (top + bottom) / 2), C.flagBlack)
+  elseif pattern == 'mechanical' then
+    ui.drawCircleFilled(point(origin, scale, x, (top + bottom) / 2), 1.5 * scale, C.amber, 12)
+  end
+  ui.drawRect(point(origin, scale, left, top), point(origin, scale, right, bottom),
+    color == C.flagBlack and C.flagWhite or color, 0, nil, 0.6 * scale)
+end
+
+local function drawCenterBackdrop(origin, scale, backdropOpacity, state)
   local chamfer = Layout.centerBackdropChamfer
   local bottomLeft = Layout.centerLeft + Layout.centerBackdropBottomInset
   local bottomRight = Layout.centerRight - Layout.centerBackdropBottomInset
@@ -179,7 +242,27 @@ local function drawCenterBackdrop(origin, scale, backdropOpacity)
     { Layout.centerLeft, Layout.centerBottom - chamfer },
     { Layout.centerLeft, Layout.centerTop + chamfer }
   }, withAlpha(C.panel, math.min(0.92, math.max(0.58, backdropOpacity + 0.12))),
-    C.outlineDim, 1.2)
+    Layout.centerStyle == 'classic' and C.outlineDim or C.outlineSoft, 1.2)
+
+  if Layout.centerStyle == 'modern' then
+    local top = Layout.centerTop + 24
+    drawLine(point(origin, scale, Layout.centerLeft + 40, top),
+      point(origin, scale, Layout.centerRight - 40, top), C.outlineDim, 1 * scale)
+    for _, side in ipairs({ -1, 1 }) do
+      local x = side == -1 and Layout.centerLeft or Layout.centerRight
+      drawModernFlagStrip(origin, scale, x - side * 14, top + 16, top + 43, state)
+    end
+  elseif Layout.centerStyle == 'steering_dial' then
+    drawChamferedPanel(origin, scale, Layout.readoutLeft, Layout.readoutTop,
+      Layout.readoutRight, Layout.readoutBottom, 14,
+      withAlpha(C.panelRaised, backdropOpacity * 0.28), C.outlineDim, 1)
+    drawLine(point(origin, scale, Layout.readoutDividerX, Layout.readoutTop + 16),
+      point(origin, scale, Layout.readoutDividerX, Layout.readoutBottom - 12), C.outlineDim, 1 * scale)
+  elseif Layout.centerStyle == 'outer' then
+    local divider = Layout.gearPodCenterX - Layout.gearPodHalfWidth - 36
+    drawLine(point(origin, scale, divider, Layout.gearPodTop + 12),
+      point(origin, scale, divider, Layout.gearPodBottom - 10), C.outlineDim, 1 * scale)
+  end
 end
 
 local function drawGearPod(origin, scale, state, settings, backdropOpacity)
@@ -214,27 +297,61 @@ local function drawCenterReadout(origin, scale, state, settings, backdropOpacity
     or (state.rpmWarning and C.amber or C.primary)
 
   local gearPodHalfWidth = drawGearPod(origin, scale, state, settings, backdropOpacity)
-  centeredText(state.speedText, 76 * scale, point(origin, scale, 620, 172), C.primary)
-  centeredText(state.speedUnit, 19 * scale, point(origin, scale, 620, 224), C.secondary)
+  local speedSize = Layout.speedTextSize * scale
+  local speedWidth = ui.measureDWriteText(state.speedText, speedSize).x
+  if speedWidth > Layout.speedReadoutWidth * scale then
+    speedSize = speedSize * Layout.speedReadoutWidth * scale / speedWidth
+  end
+  centeredText(state.speedText, speedSize,
+    point(origin, scale, Layout.speedCenterX, Layout.speedCenterY), C.primary)
+  centeredText(state.speedUnit, 19 * scale,
+    point(origin, scale, Layout.speedCenterX, Layout.speedUnitY), C.secondary)
+  if Layout.speedLabelX then
+    centeredText('SPEED', 12 * scale,
+      point(origin, scale, Layout.speedLabelX, Layout.speedLabelY), C.secondary)
+  end
   local gearSize = 100 * scale
   local measuredGearWidth = ui.measureDWriteText(state.gearText, gearSize).x
   local availableGearWidth = (gearPodHalfWidth * 2 - 20) * scale
   if measuredGearWidth > availableGearWidth then
     gearSize = gearSize * availableGearWidth / measuredGearWidth
   end
-  centeredText(state.gearText, gearSize, point(origin, scale, Layout.gearPodCenterX, 174), valueColor)
-  centeredText('GEAR', 14 * scale, point(origin, scale, Layout.gearPodCenterX, 232),
+  centeredText(state.gearText, gearSize,
+    point(origin, scale, Layout.gearPodCenterX, Layout.gearCenterY), valueColor)
+  centeredText('GEAR', 14 * scale, point(origin, scale, Layout.gearPodCenterX, Layout.gearLabelY),
     state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.secondary))
 
   if settings.showSteering ~= false then
     local steering = U.clamp(state.steeringInput or 0, -1, 1)
-    local trackLeft = point(origin, scale, 610, 258)
-    local trackRight = point(origin, scale, 830, 258)
-    drawLine(trackLeft, trackRight, C.outlineDim, 3 * scale)
-    drawLine(point(origin, scale, 720, 249), point(origin, scale, 720, 267), C.primary, 2 * scale)
-    local markerX = 720 + steering * 104
-    ui.drawCircleFilled(point(origin, scale, markerX, 258), 5 * scale, C.cyan, 16)
-    centeredText('STEER', 11 * scale, point(origin, scale, 720, 278), C.secondary)
+    local x, y = Layout.steeringCenterX, Layout.steeringCenterY
+    if Layout.steeringStyle == 'dial' then
+      local center = point(origin, scale, x, y)
+      drawArc(center, Layout.steeringRadius * scale, math.pi, math.pi * 2, C.inactive, 10 * scale, 36)
+      drawLine(point(origin, scale, x - 28, y), point(origin, scale, x + 28, y), C.metalDim, 2 * scale)
+      drawLine(point(origin, scale, x, y - 16), point(origin, scale, x, y + 26), C.outlineSoft, 2 * scale)
+      local tip = U.polar(center, Layout.steeringRadius * scale, -math.pi / 2 + steering * math.pi / 2)
+      drawLine(center, tip, C.cyan, 4 * scale)
+      ui.drawCircleFilled(center, 6 * scale, C.cyan, 20)
+      ui.drawCircleFilled(center, 3 * scale, C.primary, 16)
+    else
+      local half = Layout.steeringHalfWidth
+      drawLine(point(origin, scale, x - half, y), point(origin, scale, x + half, y), C.outlineDim, 3 * scale)
+      drawLine(point(origin, scale, x, y - 9), point(origin, scale, x, y + 9), C.primary, 2 * scale)
+      local markerX = x + steering * (half - 6)
+      if Layout.centerStyle == 'modern' then
+        for i = -5, 5 do
+          local tickX = x + i * half / 5
+          drawLine(point(origin, scale, tickX, y - 3), point(origin, scale, tickX, y + 3),
+            C.outlineSoft, 1 * scale)
+        end
+        ui.drawRectFilled(point(origin, scale, markerX - 3, y - 10),
+          point(origin, scale, markerX + 3, y + 10), C.cyan)
+      else
+        ui.drawCircleFilled(point(origin, scale, markerX, y), 5 * scale, C.cyan, 16)
+      end
+    end
+    centeredText('STEER', 11 * scale,
+      point(origin, scale, x, Layout.steeringLabelY), C.secondary)
   end
 end
 
@@ -516,16 +633,25 @@ local function drawPedalTrace(origin, scale, history, key, color, width, top, bo
   ui.pathStroke(color, false, width * scale)
 end
 
+local function drawLowerFrame(origin, scale, backdropOpacity)
+  local fill = withAlpha(C.panel, math.min(0.90, math.max(0.52, backdropOpacity + 0.08)))
+  if Layout.centerStyle == 'outer' or Layout.centerStyle == 'classic' then
+    local topLeft = point(origin, scale, Layout.historyLeft, Layout.historyTop)
+    local bottomRight = point(origin, scale, Layout.historyRight, Layout.historyBottom)
+    ui.drawRectFilled(topLeft, bottomRight, fill, 8 * scale)
+    ui.drawRect(topLeft, bottomRight, C.outlineSoft, 8 * scale, nil, 1.1 * scale)
+  else
+    drawChamferedPanel(origin, scale, Layout.historyLeft, Layout.historyTop,
+      Layout.historyRight, Layout.historyBottom, 16, fill, C.outlineSoft, 1.1)
+  end
+end
+
 local function drawPedalHistory(origin, scale, state, backdropOpacity)
   local left = Layout.historyLeft
   local right = Layout.historyRight
   local top = Layout.historyTop
   local bottom = Layout.historyBottom
-  local fill = withAlpha(C.panel, math.min(0.90, math.max(0.52, backdropOpacity + 0.08)))
-  local topLeft = point(origin, scale, left, top)
-  local bottomRight = point(origin, scale, right, bottom)
-  ui.drawRectFilled(topLeft, bottomRight, fill, 8 * scale)
-  ui.drawRect(topLeft, bottomRight, C.outlineSoft, 8 * scale, nil, 1.1 * scale)
+  if not Layout.lowerFrame then drawLowerFrame(origin, scale, backdropOpacity) end
 
   centeredText('PEDALS', 11 * scale, point(origin, scale, left + 45, top + 13), C.secondary)
   drawLine(point(origin, scale, right - 102, top + 13),
@@ -560,7 +686,7 @@ local function drawPedalHistory(origin, scale, state, backdropOpacity)
   end
 end
 
-local function drawPedalBar(origin, scale, x, value, activeColor)
+local function drawPedalBar(origin, scale, x, value, activeColor, side, assistColor)
   local segmentCount = Layout.pedalSegments
   local gap = Layout.pedalGap * scale
   local segmentHeight = (Layout.pedalHeight * scale - gap * (segmentCount - 1)) / segmentCount
@@ -568,20 +694,51 @@ local function drawPedalBar(origin, scale, x, value, activeColor)
 
   for i = 1, segmentCount do
     local y = Layout.pedalTop * scale + (segmentCount - i) * (segmentHeight + gap)
-    local topLeft = origin + vec2(x * scale, y)
-    ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight),
-      i <= filled and activeColor or C.inactive)
+    local color = i <= filled and activeColor or C.inactive
+    if Layout.pedalUpperExtraWidth then
+      local extra = i > segmentCount - 2 and Layout.pedalUpperExtraWidth or 0
+      -- The two wider blocks become a filled intervention indicator even
+      -- when the current pedal input has not reached those segments.
+      local intervention = extra > 0 and assistColor ~= nil
+      if intervention then color = assistColor end
+      local left = x - (side == 'left' and extra or 0)
+      drawChamferedPanel(origin, scale, left, y / scale,
+        left + Layout.pedalWidth + extra, (y + segmentHeight) / scale, 2,
+        color, (intervention or i <= filled) and withAlpha(color, 0.6) or C.outlineDim, 0.6)
+    else
+      local topLeft = origin + vec2(x * scale, y)
+      ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight), color)
+    end
   end
 end
 
-local function drawFlagLamps(origin, scale, x, state, settings)
-  local color = flagColor(state)
+local function drawFlagLamps(origin, scale, x, state, settings, suppressed)
+  local color = not suppressed and flagColor(state) or nil
   local lit = color ~= nil and flagBlinkOn(state, settings)
   local lampColor = lit and color or C.inactive
   for offset = -1, 1, 2 do
     local center = point(origin, scale, x, Layout.indicatorY + offset * Layout.flagLampSpacing / 2)
     if lit then ui.drawCircleFilled(center, 8 * scale, withAlpha(color, 0.16), 18) end
     ui.drawCircleFilled(center, Layout.flagLampRadius * scale, lampColor, 18)
+  end
+end
+
+local function drawModernRadarBars(origin, scale, side, level, visible)
+  local direction = side == 'left' and -1 or 1
+  local x = side == 'left' and Layout.centerLeft or Layout.centerRight
+  local accent = level >= 3 and C.red or C.amber
+  for i = 1, 3 do
+    local y = Layout.centerTop + 102 + (3 - i) * 15
+    local coordinates = {
+      { x - direction * 16, y }, { x - direction * 32, y + 16 },
+      { x - direction * 32, y + 27 }, { x - direction * 16, y + 11 }
+    }
+    local active = visible and level >= i
+    if active then
+      drawPolygon(origin, scale, coordinates, withAlpha(accent, 0.08), withAlpha(accent, 0.18), 4)
+    end
+    local color = active and accent or C.outlineDim
+    drawPolygon(origin, scale, coordinates, color, color, 0.7)
   end
 end
 
@@ -648,7 +805,35 @@ local function drawSideIndicators(origin, scale, state, settings)
   local radarEnabled = settings.gt7ProximityRadar ~= false and state.proximityRadarAvailable
   local blinkOn = math.floor((state.clock or 0) / Layout.radarBlinkPeriod) % 2 == 0
   local function drawSide(side, level)
-    if radarEnabled and settings.gt7RadarStyle == 'lights' then
+    if Layout.verticalLampCount > 0 then
+      local left = side == 'left'
+      local indicator = left and state.leftIndicator or (not left and state.rightIndicator)
+      local active = (state.hazardLights or indicator) and indicatorLit(state, settings)
+      drawTriangle(origin, scale, left and Layout.indicatorLeftX or Layout.indicatorRightX,
+        Layout.indicatorY, side, active and C.amber or C.outlineDim)
+      local traffic = radarEnabled and level > 0
+      local flag = flagColor(state)
+      local color = traffic and (level >= 3 and C.red or C.amber) or flag
+      local visible = traffic and (level < 3 or blinkOn)
+        or (not traffic and flag ~= nil and flagBlinkOn(state, settings))
+      local filled = traffic and level * Layout.verticalLampCount / 3 or Layout.verticalLampCount
+      local x = left and Layout.verticalLampLeftX or Layout.verticalLampRightX
+      for i = 1, Layout.verticalLampCount do
+        drawRadarLamp(origin, scale, x,
+          Layout.verticalLampBottom - (i - 1) * Layout.verticalLampSpacing,
+          visible and i <= filled, color)
+      end
+    elseif Layout.id == 'modern' then
+      local left = side == 'left'
+      local x = left and Layout.indicatorLeftX or Layout.indicatorRightX
+      local indicator = left and state.leftIndicator or (not left and state.rightIndicator)
+      local active = (state.hazardLights or indicator) and indicatorLit(state, settings)
+      drawTriangle(origin, scale, x, Layout.indicatorY, side, active and C.amber or C.outlineDim)
+      local traffic = radarEnabled and level > 0
+      drawModernRadarBars(origin, scale, side, traffic and level or 0, level < 3 or blinkOn)
+      drawFlagLamps(origin, scale, left and x + Layout.flagLampSideOffset
+        or x - Layout.flagLampSideOffset, state, settings, traffic)
+    elseif radarEnabled and settings.gt7RadarStyle == 'lights' then
       drawRadarLights(origin, scale, side, level, level < 3 or blinkOn)
     elseif radarEnabled and level > 0 then
       drawRadarArcs(origin, scale, side, level, level < 3 or blinkOn)
@@ -660,9 +845,11 @@ local function drawSideIndicators(origin, scale, state, settings)
   drawSide('right', state.radarRightLevel or 0)
 end
 
-local function drawPedalsAndFlagLights(origin, scale, state)
-  drawPedalBar(origin, scale, Layout.brakeX, state.brake, C.red)
-  drawPedalBar(origin, scale, Layout.throttleX, state.throttle, C.cyan)
+local function drawPedals(origin, scale, state)
+  drawPedalBar(origin, scale, Layout.brakeX, state.brake, C.red, 'left',
+    state.absActive == true and C.flagWhite or nil)
+  drawPedalBar(origin, scale, Layout.throttleX, state.throttle, C.cyan, 'right',
+    state.tcActive == true and C.red or nil)
 end
 
 local function drawBrakeIcon(center, scale, color)
@@ -752,7 +939,7 @@ local function drawDebug(origin, scale, state, width, height)
     rows[#rows + 1] = string.format('W%d S%s R%s A%s L%s', index, raw(wheel.tyreSlip),
       raw(wheel.slipRatio), raw(wheel.slipAngle), raw(wheel.load))
   end
-  local topLeft = point(origin, scale, 445, 305)
+  local topLeft = point(origin, scale, Layout.debugLeft, 305)
   ui.drawRectFilled(topLeft, topLeft + vec2(190 * scale, (#rows * 13 + 10) * scale),
     withAlpha(C.debug, 0.92))
   for i, row in ipairs(rows) do
@@ -761,6 +948,7 @@ local function drawDebug(origin, scale, state, width, height)
 end
 
 function M.draw(state, settings)
+  Layout = Layouts.get(settings.gt7Layout)
   C = Theme.get(settings.theme)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
@@ -778,13 +966,16 @@ function M.draw(state, settings)
   ui.pushStyleVarAlpha(settings.opacity or 1)
   ui.pushDWriteFont(Theme.fonts.utility)
 
-  drawCenterBackdrop(origin, scale, backdropOpacity)
-  drawRpmBar(origin, scale, state, settings)
+  drawCenterBackdrop(origin, scale, backdropOpacity, state)
+  if Layout.showRpmBar then drawRpmBar(origin, scale, state, settings) end
   drawCenterReadout(origin, scale, state, settings, backdropOpacity)
   drawSpeedDial(origin, scale, state, settings, backdropOpacity)
   drawRpmDial(origin, scale, state, settings, backdropOpacity)
-  drawPedalsAndFlagLights(origin, scale, state)
+  drawPedals(origin, scale, state)
   drawSideIndicators(origin, scale, state, settings)
+  if Layout.lowerFrame and settings.gt7LowerPanelMode ~= 'invisible' then
+    drawLowerFrame(origin, scale, backdropOpacity)
+  end
   if settings.gt7LowerPanelMode == 'pedal_history' then
     drawPedalHistory(origin, scale, state, backdropOpacity)
   elseif settings.gt7LowerPanelMode == 'ffb' then

@@ -19,21 +19,24 @@ local radarCars = {}
 local sim = { raceFlagType = nil }
 local carId = 'test_car'
 local windowWidth, windowHeight = 460, 460
-local pressInstrumentMode = false
-local pressSpeedNeedleMode = false
-local pressRpmNeedleMode = false
-local pressUseIndicatorsAsRadar = false
-local pressLowerPanelMode = false
+local pendingCombos = {}
+local storageByPrefix = {}
+local coreErrors = {}
 local lastWindowConstraint
 local lastRequestedWindowSize
 
 ac = {
   FolderID = { ContentCars = 1 },
-  storage = function(defaults)
-    for key, value in pairs(defaults) do
-      if saved[key] == nil then saved[key] = value end
+  storage = function(defaults, prefix)
+    local target = saved
+    if prefix then
+      storageByPrefix[prefix] = storageByPrefix[prefix] or {}
+      target = storageByPrefix[prefix]
     end
-    return saved
+    for key, value in pairs(defaults) do
+      if target[key] == nil then target[key] = value end
+    end
+    return target
   end,
   getCar = function() return car end,
   iterateCars = setmetatable({}, {
@@ -44,6 +47,7 @@ ac = {
   getSim = function() return sim end,
   getControllerSteerValue = function() return 0 end,
   broadcastSharedEvent = function() end,
+  error = function(message) coreErrors[#coreErrors + 1] = message end,
   setWindowSizeConstraints = function(id, minimum, maximum)
     lastWindowConstraint = { id = id, minimum = minimum, maximum = maximum }
   end
@@ -80,38 +84,31 @@ ui = {
   separator = noop,
   text = noop,
   textWrapped = noop,
-  checkbox = function(label)
-    if pressUseIndicatorsAsRadar and label == 'Use indicators as radar' then
-      pressUseIndicatorsAsRadar = false
-      return true
-    end
-    return false
+  sameLine = noop,
+  availableSpaceX = function() return 640 end,
+  time = function() return 0 end,
+  ComboFlags = { None = 0 },
+  combo = function(label, index)
+    local selected = pendingCombos[label]
+    pendingCombos[label] = nil
+    return selected or index, selected ~= nil
   end,
+  checkbox = function() return false end,
   slider = function(_, value) return value, false end,
-  button = function(label)
-    if pressInstrumentMode and label:find('Instrument mode:', 1, true) == 1 then
-      pressInstrumentMode = false
-      return true
-    end
-    if pressSpeedNeedleMode and label:find('Speed dial needle:', 1, true) == 1 then
-      pressSpeedNeedleMode = false
-      return true
-    end
-    if pressRpmNeedleMode and label:find('RPM dial needle:', 1, true) == 1 then
-      pressRpmNeedleMode = false
-      return true
-    end
-    if pressLowerPanelMode and label:find('Lower panel:', 1, true) == 1 then
-      pressLowerPanelMode = false
-      return true
-    end
-    return false
-  end
+  button = function() return false end
 }
 
+-- This smoke test exercises the app's core windows; external panels have
+-- separate runtimes and need not emulate their full CSP surface here.
+for _, name in ipairs({ 'relative', 'delta', 'leaderboard', 'telemetry', 'map' }) do
+  package.preload['modules/' .. name .. '/main'] = function()
+    return { getTemperatureUnit = function() return 'C' end, update = noop }
+  end
+end
 script = {}
 require('app')
 local Settings = require('src/settings')
+local Gt7Settings = require('src/gt7_settings')
 local Telemetry = require('src/telemetry')
 local Gt7Retro = require('ui/gt7_retro')
 local Theme = require('src/theme')
@@ -126,46 +123,45 @@ assert(Settings.values.gt7SpeedNeedleMode == 'digital'
 assert(Gt7Layout.rpmStartFraction == DialLayout.digitalRpmAlertStartFraction,
   'GT7 RPM band must start at the digital lower warning-light threshold')
 
-local expected = { 'gt7_retro', 'digital', 'analog' }
-for _, mode in ipairs(expected) do
-  pressInstrumentMode = true
+local expected = { 'digital', 'analog' }
+for index, mode in ipairs(expected) do
+  pendingCombos['##dial.mode'] = index - 1
   Settings.draw()
   assert(Settings.values.instrumentMode == mode, 'instrument selector cycle failed')
 end
 
-Settings.values.instrumentMode = 'gt7_retro'
-pressSpeedNeedleMode = true
-Settings.draw()
-assert(Settings.values.gt7SpeedNeedleMode == 'analog'
-  and Settings.values.gt7RpmNeedleMode == 'digital',
+pendingCombos['##gt7.speedNeedle'] = 1
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7SpeedNeedleMode == 'analog'
+  and Gt7Settings.values.gt7RpmNeedleMode == 'digital',
   'GT7 speed needle selection must be independent')
-pressRpmNeedleMode = true
-Settings.draw()
-assert(Settings.values.gt7SpeedNeedleMode == 'analog'
-  and Settings.values.gt7RpmNeedleMode == 'analog',
+pendingCombos['##gt7.rpmNeedle'] = 1
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7SpeedNeedleMode == 'analog'
+  and Gt7Settings.values.gt7RpmNeedleMode == 'analog',
   'GT7 RPM needle selection must be independent')
-assert(Settings.values.gt7RadarStyle == 'arcs', 'GT7 radar must default to arcs')
-pressUseIndicatorsAsRadar = true
-Settings.draw()
-assert(Settings.values.gt7RadarStyle == 'lights', 'indicator radar option must enable arrow and dots')
-pressUseIndicatorsAsRadar = true
-Settings.draw()
-assert(Settings.values.gt7RadarStyle == 'arcs', 'indicator radar option must restore arcs')
-pressLowerPanelMode = true
-Settings.draw()
-assert(Settings.values.gt7LowerPanelMode == 'ffb',
+assert(Gt7Settings.values.gt7RadarStyle == 'arcs', 'GT7 radar must default to arcs')
+pendingCombos['##gt7.radarStyle'] = 1
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7RadarStyle == 'lights', 'indicator radar option must enable arrow and dots')
+pendingCombos['##gt7.radarStyle'] = 0
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7RadarStyle == 'arcs', 'indicator radar option must restore arcs')
+pendingCombos['##gt7.lower'] = 1
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7LowerPanelMode == 'ffb',
   'GT7 lower panel selector must retain the FFB gauge')
-pressLowerPanelMode = true
-Settings.draw()
-assert(Settings.values.gt7LowerPanelMode == 'pedal_history',
+pendingCombos['##gt7.lower'] = 2
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7LowerPanelMode == 'pedal_history',
   'GT7 lower panel selector must expose pedal history')
-pressLowerPanelMode = true
-Settings.draw()
-assert(Settings.values.gt7LowerPanelMode == 'invisible',
+pendingCombos['##gt7.lower'] = 3
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7LowerPanelMode == 'invisible',
   'GT7 lower panel selector must expose the invisible radar space')
-pressLowerPanelMode = true
-Settings.draw()
-assert(Settings.values.gt7LowerPanelMode == 'limit',
+pendingCombos['##gt7.lower'] = 0
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7LowerPanelMode == 'limit',
   'GT7 lower panel selector must restore the LIMIT gauge after invisible')
 
 local function makeCar(overrides)
@@ -574,30 +570,26 @@ local scenarios = {
 }
 
 for _, scenario in ipairs(scenarios) do
+  local values = scenario.mode == 'gt7_retro' and Gt7Settings.values or Settings.values
   Settings.values.instrumentMode = scenario.mode
   Settings.values.speedUnit = scenario.unit
-  Settings.values.hudScale = scenario.scale or 0.72
+  values.hudScale = scenario.scale or 0.72
   Settings.values.theme = scenario.width > 1000 and 'light' or 'dark'
-  Settings.values.gt7SpeedNeedleMode = scenario.speedNeedle or Settings.values.gt7SpeedNeedleMode
-  Settings.values.gt7RpmNeedleMode = scenario.rpmNeedle or Settings.values.gt7RpmNeedleMode
-  Settings.values.gt7LowerPanelMode = scenario.lowerPanel or Settings.values.gt7LowerPanelMode
+  values.gt7SpeedNeedleMode = scenario.speedNeedle or values.gt7SpeedNeedleMode
+  values.gt7RpmNeedleMode = scenario.rpmNeedle or values.gt7RpmNeedleMode
+  values.gt7LowerPanelMode = scenario.lowerPanel or values.gt7LowerPanelMode
   sim.raceFlagType = scenario.flag
   windowWidth, windowHeight, car = scenario.width, scenario.height, scenario.car
   script.update(1 / 60)
-  script.windowMain()
+  if scenario.mode == 'gt7_retro' then script.gt7Main() else script.windowMain() end
 end
 
-assert(lastWindowConstraint and lastWindowConstraint.id == 'main'
-  and lastWindowConstraint.minimum.x == 575 and lastWindowConstraint.minimum.y == 240,
-  'GT7 Retro must expose panoramic mouse-resize constraints')
 assert(lastRequestedWindowSize and lastRequestedWindowSize.x >= 575
   and lastRequestedWindowSize.y <= 360,
   'GT7 Retro must widen an existing square window once when entering panoramic mode')
 
 Settings.values.instrumentMode = 'digital'
 script.windowMain()
-assert(lastWindowConstraint.minimum.x == 340 and lastWindowConstraint.minimum.y == 340,
-  'square modes must restore their original mouse-resize constraints')
 
 car = nil
 script.update(1 / 60)
@@ -606,5 +598,6 @@ windowWidth, windowHeight = 240, 260
 script.conditionMain()
 assert(type(script.conditionMain) == 'function',
   'independent car-condition window must be registered separately from the main HUD')
+assert(#coreErrors == 0, table.concat(coreErrors, '\n'))
 
 print('Runtime smoke scenarios passed')

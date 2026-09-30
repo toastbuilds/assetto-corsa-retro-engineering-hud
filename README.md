@@ -47,6 +47,30 @@ preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 
 ## Ajustes
 
+**GT7 > Gauges and layout > Layout** permite elegir entre **Classic**, **Modern**,
+**Outer Pedals** y **Steering Dial**. Classic conserva la composición original.
+Modern usa un centro angular sin barra horizontal de RPM y ensancha hacia fuera
+los dos bloques superiores de cada pedal. Sus tres franjas laterales por lado
+actúan como radar, sin arcos adicionales. Durante la intervención del ABS, los
+dos bloques superiores ensanchados del freno se rellenan en blanco; con TC,
+los dos del acelerador se rellenan en rojo, independientemente de la posición
+del pedal. Al terminar la intervención vuelven a mostrar la entrada normal.
+Las dos luces superiores del centro muestran la bandera de forma continua,
+siempre encendidas: verde sin bandera, amarillo, rojo, azul, blanco o negro
+según el estado de CSP, y cuadros blancos y negros al terminar. No parpadean
+ni se ocultan cuando actúa el radar; también representan los estados especiales
+de pista deslizante, avería mecánica y Code 60.
+Outer Pedals coloca las barras fuera
+de los diales y usa tres luces verticales por lado. Steering Dial incorpora un
+dial de dirección de ±90°, un panel inferior ancho y nueve luces por lado.
+Todos conservan la elección entre Grip limit, FFB, Pedal history y Hidden.
+Los dos últimos layouts fijan el radar en luces verticales: sus tres niveles
+encienden 1/2/3 o 3/6/9 luces desde abajo. El radar tiene prioridad sobre la
+bandera solo en el lado con tráfico; los intermitentes son independientes en
+los nuevos layouts y los bordes de los diales siguen mostrando la bandera.
+Sin radar, las columnas muestran banderas. El layout se guarda por separado y
+Reset all restaura Classic.
+
 **Map** abre una ventana transparente y redimensionable. En **Retro UI
 Settings > Map** se elige entre el circuito completo y el mini mapa centrado
 en el coche. **Orientation** permite girarlo con el coche o mantener fija la
@@ -84,9 +108,20 @@ Cada uno usa rutas `require()` y claves de almacenamiento separadas. El
 manifiesto CSP expone nueve ventanas en un único proceso. El paquete distribuye
 los archivos Lua, los mapas de clases, los recursos y las licencias.
 
-Para crear un ZIP local desde el código fuente, ejecuta
-`tools/build-package.ps1`. Las etiquetas `vX.Y.Z` publican el mismo paquete
-automáticamente mediante GitHub Actions.
+Para crear los paquetes locales, ejecuta `tools/build-package.ps1` con
+`-Edition free` o `-Edition premium`. El paquete Free conserva el layout GT7
+Classic; Premium incluye Classic, Modern, Outer Pedals y Steering Dial. El
+instalador usa Premium por defecto; para instalar Free, añade `-Edition free`.
+Las etiquetas `vX.Y.Z` generan y adjuntan ambos ZIP mediante GitHub Actions.
+La distribución en ZIP separados no cambia la licencia MIT del código que ya
+la incluye ni impide por sí sola redistribuirlo.
+
+`npm run check:lua` comprueba sintaxis, módulos y callbacks CSP. Con Lua 5.2
+o LuaJIT, ejecuta `lua tests/runtime_smoke.lua` y `lua tests/gt7_layouts.lua`
+para comprobar las ventanas principales y los layouts GT7 con una interfaz CSP
+simulada. Las pruebas de GT7 incluyen persistencia, geometría de pedales,
+prioridad de alertas, dirección y 384 combinaciones de dibujo. La revisión visual
+final se realiza dentro de Assetto Corsa con CSP.
 
 ## Licencia
 
