@@ -97,6 +97,17 @@ encuadre reserva espacio para los marcadores grandes cerca del borde.
 posición sin modificar los puntos normales. **Track width** controla el grosor
 del trazado hasta 4× y **Car dots** el tamaño de los coches sin número.
 
+**Relative** muestra los récords de sesión y pista sobre la tabla. El de sesión
+es tu vuelta válida más rápida de la sesión; el de pista conserva tu mejor
+vuelta registrada localmente entre sesiones, por coche, circuito y variante.
+Los tiempos de rivales e IA no cuentan para ninguno de los dos récords.
+El historial anterior de parrilla se conserva pero no se importa al personal.
+Sin referencia se muestra `-:--.---`. Los sectores ocupan una franja compacta
+sin tiempos: morado para el mejor sector de la clase, verde para una mejora
+personal, ámbar para un sector más lento y rojo con X para uno inválido. El
+borde y el punto indican el sector activo. Los récords, los sectores y las
+condiciones se pueden mostrar por separado desde los ajustes de Relative.
+
 **General** controla el tema y las unidades de velocidad y temperatura de toda
 la app. La lista lateral abre los ajustes de cada instrumento, ordenados en
 secciones; **Advanced** contiene opciones menos frecuentes. Escala y opacidad
@@ -128,6 +139,11 @@ simulada. Las pruebas de GT7 incluyen migración y persistencia de la composici�
 independencia de secciones, geometría de pedales, prioridad de radar/banderas,
 dirección y 384 combinaciones de dibujo. La revisión visual final se realiza
 dentro de Assetto Corsa con CSP.
+
+`lua tests/relative.lua` comprueba los récords personales de Relative, su
+persistencia por coche y variante, la exclusión de rivales, la validez de las
+vueltas y 96 combinaciones de dibujo con ambos temas,
+tres tamaños de ventana y las secciones opcionales.
 
 ## Licencia
 

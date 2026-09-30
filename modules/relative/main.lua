@@ -6,6 +6,7 @@ local Theme = require('modules/relative/src/theme')
 local Display = require('modules/relative/src/display')
 local Weather = require('modules/relative/src/weather')
 local Sectors = require('modules/relative/src/sectors')
+local Records = require('modules/relative/src/records')
 local GlobalSettings = require('src/settings')
 local SettingsUI = require('src/settings_ui')
 local FlagCause = require('src/flag_cause')
@@ -14,9 +15,10 @@ local settings = ac.storage({
   ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = false,
   showClassText = false, showNumber = true, showDriver = true, showGap = true,
   showPitIndicator = true, showLapDifference = true, showPits = true,
-  showHeader = true, showTitle = true, classMarkerWidth = 4,
+  showHeader = true, classMarkerWidth = 4,
   decimals = 1, maximumGap = 30, smoothing = 0.40, uiScale = 1.0, fontSize = 18,
   showRelative = true, showWeather = true, showTemperatures = true, showSectors = true,
+  showRecords = true,
   temperatureUnit = 'C',
   automaticClasses = true, debug = false, visualStyleVersion = 0,
   backgroundColor = rgb(0.043, 0.035, 0.027), backgroundOpacity = 0.72,
@@ -54,6 +56,7 @@ end
 
 local timing = Timing.new()
 local sectors = Sectors.new()
+local records = Records.new()
 local cars, player, shownAhead, shownBehind = {}, nil, {}, {}
 local weatherSnapshot = {}
 local telemetryError
@@ -73,7 +76,8 @@ end
 local function optionalField(source, key)
   if not source then return nil end
   local ok, value = pcall(function() return source[key] end)
-  return ok and value or nil
+  if ok then return value end
+  return nil
 end
 
 local function textAt(value, size, x, y, color)
@@ -223,90 +227,123 @@ local function drawRoad(x, y, scale, color)
   ui.drawLine(vec2(x, y + 2 * scale), vec2(x, y + 6 * scale), color, scale)
 end
 
-local function drawEnvironment(visual, x2, y, scale)
+local function drawEnvironment(visual, x1, x2, y, scale)
   local palette, opacity = visual.palette, visual.instrumentOpacity
   local hasNext = settings.showWeather and weatherSnapshot.upcoming
     and not weatherSnapshot.stable
-  local conditionWidth = settings.showWeather and (hasNext and 47 or 22) or 0
-  local temperatureWidth = settings.showTemperatures and 112 or 0
-  local rainWidth = settings.showWeather and 45 or 0
-  local x = x2 - (conditionWidth + temperatureWidth + rainWidth + 9) * scale
-  local start = x
-  local cy = y + 17 * scale
-  if settings.showWeather then
-    drawWeatherIcon(weatherSnapshot.currentIcon, x + 9 * scale, cy, scale, palette, opacity)
-    if hasNext then
-      local arrow = Theme.withAlpha(palette.secondary, opacity)
-      ui.drawLine(vec2(x + 19 * scale, cy), vec2(x + 28 * scale, cy), arrow, scale)
-      ui.drawLine(vec2(x + 25 * scale, cy - 3 * scale), vec2(x + 28 * scale, cy), arrow, scale)
-      ui.drawLine(vec2(x + 25 * scale, cy + 3 * scale), vec2(x + 28 * scale, cy), arrow, scale)
-      drawWeatherIcon(weatherSnapshot.upcomingIcon, x + 38 * scale, cy, scale, palette, opacity)
-    end
-    x = x + conditionWidth * scale
-  end
+  local airText = Weather.temperatureText(weatherSnapshot.air, GlobalSettings.values.temperatureUnit)
+  local trackText = Weather.temperatureText(weatherSnapshot.track, GlobalSettings.values.temperatureUnit)
+  local rainText = Weather.rainText(weatherSnapshot.rain)
+  local conditionWidth = settings.showWeather and (hasNext and 60 or 28) or 0
+  local groups = {}
   if settings.showTemperatures then
-    local muted = Theme.withAlpha(palette.secondary, opacity)
-    drawThermometer(x + 6 * scale, cy, scale, muted)
-    textAt(Weather.temperatureText(weatherSnapshot.air, GlobalSettings.values.temperatureUnit),
-      11 * scale, x + 15 * scale, y + 10 * scale, Theme.withAlpha(palette.primary, opacity))
-    x = x + 55 * scale
-    drawRoad(x + 6 * scale, cy, scale, Theme.withAlpha(palette.cyan, opacity))
-    textAt(Weather.temperatureText(weatherSnapshot.track, GlobalSettings.values.temperatureUnit),
-      11 * scale, x + 16 * scale, y + 10 * scale, Theme.withAlpha(palette.primary, opacity))
-    x = x + 57 * scale
+    groups[#groups + 1] = { text = airText, kind = 'air', conditions = settings.showWeather }
+    groups[#groups + 1] = { text = trackText, kind = 'track' }
+  elseif settings.showWeather then
+    groups[#groups + 1] = { conditions = true }
   end
-  if settings.showWeather then
-    drawDrop(x + 6 * scale, cy, scale, Theme.withAlpha(palette.cyan, opacity))
-    textAt(Weather.rainText(weatherSnapshot.rain), 11 * scale, x + 14 * scale, y + 10 * scale,
-      Theme.withAlpha(palette.primary, opacity))
+  if settings.showWeather then groups[#groups + 1] = { text = rainText, kind = 'rain' } end
+  if #groups == 0 then return end
+  local cellWidth = (x2 - x1 - 16 * scale) / #groups
+  local maximumWidth = 1
+  for _, group in ipairs(groups) do
+    group.width = (group.conditions and conditionWidth or 0)
+      + (group.text and 26 + ui.measureDWriteText(group.text, 18).x or 0)
+    maximumWidth = math.max(maximumWidth, group.width)
   end
-  return start
+  local start = x1 + 8 * scale
+  local cy = y + 24 * scale
+  scale = scale * math.min(1, (cellWidth - 8 * scale) / (maximumWidth * scale))
+  local fontSize, iconScale = 18 * scale, 1.25 * scale
+  local textY = cy - fontSize / 2
+  for i, group in ipairs(groups) do
+    local center = start + (i - 0.5) * cellWidth
+    local x = center - group.width * scale / 2
+    if group.conditions then
+      drawWeatherIcon(weatherSnapshot.currentIcon, x + 11 * scale, cy, iconScale, palette, opacity)
+      if hasNext then
+        local arrow = Theme.withAlpha(palette.secondary, opacity)
+        ui.drawLine(vec2(x + 24 * scale, cy), vec2(x + 36 * scale, cy), arrow, scale)
+        ui.drawLine(vec2(x + 32 * scale, cy - 3 * scale), vec2(x + 36 * scale, cy), arrow, scale)
+        ui.drawLine(vec2(x + 32 * scale, cy + 3 * scale), vec2(x + 36 * scale, cy), arrow, scale)
+        drawWeatherIcon(weatherSnapshot.upcomingIcon, x + 48 * scale, cy, iconScale, palette, opacity)
+      end
+      x = x + conditionWidth * scale
+    end
+    if group.text then
+      if group.kind == 'air' then
+        drawThermometer(x + 10 * scale, cy, iconScale, Theme.withAlpha(palette.secondary, opacity))
+      elseif group.kind == 'track' then
+        drawRoad(x + 10 * scale, cy, iconScale, Theme.withAlpha(palette.cyan, opacity))
+      else
+        drawDrop(x + 10 * scale, cy, iconScale, Theme.withAlpha(palette.cyan, opacity))
+      end
+      textAt(group.text, fontSize, x + 26 * scale, textY, Theme.withAlpha(palette.primary, opacity))
+    end
+  end
 end
 
 local function drawTimingConditions(visual, x1, x2, y, height, scale)
   local palette, opacity = visual.palette, visual.instrumentOpacity
   panel(x1, y, x2, y + height, palette, opacity, scale)
-  local environmentStart = drawEnvironment(visual, x2, y, scale)
-  if not settings.showSectors then return end
+  if settings.showSectors then
+    local snapshot = sectors:snapshot(player and player.classID)
+    local cellWidth = (x2 - x1 - 16 * scale) / 3
+    local roles = { record = 'purple', improved = 'green', slower = 'amber', invalid = 'red' }
+    for number = 1, 3 do
+      local cx = x1 + 8 * scale + (number - 1) * cellWidth
+      local status = snapshot.status[number]
+      local color = palette[roles[status] or 'outlineDim']
+      local active = snapshot.current == number
+      local tl, br = vec2(cx, y + 4 * scale), vec2(cx + cellWidth - 4 * scale, y + 28 * scale)
+      chamferRect(tl, br, Theme.withAlpha(status and color or palette.panelRaised, 0.14 * opacity),
+        Theme.withAlpha(active and palette.primary or palette.outlineDim, opacity), scale, 3)
+      ui.drawRectFilled(vec2(cx + 3 * scale, y + 24 * scale),
+        vec2(br.x - 3 * scale, y + 27 * scale), Theme.withAlpha(color, opacity))
+      local label = 'S' .. number .. (status == 'invalid' and '  X' or '')
+      local labelWidth = ui.measureDWriteText(label, 12 * scale).x
+      local labelX = cx + (cellWidth - 4 * scale - labelWidth) / 2
+      textAt(label, 12 * scale, labelX, y + 7 * scale,
+        Theme.withAlpha(active and palette.primary or status and color or palette.secondary, opacity))
+      if active then
+        ui.drawCircleFilled(vec2(labelX + labelWidth + 7 * scale, y + 14 * scale),
+          2 * scale, Theme.withAlpha(palette.primary, opacity), 8)
+      end
+    end
+  end
+  if settings.showWeather or settings.showTemperatures then
+    local environmentY = y + (settings.showSectors and 32 * scale or 0)
+    if settings.showSectors then
+      ui.drawLine(vec2(x1 + 8 * scale, environmentY), vec2(x2 - 8 * scale, environmentY),
+        Theme.withAlpha(palette.outlineDim, opacity), scale)
+    end
+    drawEnvironment(visual, x1, x2, environmentY, scale)
+  end
+end
 
-  local snapshot = sectors:snapshot(player and player.classID)
-  textAt('SECTORS', 10 * scale, x1 + 12 * scale, y + 10 * scale,
-    Theme.withAlpha(palette.secondary, opacity))
-  local live = snapshot.current and ('S' .. snapshot.current .. '  ' .. Sectors.timeText(snapshot.elapsed))
-    or 'S-  --.---'
-  ui.pushClipRect(vec2(x1 + 72 * scale, y + 6 * scale),
-    vec2(environmentStart - 4 * scale, y + 31 * scale))
-  textAt(live, 13 * scale, x1 + 72 * scale, y + 8 * scale,
-    Theme.withAlpha(palette.amber, opacity))
-  ui.popClipRect()
-
-  ui.drawLine(vec2(x1 + 9 * scale, y + 34 * scale), vec2(x2 - 9 * scale, y + 34 * scale),
-    Theme.withAlpha(palette.outlineDim, 0.9 * opacity), scale)
-  local cellWidth = (x2 - x1 - 20 * scale) / 3
-  for number = 1, 3 do
-    local cx = x1 + 10 * scale + (number - 1) * cellWidth
-    local last, best = snapshot.last[number], snapshot.best[number]
-    local delta = last and best and (last - best) or nil
-    local active = snapshot.current == number
-    ui.drawRectFilled(vec2(cx + 1 * scale, y + 40 * scale),
-      vec2(cx + cellWidth - 3 * scale, y + height - 8 * scale),
-      Theme.withAlpha(active and palette.amberDim or palette.panelRaised,
-        (active and 0.5 or 0.45) * opacity))
-    textAt('S' .. number, 11 * scale, cx + 6 * scale, y + 42 * scale,
-      Theme.withAlpha(active and palette.amber or palette.secondary, opacity))
-    textAt(Sectors.timeText(last), 14 * scale, cx + 28 * scale, y + 40 * scale,
-      Theme.withAlpha(palette.primary, opacity))
-    textAt('CB ' .. Sectors.timeText(best), 10 * scale, cx + 6 * scale, y + 61 * scale,
-      Theme.withAlpha(palette.cyan, opacity))
-    local deltaText = Sectors.deltaText(last, best)
-    local deltaWidth = ui.measureDWriteText(deltaText, 10 * scale).x
-    textAt(deltaText, 10 * scale, cx + cellWidth - 8 * scale - deltaWidth, y + 61 * scale,
-      Theme.withAlpha(delta and (delta <= 0 and palette.green or palette.amber)
-        or palette.secondary, opacity))
-    ui.drawRectFilled(vec2(cx + 1 * scale, y + height - 6 * scale),
-      vec2(cx + cellWidth - 3 * scale, y + height - 4 * scale),
-      Theme.withAlpha(delta and (delta <= 0 and palette.green or palette.amber)
-        or palette.outlineDim, 0.9 * opacity))
+local function drawRecords(visual, x1, x2, y, scale)
+  local palette, opacity = visual.palette, visual.instrumentOpacity
+  local mid = (x1 + x2) / 2
+  panel(x1, y, x2, y + 44 * scale, palette, opacity, scale)
+  ui.drawLine(vec2(mid, y + 5 * scale), vec2(mid, y + 39 * scale),
+    Theme.withAlpha(palette.outlineDim, opacity), scale)
+  for i, item in ipairs({
+    { label = 'SESSION RECORD', value = records.sessionBest, color = palette.green },
+    { label = 'TRACK RECORD', value = records.trackBest, color = palette.purple }
+  }) do
+    local left, right = i == 1 and x1 or mid, i == 1 and mid or x2
+    ui.pushClipRect(vec2(left + 4 * scale, y + 3 * scale), vec2(right - 4 * scale, y + 41 * scale))
+    textAt(item.label, 10 * scale, left + 12 * scale, y + 4 * scale,
+      Theme.withAlpha(palette.secondary, opacity))
+    ui.drawRectFilled(vec2(left + 12 * scale, y + 21 * scale),
+      vec2(left + 15 * scale, y + 36 * scale), Theme.withAlpha(item.color, opacity))
+    local value = Records.timeText(item.value)
+    local size = 20 * scale
+    local textWidth = ui.measureDWriteText(value, size).x
+    size = size * math.min(1, (right - left - 32 * scale) / math.max(1, textWidth))
+    textAt(value, size, left + 23 * scale, y + 17 * scale,
+      Theme.withAlpha(item.value and palette.primary or palette.secondary, opacity))
+    ui.popClipRect()
   end
 end
 
@@ -317,10 +354,9 @@ local function drawRelative(visual, x1, x2, top, bottom, scale)
   panel(x1, top, x2, bottom, palette, opacity, scale)
   local innerX1, innerX2 = x1 + 7 * scale, x2 - 7 * scale
   local y = top + 9 * scale
-  if settings.showTitle then
-    textAt('RELATIVE', 13 * scale, innerX1 + 6 * scale, y,
-      Theme.withAlpha(palette.amber, opacity))
-    y = y + 23 * scale
+  if settings.showRecords then
+    drawRecords(visual, innerX1, innerX2, y, scale)
+    y = y + 48 * scale
   end
 
   if telemetryError then
@@ -372,11 +408,13 @@ local function drawMain()
   local palette = visual.palette
   local opacity = visual.instrumentOpacity
   local width, height = ui.windowWidth(), ui.windowSize().y
-  local relativeMinimum = 9 + (settings.showTitle and 23 or 0)
+  local relativeMinimum = 9
+    + (settings.showRecords and 48 or 0)
     + (settings.showHeader and settings.fontSize + 4 or 0)
     + math.max(22, settings.fontSize * 1.45) + 10
   local showBottom = settings.showSectors or settings.showWeather or settings.showTemperatures
-  local bottomUnits = settings.showSectors and 88 or 36
+  local bottomUnits = (settings.showSectors and 32 or 0)
+    + ((settings.showWeather or settings.showTemperatures) and 48 or 0)
   local minimumUnits = 26
     + (showBottom and bottomUnits + 7 or 0)
     + (settings.showRelative and relativeMinimum or 0)
@@ -458,8 +496,18 @@ local function updateTelemetry(dt)
     if ok then conditions = value end
   end
   weatherSnapshot = Weather.snapshot(sim, conditions, ac.WeatherType)
-  if previousSession ~= nil and sim.currentSessionIndex ~= previousSession then
+  local idOK, trackID = pcall(ac.getTrackFullID, '[]')
+  local nameOK, trackName = pcall(ac.getTrackName)
+  local playerCar = ac.getCar(0)
+  local carOK, playerCarID = pcall(function() return playerCar:id() end)
+  local contextChanged = records:setTrack(idOK and trackID or nil, nameOK and trackName or '',
+    carOK and playerCarID or nil)
+  local playerLap = playerCar and optionalField(playerCar, 'lapCount')
+  local restarted = previousPlayerLap and playerLap and playerLap < previousPlayerLap
+    and not optionalField(sim, 'isReplayActive')
+  if contextChanged or restarted or (previousSession ~= nil and sim.currentSessionIndex ~= previousSession) then
     timing:reset(); sectors:reset(); metadata = {}; relativeMemory = {}; approachMemory = {}; previousPlayerLap = nil
+    records:resetSession()
     ac.log('[MulticlassRelative] Session changed; timing history reset')
   end
   previousSession = sim.currentSessionIndex
@@ -472,17 +520,28 @@ local function updateTelemetry(dt)
       local static = metadataFor(car)
       local inPit = car.isInPitlane or car.isInPit
       local state, teleported = timing:update(car.index, now, lap, spline, inPit)
+      local currentLapValid
+      if optionalField(car, 'physicsAvailable') then currentLapValid = optionalField(car, 'isLapValid') end
       sectors:update(car.index, static.classID, {
         carID = static.id, lapCount = lap,
         currentSector = optionalField(car, 'currentSector'),
         previousSectorTime = optionalField(car, 'previousSectorTime')
           or optionalField(car, 'lastSectorTime'),
         previousLapTimeMs = optionalField(car, 'previousLapTimeMs'),
+        isLastLapValid = optionalField(car, 'isLastLapValid'),
         lapTimeMs = optionalField(car, 'lapTimeMs'),
-        isLapValid = optionalField(car, 'physicsAvailable')
-          and optionalField(car, 'isLapValid') or nil,
+        isLapValid = currentLapValid,
         inPit = inPit, teleported = teleported
       }, now)
+      if car.index == 0 then
+        records:update({
+          index = car.index, carID = static.id,
+          bestLapTimeMs = optionalField(car, 'bestLapTimeMs'),
+          previousLapTimeMs = optionalField(car, 'previousLapTimeMs'),
+          isLastLapValid = optionalField(car, 'isLastLapValid'),
+          teleported = teleported, replay = optionalField(sim, 'isReplayActive')
+        })
+      end
       local row = {
         index = car.index, driver = static.driver, number = static.number, carID = static.id,
         classID = static.classID, classSource = static.classSource, overall = car.racePosition or 0,
@@ -493,9 +552,6 @@ local function updateTelemetry(dt)
       table.insert(cars, row)
       if car.index == 0 then player = row end
     end
-  end
-  if player and previousPlayerLap and player.lap + 1 < previousPlayerLap then
-    timing:reset(); sectors:reset()
   end
   previousPlayerLap = player and player.lap or previousPlayerLap
   timing:prune(now)
@@ -558,8 +614,9 @@ local function resetAll()
   settings.showOverall, settings.showClassPosition, settings.showClassText = true, false, false
   settings.showNumber, settings.showDriver, settings.showGap = true, true, true
   settings.showPitIndicator, settings.showLapDifference, settings.showPits = true, true, true
-  settings.showHeader, settings.showTitle, settings.showRelative = true, true, true
+  settings.showHeader, settings.showRelative = true, true
   settings.showWeather, settings.showTemperatures, settings.showSectors = true, true, true
+  settings.showRecords = true
   settings.decimals, settings.maximumGap, settings.smoothing = 1, 30, 0.4
   settings.automaticClasses, settings.debug = true, false
   settings.showApproaching, settings.approachRange, settings.approachRate = true, 8, 0.2
@@ -593,16 +650,18 @@ function M.windowSettings()
       { 'Class name', 'showClassText' }, { 'Car number', 'showNumber' },
       { 'Driver name', 'showDriver' }, { 'Gap', 'showGap' },
       { 'Pit indicator', 'showPitIndicator' }, { 'Lap difference', 'showLapDifference' },
-      { 'Cars in pits', 'showPits' }, { 'Header', 'showHeader' }, { 'Title', 'showTitle' }
+      { 'Cars in pits', 'showPits' }, { 'Header', 'showHeader' }
     }) do
       if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
     end
   end)
   SettingsUI.section('relative', 'conditions', 'Weather, sectors and timing', true, function()
     for _, item in ipairs({ { 'Weather', 'showWeather' }, { 'Air and track temperatures', 'showTemperatures' },
-        { 'Sectors', 'showSectors' } }) do
+        { 'Sector colors', 'showSectors' }, { 'Session and track records', 'showRecords' } }) do
       if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
     end
+    ui.textWrapped('Sector colors: purple = class best, green = personal best, amber = slower, red/X = invalid. The outline and dot mark the active sector.')
+    ui.textWrapped('Session record: your fastest valid lap this session. Track record: your fastest locally recorded lap across sessions with this car on this track layout.')
     settings.decimals = ui.slider('Gap decimals', settings.decimals, 1, 3, '%.0f')
     settings.maximumGap = ui.slider('Maximum gap', settings.maximumGap, 5, 90, '%.0fs')
     settings.smoothing = ui.slider('Gap smoothing', settings.smoothing, 0.05, 1.5, '%.2fs')

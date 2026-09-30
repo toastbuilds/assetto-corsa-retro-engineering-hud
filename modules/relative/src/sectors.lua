@@ -19,11 +19,12 @@ local function sectorTime(value)
 end
 
 function Sectors.new()
-  return setmetatable({ cars = {}, best = {}, playerLast = {} }, Sectors)
+  return setmetatable({ cars = {}, best = {}, playerLast = {}, playerBest = {}, playerStatus = {} }, Sectors)
 end
 
 function Sectors:reset()
   self.cars, self.best, self.playerLast = {}, {}, {}
+  self.playerBest, self.playerStatus = {}, {}
 end
 
 function Sectors:update(index, classID, sample, now)
@@ -40,6 +41,9 @@ function Sectors:update(index, classID, sample, now)
       or (lap ~= state.lap and sector == state.sector)))
 
   if restarted then
+    if index == 0 and state and state.carID ~= sample.carID then
+      self.playerLast, self.playerBest, self.playerStatus = {}, {}, {}
+    end
     state = {
       carID = sample.carID, classID = classID, sector = sector, lap = lap,
       startLapTime = sector == 0 and 0 or nil,
@@ -53,8 +57,10 @@ function Sectors:update(index, classID, sample, now)
   if state.sector ~= sector then
     local expected = (state.sector + 1) % 3
     local expectedLap = state.lap + (state.sector == 2 and 1 or 0)
+    local completedInvalid = state.sector == 2 and sample.isLastLapValid == false
+      or state.sector ~= 2 and invalid
     if sector == expected and lap == expectedLap and not state.lapInvalid
-        and not inPit and not invalid then
+        and not inPit and not completedInvalid then
       local completed = sectorTime(sample.previousSectorTime)
       if state.sector == 2 then
         local previousLap = finite(sample.previousLapTimeMs)
@@ -65,13 +71,25 @@ function Sectors:update(index, classID, sample, now)
       if completed then
         local number = state.sector + 1
         state.completed[number] = completed
-        if index == 0 then self.playerLast[number] = completed end
+        if index == 0 then
+          local classBest = classID and self.best[classID] and self.best[classID][number]
+          local personalBest = self.playerBest[number]
+          self.playerStatus[number] = classID and classID ~= 'UNKNOWN'
+            and (not classBest or completed <= classBest) and 'record'
+            or (not personalBest or completed <= personalBest) and 'improved' or 'slower'
+          self.playerLast[number] = completed
+          if not personalBest or completed < personalBest then self.playerBest[number] = completed end
+        end
         if classID and classID ~= 'UNKNOWN' then
           local best = self.best[classID] or {}
           if not best[number] or completed < best[number] then best[number] = completed end
           self.best[classID] = best
         end
+      elseif index == 0 then
+        self.playerStatus[state.sector + 1] = nil
       end
+    elseif index == 0 and sector == expected and lap == expectedLap then
+      self.playerStatus[state.sector + 1] = 'invalid'
     end
     state.startLapTime = sector == 0 and 0 or lapTime
     if sector == 0 then
@@ -104,7 +122,8 @@ function Sectors:snapshot(playerClass)
     current = state and state.sector and state.sector + 1 or nil,
     elapsed = elapsed,
     last = self.playerLast,
-    best = best or {}
+    best = best or {},
+    status = self.playerStatus
   }
 end
 
