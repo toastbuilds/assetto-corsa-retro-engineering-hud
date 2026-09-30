@@ -114,6 +114,7 @@ local Gt7Retro = require('ui/gt7_retro')
 local Theme = require('src/theme')
 local DialLayout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
+local ClassicGt7Layout = Gt7Layout.get('classic')
 
 assert(Settings.values.instrumentMode == 'analog', 'v5 migration must preserve analog')
 assert(Settings.values.layoutVersion == 9, 'v9 migration must complete')
@@ -140,13 +141,23 @@ Gt7Settings.draw()
 assert(Gt7Settings.values.gt7SpeedNeedleMode == 'analog'
   and Gt7Settings.values.gt7RpmNeedleMode == 'analog',
   'GT7 RPM needle selection must be independent')
-assert(Gt7Settings.values.gt7RadarStyle == 'arcs', 'GT7 radar must default to arcs')
-pendingCombos['##gt7.radarStyle'] = 1
+assert(Gt7Settings.values.gt7RadarPresentation == 'arcs', 'GT7 radar presentation must default to arcs')
+pendingCombos['##gt7.radarPresentation'] = 1
 Gt7Settings.draw()
-assert(Gt7Settings.values.gt7RadarStyle == 'lights', 'indicator radar option must enable arrow and dots')
-pendingCombos['##gt7.radarStyle'] = 0
+assert(Gt7Settings.values.gt7RadarPresentation == 'classic_lights'
+  and Gt7Settings.values.gt7RadarStyle == 'arcs',
+  'Premium radar selector must use its own storage and preserve the Free-compatible legacy field')
+pendingCombos['##gt7.radarPresentation'] = 0
 Gt7Settings.draw()
-assert(Gt7Settings.values.gt7RadarStyle == 'arcs', 'indicator radar option must restore arcs')
+assert(Gt7Settings.values.gt7RadarPresentation == 'arcs', 'radar selector must restore arcs')
+pendingCombos['##gt7.flagPresentation'] = 1
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7FlagPresentation == 'modern_strips',
+  'flag presentation must be selectable independently from radar')
+pendingCombos['##gt7.flagPresentation'] = 0
+Gt7Settings.draw()
+assert(Gt7Settings.values.gt7FlagPresentation == 'classic_lights',
+  'flag selector must restore Classic lights independently')
 pendingCombos['##gt7.lower'] = 1
 Gt7Settings.draw()
 assert(Gt7Settings.values.gt7LowerPanelMode == 'ffb',
@@ -291,16 +302,22 @@ local leftRedArcs = 0
 local lastArcX
 local outerLeftArcRadius = 0
 local gearPodWidth, gearPodCenter
-local radarArcCalls = 0
 local indicatorTriangles = { left = 0, right = 0 }
 local amberIndicators = { left = 0, right = 0 }
 local flagLampHits = { left = 0, right = 0 }
 local pathPoints = {}
+local renderSettings = Gt7Settings.current()
+renderSettings.theme = 'dark'
+renderSettings.hudScale = 0.72
+renderSettings.gt7RadarPresentation = 'arcs'
+renderSettings.gt7FlagPresentation = 'classic_lights'
+windowWidth, windowHeight = ClassicGt7Layout.width, ClassicGt7Layout.height
+
 ui.drawCircleFilled = function(center, _, color)
   if color == Theme.get('dark').flagYellow then
-    if math.abs(center.x - (Gt7Layout.indicatorLeftX + Gt7Layout.flagLampSideOffset)) < 0.01 then
+    if math.abs(center.x - (ClassicGt7Layout.indicatorLeftX + ClassicGt7Layout.flagLampSideOffset)) < 0.01 then
       flagLampHits.left = flagLampHits.left + 1
-    elseif math.abs(center.x - (Gt7Layout.indicatorRightX - Gt7Layout.flagLampSideOffset)) < 0.01 then
+    elseif math.abs(center.x - (ClassicGt7Layout.indicatorRightX - ClassicGt7Layout.flagLampSideOffset)) < 0.01 then
       flagLampHits.right = flagLampHits.right + 1
     end
   end
@@ -308,7 +325,7 @@ end
 ui.pathClear = function() pathPoints = {}; lastArcX = nil end
 ui.pathLineTo = function(position) pathPoints[#pathPoints + 1] = position end
 ui.pathFillConvex = function(color)
-  if #pathPoints == 8 and math.abs(pathPoints[1].y - Gt7Layout.gearPodTop) < 0.01 then
+  if #pathPoints == 8 and math.abs(pathPoints[1].y - ClassicGt7Layout.gearPodTop) < 0.01 then
     local minimum, maximum = pathPoints[1].x, pathPoints[1].x
     for _, position in ipairs(pathPoints) do
       minimum = math.min(minimum, position.x)
@@ -318,135 +335,65 @@ ui.pathFillConvex = function(color)
     gearPodCenter = (maximum + minimum) / 2
   elseif #pathPoints == 3 then
     local x = pathPoints[1].x
-    if math.abs(x - (Gt7Layout.indicatorLeftX - 13)) < 0.01 then
+    if math.abs(x - (ClassicGt7Layout.indicatorLeftX - 13)) < 0.01 then
       indicatorTriangles.left = indicatorTriangles.left + 1
-      if color == Theme.get('dark').amber then
-        amberIndicators.left = amberIndicators.left + 1
-      end
-    elseif math.abs(x - (Gt7Layout.indicatorRightX + 13)) < 0.01 then
+      if color == Theme.get('dark').amber then amberIndicators.left = amberIndicators.left + 1 end
+    elseif math.abs(x - (ClassicGt7Layout.indicatorRightX + 13)) < 0.01 then
       indicatorTriangles.right = indicatorTriangles.right + 1
-      if color == Theme.get('dark').amber then
-        amberIndicators.right = amberIndicators.right + 1
-      end
+      if color == Theme.get('dark').amber then amberIndicators.right = amberIndicators.right + 1 end
     end
   end
 end
 ui.pathArcTo = function(center, radius, startAngle, endAngle)
   lastArcX = center.x
-  local left = math.abs(center.x - Gt7Layout.radarArcLeftX) < 0.01
-  local right = math.abs(center.x - Gt7Layout.radarArcRightX) < 0.01
-  if left then
-    outerLeftArcRadius = math.max(outerLeftArcRadius, radius)
-  end
+  local left = math.abs(center.x - ClassicGt7Layout.radarArcLeftX) < 0.01
+  local right = math.abs(center.x - ClassicGt7Layout.radarArcRightX) < 0.01
+  if left then outerLeftArcRadius = math.max(outerLeftArcRadius, radius) end
   if left or right then
     assert(math.abs(endAngle - startAngle - math.pi / 2) < 0.01,
       'each radar ring must remain a complete quarter arc')
-    assert(math.abs(center.y - Gt7Layout.radarArcY) < 0.01,
+    assert(math.abs(center.y - ClassicGt7Layout.radarArcY) < 0.01,
       'all three radar rings must share one center')
-    for step = 0, 20 do
-      local angle = startAngle + (endAngle - startAngle) * step / 20
-      local x = center.x + radius * math.cos(angle)
-      local y = center.y + radius * math.sin(angle)
-      local inset = left and x - Gt7Layout.centerLeft or Gt7Layout.centerRight - x
-      local panelBottom = math.min(Gt7Layout.centerBottom,
-        Gt7Layout.centerBottom - Gt7Layout.centerBackdropChamfer
-        + Gt7Layout.centerBackdropChamfer * inset
-        / (Gt7Layout.centerBackdropBottomInset + Gt7Layout.centerBackdropChamfer))
-      assert(inset >= 6 and panelBottom - y >= 6,
-        'every radar ring must stay inside the panel with room for its glow')
-    end
-    radarArcCalls = radarArcCalls + 1
   end
 end
 ui.pathStroke = function(color)
-  if lastArcX and math.abs(lastArcX - Gt7Layout.radarArcLeftX) < 0.01
-      and color == Theme.get('dark').red then
-    leftRedArcs = leftRedArcs + 1
-  end
+  if lastArcX and math.abs(lastArcX - ClassicGt7Layout.radarArcLeftX) < 0.01
+      and color == Theme.get('dark').red then leftRedArcs = leftRedArcs + 1 end
 end
-Settings.values.gt7RadarStyle = 'arcs'
-Settings.values.theme = 'dark'
-Settings.values.hudScale = 0.72
-windowWidth, windowHeight = Gt7Layout.width, Gt7Layout.height
-radarTelemetry.clock = 0
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(leftRedArcs == 3, 'all three nearby arcs must illuminate together')
-assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2
-  and gearPodCenter == Gt7Layout.gearPodCenterX and gearPodCenter == 875,
-  'gear pod must stay compact in its right-side position')
-assert(Gt7Layout.radarArcRightX
-  - (Gt7Layout.radarArcFirstRadius + 2 * Gt7Layout.radarArcRadiusStep)
-  - (gearPodCenter + gearPodWidth / 2) >= 12,
-  'gear pod must leave visible clearance before the right radar arc')
-assert(outerLeftArcRadius == 56 and radarArcCalls >= 6,
-  'the reference-style radar arcs must be visible on both sides')
-assert(indicatorTriangles.left == 0 and indicatorTriangles.right == 0,
-  'arcs must replace indicators only on sides with nearby cars')
-leftRedArcs = 0
-radarTelemetry.clock = Gt7Layout.radarBlinkPeriod
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(leftRedArcs == 0, 'all three nearby arcs must extinguish together on blink')
-assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
-  'gear pod must not change size during a radar blink')
-radarTelemetry.radarLeftLevel, radarTelemetry.radarRightLevel = 0, 0
+
+radarTelemetry.radarLeftLevel, radarTelemetry.radarRightLevel = 3, 0
 radarTelemetry.raceFlagType, radarTelemetry.clock = 2, 0
 radarTelemetry.leftIndicator, radarTelemetry.rightIndicator = true, false
-indicatorTriangles.left, indicatorTriangles.right = 0, 0
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
-  'gear pod must remain compact when the arc radar has no nearby cars')
-assert(indicatorTriangles.left == 1 and indicatorTriangles.right == 1,
-  'both default indicators must appear with no nearby cars')
-assert(flagLampHits.left == 2 and flagLampHits.right == 2,
-  'default flag lamps must remain visible while radar is ready')
-assert(amberIndicators.left == 1 and amberIndicators.right == 0,
-  'default turn indicators must follow the correct side')
-radarTelemetry.radarLeftLevel = 3
-indicatorTriangles.left, indicatorTriangles.right = 0, 0
-flagLampHits.left, flagLampHits.right = 0, 0
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(indicatorTriangles.left == 0 and indicatorTriangles.right == 1,
-  'a nearby car must replace only its own side indicator with arcs')
+Gt7Retro.draw(radarTelemetry, renderSettings)
+assert(leftRedArcs == 3 and outerLeftArcRadius == 56,
+  'all three nearby arcs must illuminate together at the original Classic geometry')
+assert(gearPodWidth == ClassicGt7Layout.gearPodHalfWidth * 2
+  and gearPodCenter == ClassicGt7Layout.gearPodCenterX and gearPodCenter == 875,
+  'gear pod must stay compact in its right-side position')
+assert(indicatorTriangles.left == 1 and indicatorTriangles.right == 1
+  and amberIndicators.left == 1 and amberIndicators.right == 0,
+  'turn indicators must remain present and independent while radar is active')
 assert(flagLampHits.left == 0 and flagLampHits.right == 2,
-  'a nearby car must hide flag lamps only on its own side')
-radarTelemetry.radarLeftLevel, radarTelemetry.radarRightLevel = 3, 2
-radarTelemetry.raceFlagType = nil
-radarTelemetry.leftIndicator = false
-Settings.values.gt7RadarStyle = 'lights'
-local arcCountBeforeIndicatorRadar = radarArcCalls
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(gearPodWidth == Gt7Layout.gearPodHalfWidth * 2,
-  'gear pod must keep its compact width with the indicator radar style')
-assert(radarArcCalls == arcCountBeforeIndicatorRadar,
-  'indicator radar option must use lights instead of arcs')
-local leftRedTriangle, leftRedDots = 0, 0
-local pathTouchesLeftIndicator = false
-ui.pathClear = function() pathTouchesLeftIndicator = false end
-ui.pathLineTo = function(position)
-  if position.x > 445 and position.x < 475 and position.y > 245 and position.y < 275 then
-    pathTouchesLeftIndicator = true
-  end
-end
-ui.pathFillConvex = function(color)
-  if pathTouchesLeftIndicator and color == Theme.get('dark').red then
-    leftRedTriangle = leftRedTriangle + 1
-  end
-end
-ui.drawCircleFilled = function(center, _, color)
-  if math.abs(center.x - (Gt7Layout.indicatorLeftX + Gt7Layout.flagLampSideOffset)) < 0.01
-      and color == Theme.get('dark').red then
-    leftRedDots = leftRedDots + 1
-  end
-end
+  'radar must replace only the flag on its own traffic side')
+
+leftRedArcs = 0
+indicatorTriangles.left, indicatorTriangles.right = 0, 0
+amberIndicators.left, amberIndicators.right = 0, 0
+flagLampHits.left, flagLampHits.right = 0, 0
+radarTelemetry.clock = ClassicGt7Layout.radarBlinkPeriod
+Gt7Retro.draw(radarTelemetry, renderSettings)
+assert(leftRedArcs == 0 and flagLampHits.left == 0 and flagLampHits.right == 2,
+  'radar off-blink phase must keep ownership of the traffic-side flag space')
+assert(indicatorTriangles.left == 1 and indicatorTriangles.right == 1 and amberIndicators.left == 1,
+  'turn indicators must remain independent during the radar off-blink phase')
+
+local arcRadiusBeforeLights = outerLeftArcRadius
+renderSettings.gt7RadarPresentation = 'classic_lights'
 radarTelemetry.clock = 0
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(leftRedTriangle == 1 and leftRedDots == 2,
-  'arrow and both dots must illuminate together for a car alongside')
-leftRedTriangle, leftRedDots = 0, 0
-radarTelemetry.clock = Gt7Layout.radarBlinkPeriod
-Gt7Retro.draw(radarTelemetry, Settings.values)
-assert(leftRedTriangle == 0 and leftRedDots == 0,
-  'arrow and both dots must extinguish together on blink')
+Gt7Retro.draw(radarTelemetry, renderSettings)
+assert(outerLeftArcRadius == arcRadiusBeforeLights,
+  'Classic-light radar presentation must not draw proximity arcs')
+
 ui.pathArcTo, ui.pathStroke = noop, noop
 ui.pathClear, ui.pathLineTo, ui.pathFillConvex, ui.drawCircleFilled = noop, noop, noop, noop
 

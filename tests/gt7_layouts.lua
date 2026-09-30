@@ -111,8 +111,44 @@ local ids = { 'classic', 'modern', 'outer_pedals', 'steering_dial' }
 
 assert(Settings.current().gt7Layout == 'classic', 'existing installs must default to Classic')
 Settings.values.gt7Layout = 'unknown'
-assert(Settings.current().gt7Layout == 'classic' and Layouts.get('unknown') == Layouts,
+assert(Settings.current().gt7Layout == 'classic' and Layouts.get('unknown').frameStyle == 'classic',
   'unknown stored values must safely select Classic')
+local componentKeys = {
+  'gt7SpeedStyle', 'gt7GearStyle', 'gt7SteeringStyle', 'gt7RpmBarVisible',
+  'gt7PedalPosition', 'gt7PedalStyle', 'gt7RadarPresentation',
+  'gt7FlagPresentation', 'gt7LowerFrameStyle'
+}
+local function expectComponents(actual, expected, message)
+  for _, key in ipairs(componentKeys) do
+    assert(actual[key] == expected[key], message .. ': ' .. key)
+  end
+end
+
+-- Exercise the one-time legacy migration for every former full-layout value.
+local legacyStore = stores['retro-ui.gt7.']
+for _, id in ipairs(ids) do
+  legacyStore.gt7Layout = id
+  legacyStore.gt7RadarStyle = id == 'classic' and 'lights' or 'arcs'
+  legacyStore.gt7LowerPanelMode = 'pedal_history'
+  legacyStore.gt7SpeedNeedleMode = 'analog'
+  legacyStore.compositionVersion = 0
+  package.loaded['src/gt7_settings'] = nil
+  Settings = require('src/gt7_settings')
+  local expected = Layouts.preset(id, { gt7RadarStyle = legacyStore.gt7RadarStyle })
+  expectComponents(Settings.current(), expected, 'legacy migration must map ' .. id)
+  assert(Settings.values.gt7LowerPanelMode == 'pedal_history'
+    and Settings.values.gt7SpeedNeedleMode == 'analog',
+    'composition migration must preserve independent preferences')
+end
+
+Settings.values.gt7SpeedStyle = 'bogus'
+Settings.values.gt7GearStyle = 'modern'
+Settings.values.gt7PedalStyle = 'modern'
+local sanitized = Settings.current()
+assert(sanitized.gt7SpeedStyle == 'classic' and sanitized.gt7GearStyle == 'modern'
+  and sanitized.gt7PedalStyle == 'modern',
+  'unknown component values must reset only the affected component')
+
 Settings.values.gt7LowerPanelMode = 'pedal_history'
 Settings.values.gt7RadarStyle = 'lights'
 Settings.values.gt7SpeedNeedleMode = 'analog'
@@ -120,21 +156,39 @@ for index, id in ipairs(ids) do
   pendingCombos['##gt7.layout'] = index - 1
   comboCalls = {}
   Settings.draw()
-  assert(Settings.current().gt7Layout == id, 'layout selector must select ' .. id)
+  local current = Settings.current()
+  assert(current.gt7Layout == id, 'preset selector must apply ' .. id)
+  expectComponents(current, Layouts.preset(id, current), 'preset composition must match ' .. id)
   assert(Settings.values.gt7LowerPanelMode == 'pedal_history'
     and Settings.values.gt7SpeedNeedleMode == 'analog' and Settings.values.gt7RadarStyle == 'lights',
-    'switching layouts must preserve independent settings')
-  assert((comboCalls['##gt7.radarStyle'] == true) == (index == 1),
-    'only Classic must expose the radar style selector')
+    'applying presets must preserve independent settings')
+  assert(comboCalls['##gt7.radarPresentation'] and comboCalls['##gt7.flagPresentation'],
+    'Premium must always expose independent radar and flag selectors')
 end
-Settings.values.gt7Layout = 'modern'
+
+Settings.applyPreset('modern')
+local beforeEdit = Settings.current()
+pendingCombos['##gt7.speedStyle'] = 0
+Settings.draw()
+local afterEdit = Settings.current()
+assert(afterEdit.gt7SpeedStyle == 'classic', 'component selector must update its own section')
+for _, key in ipairs(componentKeys) do
+  if key ~= 'gt7SpeedStyle' then
+    assert(afterEdit[key] == beforeEdit[key], 'editing speed must not modify ' .. key)
+  end
+end
+
+Settings.applyPreset('modern')
+local beforeAppearanceReset = Settings.current()
 pendingButtons['Reset appearance##gt7'] = true
 Settings.draw()
-assert(Settings.values.gt7Layout == 'modern', 'appearance reset must preserve the selected layout')
+expectComponents(Settings.current(), beforeAppearanceReset,
+  'appearance reset must preserve composition selections')
 package.loaded['src/gt7_settings'] = nil
 Settings = require('src/gt7_settings')
-assert(Settings.current().gt7Layout == 'modern'
-  and Settings.current().gt7LowerPanelMode == 'pedal_history', 'preferences must survive reload')
+expectComponents(Settings.current(), beforeAppearanceReset,
+  'composition preferences must survive reload')
+assert(Settings.current().gt7LowerPanelMode == 'pedal_history', 'independent preferences must survive reload')
 DialSettings.values.speedUnit, DialSettings.values.theme = 'mph', 'light'
 assert(Settings.current().speedUnit == 'mph' and Settings.current().theme == 'light',
   'shared units and theme must still apply')
@@ -147,6 +201,8 @@ Settings.draw()
 assert(Settings.current().gt7Layout == 'classic' and Settings.values.gt7LowerPanelMode == 'limit'
   and DialSettings.values.speedUnit == 'mph' and DialSettings.values.theme == 'light',
   'confirmed reset must restore GT7 defaults and preserve shared settings')
+expectComponents(Settings.current(), Layouts.preset('classic', Settings.current()),
+  'confirmed reset must restore Classic composition')
 
 local state = Telemetry.new()
 state.speedText, state.speedUnit, state.gearText = '139', 'km/h', '2'
@@ -166,8 +222,9 @@ local function draw(id, overrides, drawState, window)
     hudScale = 0.72, opacity = 1, backgroundOpacity = 0.72,
     gt7SpeedNeedleMode = 'analog', gt7RpmNeedleMode = 'analog', gt7RadarStyle = 'arcs',
     gt7LowerPanelMode = 'pedal_history', gt7ProximityRadar = true, showSteering = true, showLights = true }
+  for key, value in pairs(Layouts.preset(id, settings)) do settings[key] = value end
   for key, value in pairs(overrides or {}) do settings[key] = value end
-  local layout = Layouts.get(id)
+  local layout = Layouts.resolve(settings)
   width, height = layout.width, layout.height
   if window then width, height = window[1], window[2] end
   calls = {}
@@ -326,72 +383,92 @@ end
 state.raceFlagType, state.clock, state.radarLeftLevel, state.radarRightLevel = nil, 0, 0, 0
 state.radarLeftLevel, state.radarRightLevel = 3, 0
 state.raceFlagType, state.leftIndicator = 2, true
-for _, style in ipairs({ 'arcs', 'lights' }) do
-  for _, clock in ipairs({ 0, modern.radarBlinkPeriod }) do
-    state.clock = clock
-    draw('modern', { gt7RadarStyle = style })
-    local leftFlags, rightFlags, redArcs, redLamps, redBars = 0, 0, 0, 0, 0
-    for _, call in ipairs(calls) do
-      if call.kind == 'circle_fill' and near(call.radius, modern.flagLampRadius) then
-        if near(call.a.x, modern.indicatorLeftX + modern.flagLampSideOffset) then
-          if call.color == Theme.colors.flagYellow then leftFlags = leftFlags + 1 end
-          if call.color == Theme.colors.red then redLamps = redLamps + 1 end
-        elseif near(call.a.x, modern.indicatorRightX - modern.flagLampSideOffset)
-            and call.color == Theme.colors.flagYellow then rightFlags = rightFlags + 1 end
-      elseif call.kind == 'arc' and near(call.a.x, modern.radarArcLeftX)
-          and near(call.a.y, modern.radarArcY) and call.color == Theme.colors.red then redArcs = redArcs + 1 end
-      if call.kind == 'polygon' and #call.points == 4 and call.color == Theme.colors.red then redBars = redBars + 1 end
-    end
-    assert(leftFlags == 0 and rightFlags == 2, 'Modern radar must reserve only its own side throughout the blink')
-    assert(redArcs == 0 and redLamps == 0 and redBars == (clock == 0 and 3 or 0),
-      'Modern must use its three side bars exclusively, regardless of the saved radar style')
-    assert(indicatorColor(modern, 'left') == Theme.colors.amber, 'Modern radar must preserve turn signals')
-  end
-end
-state.radarLeftLevel, state.raceFlagType, state.clock = 0, nil, 0
-local function modernRadarBars(side)
-  local edge = side == 'left' and modern.centerLeft or modern.centerRight
-  local bars = {}
+local classic = Layouts.get('classic')
+local function classicFlagCount(layout, side)
+  local x = side == 'left' and layout.indicatorLeftX + layout.flagLampSideOffset
+    or layout.indicatorRightX - layout.flagLampSideOffset
+  local count = 0
   for _, call in ipairs(calls) do
-    if call.kind == 'arc' then
-      assert(not (near(call.a.x, modern.radarArcLeftX) or near(call.a.x, modern.radarArcRightX)),
-        'Modern must never draw a separate radar arc, including inactive arcs')
-    elseif call.kind == 'polygon' and #call.points == 4 then
-      local left, top, right = bounds(call)
-      if (side == 'left' and near(left, edge + 16) and near(right, edge + 32))
-          or (side == 'right' and near(left, edge - 32) and near(right, edge - 16)) then
-        -- Count the solid segment, without counting its translucent glow.
-        if call.color == Theme.colors.outlineDim or call.color == Theme.colors.amber or call.color == Theme.colors.red then
-          bars[#bars + 1] = { top = top, color = call.color }
-        end
-      end
+    if call.kind == 'circle_fill' and near(call.a.x, x) and near(call.radius, layout.flagLampRadius) then
+      count = count + 1
     end
   end
-  assert(#bars == 3, 'Modern must draw exactly three radar bars per side')
-  return bars
+  return count
 end
-for level = 0, 3 do
-  state.radarLeftLevel, state.radarRightLevel = level, 3 - level
-  draw('modern')
-  for _, side in ipairs({ 'left', 'right' }) do
-    local currentLevel = side == 'left' and level or 3 - level
-    for i, bar in ipairs(modernRadarBars(side)) do
-      assert(near(bar.top, modern.centerTop + 102 + (3 - i) * 15), 'Modern radar must fill bottom to top')
-      assert(bar.color == (i <= currentLevel and (currentLevel == 3 and Theme.colors.red or Theme.colors.amber)
-        or Theme.colors.outlineDim), 'Modern radar must preserve the three proximity levels')
+local function radarArcCount(layout, side, color)
+  local x = side == 'left' and layout.radarArcLeftX or layout.radarArcRightX
+  local count = 0
+  for _, call in ipairs(calls) do
+    if call.kind == 'arc' and near(call.a.x, x) and near(call.a.y, layout.radarArcY)
+        and (not color or call.color == color) then count = count + 1 end
+  end
+  return count
+end
+local function columnCount(layout, side)
+  local x = side == 'left' and layout.sections.alerts.columnLeftX or layout.sections.alerts.columnRightX
+  local count = 0
+  for _, call in ipairs(calls) do
+    if call.kind == 'circle_fill' and near(call.a.x, x) and near(call.radius, layout.flagLampRadius) then
+      count = count + 1
     end
   end
+  return count
 end
-for _, override in ipairs({ { gt7ProximityRadar = false }, {} }) do
-  state.proximityRadarAvailable = override.gt7ProximityRadar == false
-  draw('modern', override)
-  for _, side in ipairs({ 'left', 'right' }) do
-    for _, bar in ipairs(modernRadarBars(side)) do
-      assert(bar.color == Theme.colors.outlineDim, 'disabled or unavailable radar must leave its bars inactive')
-    end
-  end
+
+-- During proximity, radar owns only the affected side for the entire event,
+-- including the dark half of its blink. The other side keeps its flag.
+for _, clock in ipairs({ 0, classic.radarBlinkPeriod }) do
+  state.clock = clock
+  draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = 'classic_lights' })
+  assert(classicFlagCount(classic, 'left') == 0 and classicFlagCount(classic, 'right') == 2,
+    'radar must replace the flag only on the traffic side throughout the blink')
+  assert(radarArcCount(classic, 'left') >= 3,
+    'radar arcs must reserve their side during both blink phases')
+  assert(radarArcCount(classic, 'left', Theme.colors.red) == (clock == 0 and 3 or 0),
+    'alongside radar arcs must blink without restoring the flag')
+  assert(indicatorColor(classic, 'left') == Theme.colors.amber,
+    'turn indicators must remain independent from radar')
 end
+
+state.clock, state.radarRightLevel = 0, 2
+draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = 'classic_lights' })
+assert(classicFlagCount(classic, 'left') == 0 and classicFlagCount(classic, 'right') == 0
+  and radarArcCount(classic, 'left') >= 3 and radarArcCount(classic, 'right') >= 3,
+  'traffic on both sides must replace both shared-space flags')
+
+state.radarRightLevel = 0
+for _, style in ipairs({ 'arcs', 'classic_lights', 'modern_bars', 'column_3', 'column_9' }) do
+  draw('classic', { gt7RadarPresentation = style, gt7FlagPresentation = 'classic_lights' })
+  assert(classicFlagCount(classic, 'left') == 0 and classicFlagCount(classic, 'right') == 2,
+    'every radar presentation must reserve only the side with traffic: ' .. style)
+  assert(indicatorColor(classic, 'left') == Theme.colors.amber,
+    'every radar presentation must preserve turn signals: ' .. style)
+end
+
+state.radarLeftLevel = 0
+for _, style in ipairs({ 'column_3', 'column_9' }) do
+  local expected = style == 'column_9' and 9 or 3
+  draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = style })
+  local layout = Layouts.resolve(Layouts.preset('classic'))
+  assert(columnCount(layout, 'left') == expected and columnCount(layout, 'right') == expected,
+    style .. ' flags must render independently on both sides')
+  state.radarLeftLevel = 2
+  draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = style })
+  assert(columnCount(layout, 'left') == 0 and columnCount(layout, 'right') == expected,
+    style .. ' flag must yield only on the traffic side')
+  state.radarLeftLevel = 0
+end
+
+state.radarLeftLevel = 3
+draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = 'classic_lights', gt7ProximityRadar = false })
+assert(classicFlagCount(classic, 'left') == 2 and classicFlagCount(classic, 'right') == 2
+  and radarArcCount(classic, 'left') == 0, 'disabled radar must leave flags in control')
+state.proximityRadarAvailable = false
+draw('classic', { gt7RadarPresentation = 'arcs', gt7FlagPresentation = 'classic_lights' })
+assert(classicFlagCount(classic, 'left') == 2 and radarArcCount(classic, 'left') == 0,
+  'unavailable radar must leave flags in control')
 state.proximityRadarAvailable, state.radarLeftLevel, state.radarRightLevel = true, 0, 0
+state.raceFlagType, state.clock = nil, 0
 
 local function pedals(side)
   local x = side == 'left' and modern.brakeX or modern.throttleX
@@ -498,6 +575,94 @@ assert(outer.brakeX + outer.pedalWidth < outer.leftCenterX - outer.dialRadius - 
   and outer.throttleX > outer.rightCenterX + outer.dialRadius + 6,
   'outer pedals must lie outside both dials with clearance')
 
+assert(Layouts.frameFor({}) == 'classic', 'Classic must be the fallback frame')
+assert(Layouts.frameFor({ gt7PedalPosition = 'outer' }) == 'outer_pedals',
+  'outer pedals must select the Outer Pedals frame when center sections are Classic')
+assert(Layouts.frameFor({ gt7GearStyle = 'modern', gt7PedalPosition = 'outer' }) == 'modern',
+  'Modern center variants must take priority over outer pedals')
+assert(Layouts.frameFor({ gt7SpeedStyle = 'large', gt7GearStyle = 'modern' }) == 'steering_dial'
+  and Layouts.frameFor({ gt7SteeringStyle = 'dial', gt7PedalPosition = 'outer' }) == 'steering_dial',
+  'large speed or steering dial must take highest frame priority')
+
+local cachedSettings = Layouts.preset('modern')
+local cachedA = Layouts.resolve(cachedSettings)
+local cachedB = Layouts.resolve(cachedSettings)
+assert(cachedA == cachedB, 'resolver must reuse geometry while selections are unchanged')
+cachedSettings.gt7RpmBarVisible = true
+local cachedC = Layouts.resolve(cachedSettings)
+assert(cachedC ~= cachedA and cachedC.showRpmBar,
+  'resolver must rebuild only when a composition selection changes')
+
+local mixedSettings = Layouts.preset('classic')
+mixedSettings.gt7SteeringStyle = 'dial'
+mixedSettings.gt7RpmBarVisible = true
+mixedSettings.gt7PedalPosition = 'outer'
+mixedSettings.gt7PedalStyle = 'modern'
+mixedSettings.gt7RadarPresentation = 'column_9'
+mixedSettings.gt7FlagPresentation = 'column_3'
+local mixed = Layouts.resolve(mixedSettings)
+assert(mixed.frameStyle == 'steering_dial' and mixed.width == 1560,
+  'dial plus outer pedals must use a widened Steering Dial frame')
+assert(mixed.sections.steering.style == 'dial' and mixed.sections.pedals.position == 'outer'
+  and mixed.sections.pedals.style == 'modern' and mixed.sections.rpm.visible,
+  'automatic frame selection must preserve every component choice')
+assert(mixed.brakeX - mixed.pedalUpperExtraWidth >= 0
+  and mixed.throttleX + mixed.pedalWidth + mixed.pedalUpperExtraWidth <= mixed.width,
+  'outer modern pedals must remain fully inside the resolved design space')
+assert(mixed.speedCenterX + mixed.speedReadoutWidth / 2 < mixed.steeringCenterX - mixed.steeringRadius
+  and mixed.gearPodCenterX - mixed.gearPodHalfWidth > mixed.steeringCenterX + mixed.steeringRadius,
+  'Steering Dial frame must reserve separate horizontal slots for speed, steering and gear')
+assert(mixed.rpmTop + mixed.rpmHeight < mixed.steeringCenterY - mixed.steeringRadius
+  and mixed.historyTop > mixed.steeringCenterY + mixed.steeringRadius,
+  'RPM, steering and lower-panel spaces must remain vertically separated')
+
+state.absActive, state.tcActive, state.brake, state.throttle = true, true, 0.2, 0.2
+draw('classic', {
+  gt7SteeringStyle = 'dial', gt7RpmBarVisible = true,
+  gt7PedalPosition = 'outer', gt7PedalStyle = 'modern',
+  gt7RadarPresentation = 'column_9', gt7FlagPresentation = 'column_3'
+})
+for _, side in ipairs({ 'left', 'right' }) do
+  local x = side == 'left' and mixed.brakeX or mixed.throttleX
+  local blocks = {}
+  for _, call in ipairs(calls) do
+    if call.kind == 'polygon' then
+      local left, top, right, bottom = bounds(call)
+      if top >= mixed.pedalTop - 0.001 and bottom <= mixed.pedalTop + mixed.pedalHeight + 0.001
+          and left >= x - mixed.pedalUpperExtraWidth - 0.001
+          and right <= x + mixed.pedalWidth + mixed.pedalUpperExtraWidth + 0.001 then
+        blocks[#blocks + 1] = call
+      end
+    end
+  end
+  assert(#blocks == 12, 'outer modern pedals must retain twelve blocks')
+  local interventionColor = side == 'left' and Theme.colors.flagWhite or Theme.colors.red
+  for i, block in ipairs(blocks) do
+    if i > 10 then assert(block.color == interventionColor,
+      'outer modern pedal top blocks must retain ABS/TC intervention colors') end
+  end
+end
+state.absActive, state.tcActive, state.brake, state.throttle = nil, nil, 0.36, 0.82
+
+for _, window in ipairs({ {460, 460}, {900, 360}, {1200, 420} }) do
+  draw('classic', {
+    gt7SteeringStyle = 'dial', gt7RpmBarVisible = true,
+    gt7PedalPosition = 'outer', gt7PedalStyle = 'modern',
+    gt7RadarPresentation = 'column_9', gt7FlagPresentation = 'column_3'
+  }, state, window)
+  for _, call in ipairs(calls) do
+    local points = {}
+    if call.a then points[#points + 1] = call.a end
+    if call.b then points[#points + 1] = call.b end
+    for _, pointValue in ipairs(call.points or {}) do points[#points + 1] = pointValue end
+    for _, pointValue in ipairs(points) do
+      assert(pointValue.x >= -0.01 and pointValue.x <= window[1] + 0.01
+        and pointValue.y >= -0.01 and pointValue.y <= window[2] + 0.01,
+        'mixed composition primitives must stay inside fitted small windows')
+    end
+  end
+end
+
 local steeringLayout = Layouts.get('steering_dial')
 local function steeringNeedle()
   for _, call in ipairs(calls) do
@@ -542,7 +707,8 @@ for _, id in ipairs(ids) do
   end
 end
 local classicCalls = #draw('classic')
-assert(#draw('invalid') == classicCalls and Layouts.width == 1440 and Layouts.gearPodCenterX == 875,
+assert(#draw('invalid') == classicCalls and Layouts.width == 1440
+  and Layouts.radarRange == 18 and Layouts.get('classic').gearPodCenterX == 875,
   'new compositions must not mutate Classic or telemetry constants')
 
 local scenarios = 0

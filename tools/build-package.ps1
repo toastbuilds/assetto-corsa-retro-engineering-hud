@@ -1,5 +1,5 @@
 param(
-  [string]$Version = '2.1.0',
+  [string]$Version = '2.2.0',
   [ValidateSet('free', 'premium')][string]$Edition = 'premium'
 )
 
@@ -28,7 +28,7 @@ try {
   Set-Content -LiteralPath (Join-Path $app 'EDITION.txt') -Value @(
     "Retro UI $editionLabel edition v$Version"
     if ($Edition -eq 'free') { 'Includes the Classic GT7 layout.' }
-    else { 'Includes Classic, Modern, Outer Pedals, and Steering Dial GT7 layouts.' }
+    else { 'Includes the Premium GT7 component editor with Classic, Modern, Outer Pedals, and Steering Dial presets.' }
   ) -Encoding UTF8
   Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem

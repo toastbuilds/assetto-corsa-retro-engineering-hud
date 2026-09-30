@@ -248,10 +248,6 @@ local function drawCenterBackdrop(origin, scale, backdropOpacity, state)
     local top = Layout.centerTop + 24
     drawLine(point(origin, scale, Layout.centerLeft + 40, top),
       point(origin, scale, Layout.centerRight - 40, top), C.outlineDim, 1 * scale)
-    for _, side in ipairs({ -1, 1 }) do
-      local x = side == -1 and Layout.centerLeft or Layout.centerRight
-      drawModernFlagStrip(origin, scale, x - side * 14, top + 16, top + 43, state)
-    end
   elseif Layout.centerStyle == 'steering_dial' then
     drawChamferedPanel(origin, scale, Layout.readoutLeft, Layout.readoutTop,
       Layout.readoutRight, Layout.readoutBottom, 14,
@@ -291,12 +287,7 @@ local function drawGearPod(origin, scale, state, settings, backdropOpacity)
   return halfWidth
 end
 
-local function drawCenterReadout(origin, scale, state, settings, backdropOpacity)
-  local redlineOn = state.rpmRedline and alertPulse(state, settings, true)
-  local valueColor = state.rpmRedline and (redlineOn and C.red or C.amber)
-    or (state.rpmWarning and C.amber or C.primary)
-
-  local gearPodHalfWidth = drawGearPod(origin, scale, state, settings, backdropOpacity)
+local function drawSpeedReadout(origin, scale, state)
   local speedSize = Layout.speedTextSize * scale
   local speedWidth = ui.measureDWriteText(state.speedText, speedSize).x
   if speedWidth > Layout.speedReadoutWidth * scale then
@@ -310,6 +301,13 @@ local function drawCenterReadout(origin, scale, state, settings, backdropOpacity
     centeredText('SPEED', 12 * scale,
       point(origin, scale, Layout.speedLabelX, Layout.speedLabelY), C.secondary)
   end
+end
+
+local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
+  local redlineOn = state.rpmRedline and alertPulse(state, settings, true)
+  local valueColor = state.rpmRedline and (redlineOn and C.red or C.amber)
+    or (state.rpmWarning and C.amber or C.primary)
+  local gearPodHalfWidth = drawGearPod(origin, scale, state, settings, backdropOpacity)
   local gearSize = 100 * scale
   local measuredGearWidth = ui.measureDWriteText(state.gearText, gearSize).x
   local availableGearWidth = (gearPodHalfWidth * 2 - 20) * scale
@@ -320,7 +318,9 @@ local function drawCenterReadout(origin, scale, state, settings, backdropOpacity
     point(origin, scale, Layout.gearPodCenterX, Layout.gearCenterY), valueColor)
   centeredText('GEAR', 14 * scale, point(origin, scale, Layout.gearPodCenterX, Layout.gearLabelY),
     state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.secondary))
+end
 
+local function drawSteering(origin, scale, state, settings)
   if settings.showSteering ~= false then
     local steering = U.clamp(state.steeringInput or 0, -1, 1)
     local x, y = Layout.steeringCenterX, Layout.steeringCenterY
@@ -338,7 +338,7 @@ local function drawCenterReadout(origin, scale, state, settings, backdropOpacity
       drawLine(point(origin, scale, x - half, y), point(origin, scale, x + half, y), C.outlineDim, 3 * scale)
       drawLine(point(origin, scale, x, y - 9), point(origin, scale, x, y + 9), C.primary, 2 * scale)
       local markerX = x + steering * (half - 6)
-      if Layout.centerStyle == 'modern' then
+      if Layout.steeringStyle == 'modern' then
         for i = -5, 5 do
           local tickX = x + i * half / 5
           drawLine(point(origin, scale, tickX, y - 3), point(origin, scale, tickX, y + 3),
@@ -635,7 +635,7 @@ end
 
 local function drawLowerFrame(origin, scale, backdropOpacity)
   local fill = withAlpha(C.panel, math.min(0.90, math.max(0.52, backdropOpacity + 0.08)))
-  if Layout.centerStyle == 'outer' or Layout.centerStyle == 'classic' then
+  if Layout.lowerFrameStyle == 'classic' then
     local topLeft = point(origin, scale, Layout.historyLeft, Layout.historyTop)
     local bottomRight = point(origin, scale, Layout.historyRight, Layout.historyBottom)
     ui.drawRectFilled(topLeft, bottomRight, fill, 8 * scale)
@@ -710,8 +710,8 @@ local function drawPedalBar(origin, scale, x, value, activeColor, side, assistCo
   end
 end
 
-local function drawFlagLamps(origin, scale, x, state, settings, suppressed)
-  local color = not suppressed and flagColor(state) or nil
+local function drawFlagLamps(origin, scale, x, state, settings)
+  local color = flagColor(state)
   local lit = color ~= nil and flagBlinkOn(state, settings)
   local lampColor = lit and color or C.inactive
   for offset = -1, 1, 2 do
@@ -752,8 +752,9 @@ end
 
 local function drawRadarLights(origin, scale, side, level, visible)
   local left = side == 'left'
-  local x = left and Layout.indicatorLeftX or Layout.indicatorRightX
-  local lampX = left and x + Layout.flagLampSideOffset or x - Layout.flagLampSideOffset
+  local indicatorX = left and Layout.indicatorLeftX or Layout.indicatorRightX
+  local x = indicatorX + (left and -38 or 38)
+  local lampX = x + (left and -22 or 22)
   local color = level >= 3 and C.red or C.amber
   local shownLevel = visible and level or 0
 
@@ -786,7 +787,7 @@ local function drawRadarArcs(origin, scale, side, level, visible)
   end
 end
 
-local function drawDefaultSideIndicators(origin, scale, side, state, settings)
+local function drawTurnIndicator(origin, scale, side, state, settings)
   local left = side == 'left'
   local x = left and Layout.indicatorLeftX or Layout.indicatorRightX
   local blink = indicatorLit(state, settings)
@@ -795,48 +796,74 @@ local function drawDefaultSideIndicators(origin, scale, side, state, settings)
   local active = (state.hazardLights or indicator) and blink
   drawTriangle(origin, scale, x, Layout.indicatorY, side,
     active and C.amber or C.outlineDim)
-  drawFlagLamps(origin, scale, left and x + Layout.flagLampSideOffset
-    or x - Layout.flagLampSideOffset, state, settings)
+end
+
+local function drawVerticalColumn(origin, scale, side, count, filled, visible, color, outside)
+  local left = side == 'left'
+  local x = left and Layout.sections.alerts.columnLeftX or Layout.sections.alerts.columnRightX
+  if outside then x = left and Layout.centerLeft - 20 or Layout.centerRight + 20 end
+  local bottom = count == 9 and 269 or 251
+  local spacing = count == 9 and 18 or 14
+  for i = 1, count do
+    drawRadarLamp(origin, scale, x, bottom - (i - 1) * spacing,
+      visible and i <= filled, color or C.outlineDim)
+  end
+end
+
+local function drawFlagPresentation(origin, scale, side, state, settings)
+  local left = side == 'left'
+  local style = Layout.flagPresentation
+  if style == 'modern_strips' then
+    local x = left and Layout.centerLeft + 14 or Layout.centerRight - 14
+    drawModernFlagStrip(origin, scale, x, Layout.centerTop + 40, Layout.centerTop + 67, state)
+    return
+  end
+  if style == 'classic_lights' then
+    local indicatorX = left and Layout.indicatorLeftX or Layout.indicatorRightX
+    local x = left and indicatorX + Layout.flagLampSideOffset or indicatorX - Layout.flagLampSideOffset
+    drawFlagLamps(origin, scale, x, state, settings)
+    return
+  end
+  local count = style == 'column_9' and 9 or 3
+  local color = flagColor(state)
+  local visible = color ~= nil and flagBlinkOn(state, settings)
+  drawVerticalColumn(origin, scale, side, count, count, visible, color, false)
+end
+
+local function drawRadarPresentation(origin, scale, side, level, visible)
+  local style = Layout.radarPresentation
+  if style == 'classic_lights' then
+    drawRadarLights(origin, scale, side, level, visible)
+  elseif style == 'modern_bars' then
+    drawModernRadarBars(origin, scale, side, level, visible)
+  elseif style == 'column_3' or style == 'column_9' then
+    local count = style == 'column_9' and 9 or 3
+    local filled = math.floor(level * count / 3 + 0.5)
+    local color = level >= 3 and C.red or C.amber
+    drawVerticalColumn(origin, scale, side, count, filled, visible, color,
+      Layout.flagPresentation == 'modern_strips')
+  else
+    drawRadarArcs(origin, scale, side, level, visible)
+  end
 end
 
 local function drawSideIndicators(origin, scale, state, settings)
   local radarEnabled = settings.gt7ProximityRadar ~= false and state.proximityRadarAvailable
   local blinkOn = math.floor((state.clock or 0) / Layout.radarBlinkPeriod) % 2 == 0
   local function drawSide(side, level)
-    if Layout.verticalLampCount > 0 then
-      local left = side == 'left'
-      local indicator = left and state.leftIndicator or (not left and state.rightIndicator)
-      local active = (state.hazardLights or indicator) and indicatorLit(state, settings)
-      drawTriangle(origin, scale, left and Layout.indicatorLeftX or Layout.indicatorRightX,
-        Layout.indicatorY, side, active and C.amber or C.outlineDim)
-      local traffic = radarEnabled and level > 0
-      local flag = flagColor(state)
-      local color = traffic and (level >= 3 and C.red or C.amber) or flag
-      local visible = traffic and (level < 3 or blinkOn)
-        or (not traffic and flag ~= nil and flagBlinkOn(state, settings))
-      local filled = traffic and level * Layout.verticalLampCount / 3 or Layout.verticalLampCount
-      local x = left and Layout.verticalLampLeftX or Layout.verticalLampRightX
-      for i = 1, Layout.verticalLampCount do
-        drawRadarLamp(origin, scale, x,
-          Layout.verticalLampBottom - (i - 1) * Layout.verticalLampSpacing,
-          visible and i <= filled, color)
-      end
-    elseif Layout.id == 'modern' then
-      local left = side == 'left'
-      local x = left and Layout.indicatorLeftX or Layout.indicatorRightX
-      local indicator = left and state.leftIndicator or (not left and state.rightIndicator)
-      local active = (state.hazardLights or indicator) and indicatorLit(state, settings)
-      drawTriangle(origin, scale, x, Layout.indicatorY, side, active and C.amber or C.outlineDim)
-      local traffic = radarEnabled and level > 0
-      drawModernRadarBars(origin, scale, side, traffic and level or 0, level < 3 or blinkOn)
-      drawFlagLamps(origin, scale, left and x + Layout.flagLampSideOffset
-        or x - Layout.flagLampSideOffset, state, settings, traffic)
-    elseif radarEnabled and settings.gt7RadarStyle == 'lights' then
-      drawRadarLights(origin, scale, side, level, level < 3 or blinkOn)
-    elseif radarEnabled and level > 0 then
-      drawRadarArcs(origin, scale, side, level, level < 3 or blinkOn)
-    else
-      drawDefaultSideIndicators(origin, scale, side, state, settings)
+    drawTurnIndicator(origin, scale, side, state, settings)
+
+    -- Modern continuous flag strips are a persistent status channel and never
+    -- yield to proximity radar, even during the radar's off blink phase.
+    if Layout.flagPresentation == 'modern_strips' then
+      drawFlagPresentation(origin, scale, side, state, settings)
+    end
+
+    local traffic = radarEnabled and level > 0
+    if traffic then
+      drawRadarPresentation(origin, scale, side, level, level < 3 or blinkOn)
+    elseif Layout.flagPresentation ~= 'modern_strips' then
+      drawFlagPresentation(origin, scale, side, state, settings)
     end
   end
   drawSide('left', state.radarLeftLevel or 0)
@@ -946,7 +973,7 @@ local function drawDebug(origin, scale, state, width, height)
 end
 
 function M.draw(state, settings)
-  Layout = Layouts.get(settings.gt7Layout)
+  Layout = Layouts.resolve(settings)
   C = Theme.get(settings.theme)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
@@ -966,7 +993,9 @@ function M.draw(state, settings)
 
   drawCenterBackdrop(origin, scale, backdropOpacity, state)
   if Layout.showRpmBar then drawRpmBar(origin, scale, state, settings) end
-  drawCenterReadout(origin, scale, state, settings, backdropOpacity)
+  drawSpeedReadout(origin, scale, state)
+  drawGearReadout(origin, scale, state, settings, backdropOpacity)
+  drawSteering(origin, scale, state, settings)
   drawSpeedDial(origin, scale, state, settings, backdropOpacity)
   drawRpmDial(origin, scale, state, settings, backdropOpacity)
   drawPedals(origin, scale, state)
