@@ -634,11 +634,13 @@ local function updateProximityRadar(state, playerCar, settings)
   end
 end
 
-function M.update(state, dt, settings)
+-- Optional read-only sample car is used by the isolated instrument preview.
+-- Live callers retain the same source and processing path.
+function M.update(state, dt, settings, sampleCar)
   state.clock = state.clock + math.max(dt or 0, 0)
   state.raceFlagType = U.read(SIM, 'raceFlagType', nil)
 
-  local car = ac.getCar(0)
+  local car = sampleCar or ac.getCar(0)
   if not car then
     state.available = false
     state.ffbAvailable = false

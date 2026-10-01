@@ -7,6 +7,13 @@ $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $project 'dist'
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('retro-ui-' + [guid]::NewGuid().ToString('N'))
+# Resolve and constrain the staging target before the recursive cleanup below.
+$stage = [System.IO.Path]::GetFullPath($stage)
+$stageRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+if (-not $stage.StartsWith($stageRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+    (Split-Path -Leaf $stage) -notmatch '^retro-ui-[0-9a-f]{32}$') {
+  throw 'Package staging directory must be a generated child of the temporary directory.'
+}
 $app = Join-Path $stage 'apps\lua\RetroUI'
 $package = Join-Path $dist "RetroUI-$($Edition.ToUpperInvariant())-v$Version.zip"
 

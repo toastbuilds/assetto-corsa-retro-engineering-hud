@@ -1,6 +1,8 @@
 local DialSettings = require('src/settings')
 local SettingsUI = require('src/settings_ui')
 local Layout = require('src/gt7_retro_layout')
+local InstrumentConfig = require('src/instrument_config')
+local InstrumentPreview = require('src/instrument_preview')
 local M = {}
 
 local COMPOSITION_VERSION = 1
@@ -17,6 +19,9 @@ M.values = ac.storage({
   version = 0,
   compositionVersion = 0,
   hudScale = 0.72,
+  gt7DialScale = 1,
+  gt7DialSpacing = 0,
+  gt7IndicatorScale = 1,
   opacity = 1,
   backgroundOpacity = 0.72,
   speedUnit = 'km/h',
@@ -34,6 +39,10 @@ M.values = ac.storage({
   gt7LowerFrameStyle = 'classic',
   gt7SpeedNeedleMode = 'digital',
   gt7RpmNeedleMode = 'digital',
+  gt7SpeedNeedleStyle = 'classic',
+  gt7RpmNeedleStyle = 'classic',
+  gt7SimulateVacuum = true,
+  gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
   gt7ProximityRadar = true,
   -- Legacy Free-compatible preference. Premium 2.2 never stores new
@@ -81,6 +90,9 @@ local function sanitizeComposition()
   local normalized = Layout.normalize(M.values)
   setComposition(normalized)
   if not presetIds[M.values.gt7Layout] then M.values.gt7Layout = 'classic' end
+  for _, key in ipairs({ 'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle' }) do
+    if not InstrumentConfig.needles[M.values[key]] then M.values[key] = 'classic' end
+  end
 end
 sanitizeComposition()
 
@@ -116,11 +128,12 @@ function M.current()
   -- guaranteed to enumerate stored fields with pairs().
   local values = {}
   for _, key in ipairs({
-    'hudScale', 'opacity', 'backgroundOpacity', 'speedUnit', 'gt7Layout',
+    'hudScale', 'gt7DialScale', 'gt7DialSpacing', 'gt7IndicatorScale', 'opacity', 'backgroundOpacity', 'speedUnit', 'gt7Layout',
     'gt7SpeedStyle', 'gt7GearStyle', 'gt7SteeringStyle', 'gt7RpmBarVisible',
     'gt7PedalPosition', 'gt7PedalStyle', 'gt7RadarPresentation',
     'gt7FlagPresentation', 'gt7LowerFrameStyle',
     'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7LowerPanelMode',
+    'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle', 'gt7SimulateVacuum', 'gt7VacuumMinimum',
     'gt7ProximityRadar', 'gt7RadarStyle', 'rpmWarningFraction',
     'rpmRedlineFraction', 'fallbackRpm', 'showSteering', 'showLights',
     'animateIndicators', 'animateFlagAlert', 'animateShiftAlert',
@@ -131,6 +144,7 @@ function M.current()
   values.theme = DialSettings.values.theme
   values.speedUnit = DialSettings.values.speedUnit
   values.instrumentMode = 'gt7_retro'
+  values.gt7InstrumentsEnabled = true
   return values
 end
 
@@ -138,10 +152,16 @@ function M.draw()
   ui.header('GT7 Premium')
   SettingsUI.section('gt7', 'appearance', 'Appearance', true, function()
     slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
+    slider('Side dial scale', 'gt7DialScale', 0.75, 1.25, '%.2fx')
+    slider('Side dial spacing', 'gt7DialSpacing', 0, 160, '%.0f px')
+    slider('Lower indicator scale', 'gt7IndicatorScale', 0.65, 1.5, '%.2fx')
     percent('Backdrop opacity', 'backgroundOpacity', 0.18, 0.82)
     percent('Instrument opacity', 'opacity', 0.55, 1)
     SettingsUI.resetAppearance('gt7', function()
       M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
+      M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
+      M.values.gt7IndicatorScale = 1
+      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'classic', 'classic'
     end)
   end)
   SettingsUI.section('gt7', 'gauges', 'Components and presets', true, function()
@@ -172,10 +192,12 @@ function M.draw()
         { label = 'Steering Dial wide angular', value = 'wide' } })
 
     local needles = { { label = 'Digital', value = 'digital' }, { label = 'Analog', value = 'analog' } }
-    SettingsUI.choice('gt7', 'speedNeedle', 'Speed needle', M.values.gt7SpeedNeedleMode,
+    SettingsUI.choice('gt7', 'speedNeedle', 'Speed dial mode', M.values.gt7SpeedNeedleMode,
       needles, function(value) M.values.gt7SpeedNeedleMode = value end)
-    SettingsUI.choice('gt7', 'rpmNeedle', 'RPM needle', M.values.gt7RpmNeedleMode,
+    SettingsUI.choice('gt7', 'rpmNeedle', 'RPM dial mode', M.values.gt7RpmNeedleMode,
       needles, function(value) M.values.gt7RpmNeedleMode = value end)
+    choice('speedNeedleStyle', 'Speed needle style', InstrumentConfig.needleChoices)
+    choice('rpmNeedleStyle', 'RPM needle style', InstrumentConfig.needleChoices)
     SettingsUI.choice('gt7', 'lower', 'Lower panel content', M.values.gt7LowerPanelMode,
       { { label = 'Grip limit', value = 'limit' }, { label = 'FFB', value = 'ffb' },
         { label = 'Pedal history', value = 'pedal_history' }, { label = 'Hidden', value = 'invisible' } },
@@ -207,9 +229,18 @@ function M.draw()
   end)
   SettingsUI.section('gt7', 'advanced', 'Advanced', false, function()
     checkbox('Developer debug view', 'debug')
+    checkbox('Simulate vacuum when boost is zero', 'gt7SimulateVacuum')
+    slider('Simulated vacuum minimum', 'gt7VacuumMinimum', -1, -0.1, '%.2f bar')
+    ui.textWrapped('CSP provides positive boost. Vacuum is an estimate from throttle while the engine runs; positive boost remains measured.')
+    InstrumentPreview.draw(M.values)
     SettingsUI.resetAll('gt7', function()
       M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
+      M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
+      M.values.gt7IndicatorScale = 1
       M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
+      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'classic', 'classic'
+      M.values.gt7SimulateVacuum, M.values.gt7VacuumMinimum = true, InstrumentConfig.vacuumMinimum
+      InstrumentPreview.reset()
       M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true
       M.values.rpmWarningFraction, M.values.rpmRedlineFraction, M.values.fallbackRpm = 0.86, 0.96, 8000
       for _, key in ipairs({ 'showSteering', 'showLights', 'animateIndicators',

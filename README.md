@@ -71,6 +71,41 @@ y los diales conservan sus modos analógico/digital y sus opciones de visibilida
 y animación. **Reset appearance** conserva la composición; **Reset all** también
 restaura la composición Classic.
 
+Los dials laterales **Premium** tienen modos Analog y Digital independientes.
+Analog usa escalas concéntricas y miniagujas para fuel/boost; Digital presenta
+velocidad y RPM grandes con aros de bloques y subinstrumentos segmentados.
+**Speed needle style** y **RPM needle style** seleccionan nueve familias de
+aguja sin cambiar la telemetría ni su respuesta. Las luces reales del coche
+activan una retroiluminación gradual, incluso si se oculta el indicador de luces.
+
+En **Advanced**, **Simulate vacuum when boost is zero** añade un vacío estimado
+por acelerador mientras gira el motor. Su mínimo inicial es −0.5 bar y se puede
+ajustar o desactivar; cualquier boost positivo sigue usando el valor real de CSP.
+El SDK de apps no ofrece vacío real. **Instrument preview (temporary)** permite
+probar modos, agujas, luces, velocidad, RPM, reserva, boost y datos ausentes sin
+modificar el coche ni las otras ventanas; no se guarda al reiniciar.
+
+En **GT7 → Appearance**, **Side dial scale** ajusta ambos instrumentos entre
+0.75× y 1.25× y **Side dial spacing** añade de 0 a 160 píxeles de separación
+respecto al centro. Los valores neutros son 1× y 0; el encaje en la ventana se
+recalcula para incluir los dials y sus indicadores. En la composición de pedales
+exteriores, esas barras acompañan al grupo lateral para conservar su espacio.
+Fuel y boost analógicos superponen los segmentos de llenado sobre el mismo arco
+de divisiones, con la aguja por encima. Las marcas principales son más anchas
+y las subdivisiones menores más finas y próximas.
+Fuel y boost comparten la superficie del dial; una banda elevada respalda las
+cifras de las escalas principales.
+
+**Lower indicator scale** ajusta los indicadores circulares inferiores entre
+0.65× y 1.50×, con separación y encaje adaptados. La zona de redline conserva
+segmentos digitales incluso en analógico: quedan tenues antes del umbral real
+y se iluminan al alcanzarlo. El arco interno analógico usa pequeñas marcas y
+puntos alineados con los números de cada escala.
+
+Los parámetros visuales se centralizan en `src/instrument_config.lua`: escalas,
+segmentos, tamaños, grosores, subinstrumentos, agujas/hub y transiciones. Sus
+colores usan los roles de `src/theme.lua`, compatibles con ambos temas.
+
 La edición **Free** mantiene el GT7 Classic y sus indicadores ABS/TC sin incluir
 el editor Premium. Las selecciones Premium se guardan en claves propias, por lo
 que alternar entre ediciones no las elimina.
@@ -144,6 +179,16 @@ dentro de Assetto Corsa con CSP.
 persistencia por coche y variante, la exclusión de rivales, la validez de las
 vueltas y 96 combinaciones de dibujo con ambos temas,
 tres tamaños de ventana y las secciones opcionales.
+
+`lua tests/instruments.lua` verifica las transiciones, los valores compartidos,
+el vacío simulado, las nueve geometrías de aguja, la persistencia, el aislamiento
+del preview y 288 escenarios adicionales. También ejecuta la suite de layouts
+GT7. Si no hay un ejecutable Lua, se puede usar Python con `lupa.lua52`.
+
+`python tools/preview-instruments.py` genera capturas desde las llamadas reales
+de dibujo en `output/instruments/` (requiere Pillow, Lupa y Consolas). Incluye
+ambos modos/temas, luces OFF/ON, las nueve agujas y alertas. Estas capturas ayudan
+a revisar composición y legibilidad; la rasterización final depende de CSP.
 
 ## Licencia
 

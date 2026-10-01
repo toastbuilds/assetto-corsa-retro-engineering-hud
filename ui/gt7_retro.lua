@@ -3,6 +3,9 @@ local Layouts = require('src/gt7_retro_layout')
 local Layout = Layouts
 local PedalHistory = require('src/pedal_history')
 local U = require('src/utils')
+local Instruments = require('ui/side_instruments')
+local InstrumentConfig = require('src/instrument_config')
+local InstrumentLayout = require('src/instrument_layout')
 
 local M = {}
 local C = Theme.colors
@@ -147,12 +150,6 @@ local function rpmColor(fraction, active, state, settings)
     return state.rpmWarning and alertPulse(state, settings, false) and C.shiftBlue or C.shiftBlueDim
   end
   return C.primary
-end
-
-local function rpmGaugeFraction(state, limiterFraction)
-  local limiter = math.max(state.rpmDisplayLimiter or 1000, 1000)
-  local gaugeLimiter = math.max(state.rpmGaugeLimiter or limiter, 1000)
-  return U.clamp(limiter * (limiterFraction or 1) / gaugeLimiter, 0, 1)
 end
 
 local function rpmDialColor(fraction, active, state, settings)
@@ -355,178 +352,18 @@ local function drawSteering(origin, scale, state, settings)
   end
 end
 
-local function gaugeAngle(fraction)
-  return Layout.gaugeStart + (Layout.gaugeEnd - Layout.gaugeStart) * U.clamp(fraction, 0, 1)
-end
-
-local function scaleLabels(maximum, step)
-  local labels = {}
-  local value = 0
-  while value <= maximum + step * 0.01 and #labels < 12 do
-    labels[#labels + 1] = value
-    value = value + step
-  end
-  if labels[#labels] < maximum - step * 0.01 then
-    if #labels >= 12 then labels[#labels] = maximum else labels[#labels + 1] = maximum end
-  end
-  return labels
-end
-
-local function drawNeedle(center, scale, fraction, color)
-  local angle = gaugeAngle(fraction)
-  local tip = U.polar(center, Layout.needleLength * scale, angle)
-  local tail = U.polar(center, 22 * scale, angle + math.pi)
-  drawLine(tail, tip, withAlpha(C.backlight, 0.18), 12 * scale)
-  drawLine(tail, tip, C.outlineDim, 7 * scale)
-  drawLine(tail, tip, color, 4 * scale)
-  ui.drawCircleFilled(center, 12 * scale, C.panelRaised, 24)
-  ui.drawCircle(center, 12 * scale, C.outline, 24, 2 * scale)
-  ui.drawCircleFilled(center, 4 * scale, color, 16)
-end
-
-local function drawDigitalDialBar(center, scale, activeFraction, state, settings, rpmDial)
-  local segmentCount = Layout.digitalDialBarSegments
-  local span = (Layout.gaugeEnd - Layout.gaugeStart) / segmentCount
-  local filled = math.floor(U.clamp(activeFraction, 0, 1) * segmentCount + 0.5)
-
-  for i = 1, segmentCount do
-    local fraction = i / segmentCount
-    local startAngle = Layout.gaugeStart + (i - 1) * span + Layout.digitalDialBarGap
-    local endAngle = Layout.gaugeStart + i * span - Layout.digitalDialBarGap
-    local active = i <= filled
-    local color = C.inactive
-    if active then
-      color = rpmDial and rpmDialColor(fraction, true, state, settings) or C.cyan
-    end
-    drawArc(center, Layout.digitalDialBarRadius * scale, startAngle, endAngle,
-      color, Layout.digitalDialBarWidth * scale, 5)
-  end
-end
-
-local function drawDialTicks(center, scale, labelValues, formatter, activeFraction, state, settings,
-    rpmDial, needleMode)
-  if needleMode == 'digital' then
-    drawDigitalDialBar(center, scale, activeFraction, state, settings, rpmDial)
-  end
-
-  local minorCount = 40
-  for i = 0, minorCount do
-    local fraction = i / minorCount
-    local angle = gaugeAngle(fraction)
-    local major = i % 10 == 0
-    local outer = U.polar(center, Layout.tickRadius * scale, angle)
-    local inner = U.polar(center, (Layout.tickRadius - (major and 15 or 8)) * scale, angle)
-    local color = C.primary
-    if rpmDial and fraction >= rpmGaugeFraction(state, state.rpmRedlineFraction or 0.96) then
-      color = C.red
-    end
-    drawLine(inner, outer, color, (major and 2.6 or 1.2) * scale)
-  end
-
-  local scaleMaximum = math.max(labelValues[#labelValues] or 1, 1)
-  for _, value in ipairs(labelValues) do
-    local fraction = U.clamp(value / scaleMaximum, 0, 1)
-    local labelPosition = U.polar(center, (Layout.tickRadius - 35) * scale, gaugeAngle(fraction))
-    local labelSize = #labelValues > 9 and 16 or (#labelValues > 5 and 18 or 20)
-    centeredText(formatter(value), labelSize * scale, labelPosition, C.primary)
-  end
-
-  if needleMode ~= 'digital' then
-    local needleColor = rpmDial
-      and (state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.primary)) or C.primary
-    drawNeedle(center, scale, activeFraction, needleColor)
-  end
-end
-
-local function drawFuelGauge(origin, scale, state)
-  local center = point(origin, scale, Layout.leftCenterX, Layout.dialCenterY + 112)
-  local radius = 65 * scale
-  local startAngle = math.rad(205)
-  local endAngle = math.rad(335)
-  drawArc(center, radius, startAngle, endAngle, C.inactive, 12 * scale, 20)
-  local segments = 10
-  local filled = math.floor(U.clamp(state.fuelNormalized or 0, 0, 1) * segments + 0.5)
-  for i = 1, segments do
-    local a1 = startAngle + (endAngle - startAngle) * (i - 1) / segments + 0.012
-    local a2 = startAngle + (endAngle - startAngle) * i / segments - 0.012
-    local color = i <= filled and ((state.fuelNormalized or 0) < 0.15 and C.red or C.cyan) or C.inactive
-    drawArc(center, radius, a1, a2, color, 8 * scale, 4)
-  end
-  ui.drawRectFilled(center + vec2(-7 * scale, -9 * scale), center + vec2(6 * scale, 8 * scale), C.primary)
-  drawLine(center + vec2(6 * scale, -5 * scale), center + vec2(12 * scale, -1 * scale), C.primary, 2 * scale)
-  drawLine(center + vec2(12 * scale, -1 * scale), center + vec2(12 * scale, 8 * scale), C.primary, 2 * scale)
-  centeredText('E', 10 * scale, U.polar(center, radius, startAngle), C.secondary)
-  centeredText('F', 10 * scale, U.polar(center, radius, endAngle), C.secondary)
-  centeredText('FUEL', 11 * scale, center + vec2(0, 28 * scale), C.secondary)
-end
-
 local function drawSpeedDial(origin, scale, state, settings, backdropOpacity)
   local center = point(origin, scale, Layout.leftCenterX, Layout.dialCenterY)
-  local radius = Layout.dialRadius * scale
-  ui.drawCircleFilled(center, radius, withAlpha(C.panel, math.min(0.96, backdropOpacity + 0.18)), 72)
-  drawDialBezel(center, radius, scale, state, settings)
-
-  local maximum = state.speedGaugeMaximum or (settings.speedUnit == 'mph' and 200 or 320)
-  local labels = scaleLabels(maximum, state.speedGaugeStep or maximum / 8)
-  local directFraction = U.clamp((state.speedValue or 0) / maximum, 0, 1)
-  local needleFraction = settings.gt7SpeedNeedleMode == 'analog'
-    and state.gt7SpeedNeedleNormalized or directFraction
-  drawDialTicks(center, scale, labels, function(value) return tostring(U.round(value)) end,
-    needleFraction, state, settings, false, settings.gt7SpeedNeedleMode)
-  centeredText(settings.speedUnit, 15 * scale, center + vec2(0, -25 * scale), C.secondary)
-  drawFuelGauge(origin, scale, state)
-end
-
-local function drawBoostGauge(origin, scale, state)
-  local center = point(origin, scale, Layout.rightCenterX, Layout.dialCenterY + 88)
-  if not state.turboAvailable then
-    centeredText('NAT ASP', 11 * scale, center + vec2(0, 22 * scale), C.outlineSoft)
-    return
-  end
-
-  local startAngle = Layout.boostStart
-  local endAngle = Layout.boostEnd
-  local radius = Layout.boostRadius * scale
-  drawArc(center, radius, startAngle, endAngle, C.inactive, 12 * scale, 20)
-  local pressureNormalized = U.clamp((state.turboBoost or 0)
-    / math.max(state.turboDisplayMax or 1, 0.1), 0, 1)
-  local needleNormalized = U.clamp(state.boostNeedleNormalized or 0, 0, 1)
-  local segments = 10
-  local filled = math.floor(pressureNormalized * segments + 0.5)
-  for i = 1, segments do
-    local a1 = startAngle + (endAngle - startAngle) * (i - 1) / segments + 0.012
-    local a2 = startAngle + (endAngle - startAngle) * i / segments - 0.012
-    local color = i <= filled and (i >= 9 and C.red or C.cyan) or C.inactive
-    drawArc(center, radius, a1, a2, color, 8 * scale, 4)
-  end
-  local needle = U.polar(center, 48 * scale,
-    startAngle + (endAngle - startAngle) * needleNormalized)
-  drawLine(center, needle, C.primary, 3 * scale)
-  ui.drawCircleFilled(center, 6 * scale, C.outline, 16)
-  centeredText('0', 10 * scale, U.polar(center, radius, startAngle), C.secondary)
-  centeredText(string.format('%.1f', state.turboDisplayMax or 1), 10 * scale,
-    U.polar(center, radius, endAngle), C.secondary)
-  centeredText('BOOST', 11 * scale, center + vec2(0, 28 * scale), C.secondary)
+  scale = scale * (Layout.instrumentScale or 1)
+  Instruments.draw(center, scale, state, settings, Layout, C, backdropOpacity, false, rpmDialColor)
+  drawDialBezel(center, Layout.dialRadius * scale, scale, state, settings)
 end
 
 local function drawRpmDial(origin, scale, state, settings, backdropOpacity)
   local center = point(origin, scale, Layout.rightCenterX, Layout.dialCenterY)
-  local radius = Layout.dialRadius * scale
-  ui.drawCircleFilled(center, radius, withAlpha(C.panel, math.min(0.96, backdropOpacity + 0.18)), 72)
-  drawDialBezel(center, radius, scale, state, settings)
-
-  local maximum = math.max((state.rpmGaugeLimiter or 8000) / 1000, 1)
-  local rpmStep = maximum <= 9 and 1 or (maximum <= 18 and 2 or math.ceil(maximum / 8))
-  local labels = scaleLabels(maximum, rpmStep)
-  local needleFraction = settings.gt7RpmNeedleMode == 'analog'
-    and state.gt7RpmNeedleNormalized or U.clamp(state.rpmGaugeNormalized or 0, 0, 1)
-  drawDialTicks(center, scale, labels, function(value)
-    local rounded = U.round(value)
-    return math.abs(value - rounded) < 0.01 and tostring(rounded) or string.format('%.1f', value)
-  end,
-    needleFraction, state, settings, true, settings.gt7RpmNeedleMode)
-  centeredText('x1000 RPM', 14 * scale, center + vec2(0, -25 * scale), C.secondary)
-  drawBoostGauge(origin, scale, state)
+  scale = scale * (Layout.instrumentScale or 1)
+  Instruments.draw(center, scale, state, settings, Layout, C, backdropOpacity, true, rpmDialColor)
+  drawDialBezel(center, Layout.dialRadius * scale, scale, state, settings)
 end
 
 local function drawFfb(origin, scale, state)
@@ -903,7 +740,11 @@ local function drawEngineIcon(center, scale, color)
 end
 
 local function drawStatusPod(origin, scale, x, label, available, active, color, icon, backdropOpacity)
-  local center = point(origin, scale, x, 443)
+  local factor = Layout.indicatorScale or 1
+  local anchor = x < Layout.width / 2 and Layout.leftCenterX or Layout.rightCenterX
+  x = anchor + (x - anchor) * factor
+  local center = point(origin, scale, x, Layout.statusY or 443)
+  scale = scale * factor
   local panelFill = withAlpha(C.panelRaised, math.max(0.82, math.min(0.98, backdropOpacity + 0.18)))
   local fill = active and withAlpha(color, 0.26) or panelFill
   local stroke = active and color or (available and C.outlineSoft or C.outlineDim)
@@ -917,10 +758,10 @@ local function drawStatusPod(origin, scale, x, label, available, active, color, 
 end
 
 local function drawStatusStrips(origin, scale, state, settings, backdropOpacity)
-  local fuelLow = state.fuel ~= nil and (state.fuelNormalized or 0) < 0.15
+  local fuelLow = state.fuel ~= nil and (state.fuelNormalized or 0) < InstrumentConfig.fuelWarning
   local fuelActive = fuelLow and warningBlink(state, settings)
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftFuelStatusOffset,
-    'FUEL', state.fuel ~= nil, fuelActive, C.red, nil, backdropOpacity)
+    'FUEL', state.fuel ~= nil, fuelActive, C.red, Instruments.fuelIcon, backdropOpacity)
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftTcStatusOffset,
     'TC', state.tcSupported, state.tcActive == true,
     C.amber, nil, backdropOpacity)
@@ -957,6 +798,7 @@ local function drawDebug(origin, scale, state, width, height)
     string.format('FFB RAW %+.3f', state.ffbSigned or 0),
     string.format('FFB UI %d%% %s', state.ffbPercent or 0, state.ffbAvailable and 'FINAL' or 'N/A'),
     string.format('TURBO %s %.2f', state.turboAvailable and 'YES' or 'NO', state.turboBoost or 0),
+    string.format('VACUUM %s', state.gt7Instruments and state.gt7Instruments.boostSimulated and 'SIMULATED' or 'INACTIVE'),
     string.format('LIMIT %3d%% F %.2f R %.2f', U.round((state.limitNeedle or 0) * 100),
       state.limitFront or 0, state.limitRear or 0)
   }
@@ -973,19 +815,19 @@ local function drawDebug(origin, scale, state, width, height)
 end
 
 function M.draw(state, settings)
-  Layout = Layouts.resolve(settings)
+  Layout = InstrumentLayout.resolve(Layouts.resolve(settings), settings)
   C = Theme.get(settings.theme)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
-  local fittedScale = math.min(width / Layout.width, height / Layout.height)
+  local fitWidth, fitHeight = Layout.fitRight - Layout.fitLeft, Layout.fitBottom - Layout.fitTop
+  local fittedScale = math.min(width / fitWidth, height / fitHeight)
   -- Window resizing is the primary scale control. The persisted 0.72 default
   -- is neutral here, while the shared slider remains available as a restrained
   -- fine adjustment around the mouse-controlled fitted size.
   local sliderScale = 1 + ((settings.hudScale or 0.72) - 0.72) * 0.6
   local scale = fittedScale * U.clamp(sliderScale, 0.82, 1.28)
-  local designWidth = Layout.width * scale
-  local designHeight = Layout.height * scale
-  local origin = vec2((width - designWidth) / 2, (height - designHeight) / 2)
+  local origin = vec2((width - fitWidth * scale) / 2 - Layout.fitLeft * scale,
+    (height - fitHeight * scale) / 2 - Layout.fitTop * scale)
   local backdropOpacity = settings.backgroundOpacity or 0.72
 
   ui.pushStyleVarAlpha(settings.opacity or 1)
@@ -1012,6 +854,9 @@ function M.draw(state, settings)
   end
   drawStatusStrips(origin, scale, state, settings, backdropOpacity)
   if settings.debug then drawDebug(origin, scale, state, width, height) end
+  if settings.gt7PreviewActive then
+    centeredText('INSTRUMENT PREVIEW', 11 * scale, point(origin, scale, Layout.width / 2, 22), C.amber)
+  end
 
   ui.popDWriteFont()
   ui.popStyleVar(1)

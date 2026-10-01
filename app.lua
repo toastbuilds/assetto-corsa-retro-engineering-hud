@@ -3,6 +3,8 @@ local Gt7Settings = require('src/gt7_settings')
 local ConditionSettings = require('src/condition_settings')
 local SettingsUI = require('src/settings_ui')
 local Telemetry = require('src/telemetry')
+local Instruments = require('src/instrument_state')
+local InstrumentPreview = require('src/instrument_preview')
 local Dial = require('ui/dial')
 local Gt7 = require('ui/gt7_retro')
 local Condition = require('ui/car_condition')
@@ -52,7 +54,12 @@ end
 
 local function updateCore(name, state, dt, values)
   local ok, err = pcall(function()
-    Telemetry.update(state, dt, type(values) == 'function' and values() or values)
+    local resolved = type(values) == 'function' and values() or values
+    Telemetry.update(state, dt, resolved)
+    if name == 'GT7' and resolved.gt7InstrumentsEnabled then
+      Instruments.update(state, resolved, dt)
+      InstrumentPreview.update(dt, resolved, state)
+    end
   end)
   if not ok then reportOnce(name .. ' update', tostring(err)) end
 end
@@ -89,7 +96,9 @@ function script.gt7Main(_)
       ui.setNextWindowSize(vec2(math.max(width * 1.25, 720), math.min(height, 360)))
     end
   end
-  Gt7.draw(gt7State, Gt7Settings.current())
+  local settings = Gt7Settings.current()
+  local previewState = settings.gt7InstrumentsEnabled and InstrumentPreview.getState() or nil
+  Gt7.draw(previewState or gt7State, previewState and InstrumentPreview.settings(settings) or settings)
 end
 
 function script.conditionMain(_)
