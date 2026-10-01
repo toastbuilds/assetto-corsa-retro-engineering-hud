@@ -56,10 +56,26 @@ state.turboAvailable = false
 Presentation.update(state, settings, 1 / 60)
 assert(state.gt7Instruments.vacuum == 0 and state.gt7Instruments.vacuumVelocity == 0)
 
--- Observe actual needle primitives: nine shapes, but identical value/angle.
+-- Observe actual needle primitives, including open paths and filled hub parts.
+assert(#Config.needleOrder == 24 and #Config.needleChoices == 24)
 local signatures = {}
+local seenIds = {}
+for i, id in ipairs(Config.needleOrder) do
+  assert(not seenIds[id] and Config.needleChoices[i].value == id)
+  seenIds[id] = true
+  assert(Config.needleNames[id]:sub(1, 3) == id:upper(), 'labels must identify the asset card')
+  for _, part in ipairs(Config.needles[id].geometry.polygons) do
+    local pts = part.points
+    for j, a in ipairs(pts) do
+      local b, c = pts[j % #pts + 1], pts[(j + 1) % #pts + 1]
+      local turn = (b[1]-a[1])*(c[2]-b[2]) - (b[2]-a[2])*(c[1]-b[1])
+      assert(turn >= -0.000001, id .. ' must use convex fills')
+    end
+  end
+end
 local originalLine, originalFill, originalCircle = ui.drawLine, ui.pathFillConvex, ui.drawCircle
 local originalPath = ui.pathLineTo
+local originalStroke, originalCircleFill = ui.pathStroke, ui.drawCircleFilled
 local signature, points
 ui.drawLine = function(a, b, color, width)
   signature[#signature + 1] = string.format('L%.3f,%.3f,%.3f,%.3f,%.3f', a.x, a.y, b.x, b.y, width)
@@ -68,6 +84,14 @@ end
 ui.pathLineTo = function(p) points[#points + 1] = string.format('%.3f,%.3f', p.x, p.y); originalPath(p) end
 ui.pathFillConvex = function(color)
   signature[#signature + 1] = 'P' .. table.concat(points, ';'); points = {}; originalFill(color)
+end
+ui.pathStroke = function(color, closed, width)
+  signature[#signature + 1] = 'S' .. tostring(closed) .. ':' .. tostring(width) .. ':' .. table.concat(points, ';')
+  points = {}; originalStroke(color, closed, width)
+end
+ui.drawCircleFilled = function(p, radius, color, n)
+  signature[#signature + 1] = string.format('F%.3f,%.3f,%.3f', p.x, p.y, radius)
+  originalCircleFill(p, radius, color, n)
 end
 ui.drawCircle = function(p, radius, color, n, width)
   signature[#signature + 1] = string.format('C%.3f,%.3f,%.3f', p.x, p.y, radius)
@@ -81,6 +105,7 @@ for _, id in ipairs(Config.needleOrder) do
   signatures[key] = true
 end
 ui.drawLine, ui.pathFillConvex, ui.drawCircle, ui.pathLineTo = originalLine, originalFill, originalCircle, originalPath
+ui.pathStroke, ui.drawCircleFilled = originalStroke, originalCircleFill
 
 -- Missing/low fuel, warning zones, center values and all frame compositions.
 local function contains(calls, value)
@@ -189,12 +214,115 @@ for _, id in ipairs(Config.needleOrder) do
 end
 
 Settings.values.gt7SpeedNeedleStyle, Settings.values.gt7RpmNeedleStyle = 'skeleton', 'paddle'
-assert(Settings.current().gt7SpeedNeedleStyle == 'skeleton' and Settings.current().gt7RpmNeedleStyle == 'paddle')
+assert(Settings.current().gt7SpeedNeedleStyle == 'b02' and Settings.current().gt7RpmNeedleStyle == 'b06')
 package.loaded['src/gt7_settings'] = nil
 Settings = require('src/gt7_settings')
-assert(Settings.current().gt7SpeedNeedleStyle == 'skeleton', 'new styles must survive storage proxy reload')
+assert(Settings.current().gt7SpeedNeedleStyle == 'b02', 'new styles must survive storage proxy reload')
 Settings.values.gt7RpmNeedleStyle = 'invalid'
-assert(Settings.current().gt7RpmNeedleStyle == 'classic' and Settings.current().gt7SpeedNeedleStyle == 'skeleton')
+assert(Settings.current().gt7RpmNeedleStyle == 'b01' and Settings.current().gt7SpeedNeedleStyle == 'b02')
+
+for old, id in pairs(Config.needleAliases) do
+  Settings.values.gt7SpeedNeedleStyle, Settings.values.gt7RpmNeedleStyle = old, old
+  assert(Settings.current().gt7SpeedNeedleStyle == id and Settings.current().gt7RpmNeedleStyle == id,
+    'legacy selections must migrate: ' .. old)
+  assert(Config.needlePreset(old) == Config.needles[id], 'legacy callers must resolve aliases')
+end
+local DialSettings = require('src/settings')
+for i, id in ipairs(Config.needleOrder) do
+  harness.pendingCombos['##gt7.speedNeedleStyle'] = i - 1
+  harness.pendingCombos['##gt7.rpmNeedleStyle'] = (#Config.needleOrder - i)
+  Settings.draw()
+  DialSettings.values.instrumentMode = 'analog'
+  harness.pendingCombos['##dial.needleStyle'] = i - 1
+  DialSettings.draw()
+  local current = Settings.current()
+  assert(current.gt7SpeedNeedleStyle == id and current.gt7RpmNeedleStyle == Config.needleOrder[25-i])
+  assert(DialSettings.values.analogNeedleStyle == id, 'standalone selector must use the catalog')
+  package.loaded['src/gt7_settings'], package.loaded['src/settings'] = nil, nil
+  DialSettings = require('src/settings')
+  Settings = require('src/gt7_settings')
+  assert(DialSettings.values.analogNeedleStyle == id and Settings.current().gt7SpeedNeedleStyle == id
+    and Settings.current().gt7RpmNeedleStyle == Config.needleOrder[25-i], 'all selections must persist independently')
+end
+DialSettings.values.analogNeedleStyle = 'invalid'
+package.loaded['src/settings'] = nil
+DialSettings = require('src/settings')
+assert(DialSettings.values.analogNeedleStyle == 'a01')
+harness.pendingButtons['Reset appearance##dial'] = true
+DialSettings.draw()
+assert(DialSettings.values.analogNeedleStyle == 'a01' and Settings.current().gt7SpeedNeedleStyle == 'd06')
+DialSettings.values.analogNeedleStyle = 'c03'
+harness.pendingButtons['>  Advanced##dial.advanced'] = true
+harness.pendingButtons['Reset all##dial'] = true
+DialSettings.draw()
+assert(DialSettings.values.analogNeedleStyle == 'c03', 'reset must await its existing confirmation')
+harness.pendingButtons['Confirm reset##dial'] = true
+DialSettings.draw()
+assert(DialSettings.values.analogNeedleStyle == 'a01')
+harness.pendingButtons['Reset appearance##gt7'] = true
+Settings.draw()
+assert(Settings.current().gt7SpeedNeedleStyle == 'b01' and Settings.current().gt7RpmNeedleStyle == 'b01')
+Settings.values.gt7SpeedNeedleStyle, Settings.values.gt7RpmNeedleStyle = 'c03', 'd05'
+harness.pendingButtons['Reset all##gt7'] = true
+Settings.draw()
+harness.pendingButtons['Confirm reset##gt7'] = true
+Settings.draw()
+assert(Settings.current().gt7SpeedNeedleStyle == 'b01' and Settings.current().gt7RpmNeedleStyle == 'b01')
+
+-- Check actual filled primitives at known hole centers, in rotated coordinates.
+local holes = {a02={{40,0},{0,0}}, a05={{35,0},{-23,0}}, a06={{35,0}},
+  b02={{40,0},{-17,0}}, b03={{107,0}}, b05={{18,0},{50,0},{-17,0}},
+  c01={{40,0},{-30,0}}, c02={{-25,0}}, c03={{-39,0},{-30,0},{-21,0}},
+  c06={{40,0},{-28,0}}, d01={{45,0},{-25,0}}, d02={{45,0},{-25,0}},
+  d03={{0,0},{-25,0}}, d04={{40,0},{0,0},{-25,0}},
+  d05={{101.5,0},{40,0},{-25,0}}, d06={{40,0},{-25,0}}}
+local function covers(call, point)
+  if call.kind == 'circle_fill' then
+    return (point.x-call.a.x)^2 + (point.y-call.a.y)^2 <= call.radius^2
+  end
+  if call.kind ~= 'polygon' then return false end
+  for i, a in ipairs(call.points) do
+    local b = call.points[i % #call.points + 1]
+    if (b.x-a.x)*(point.y-a.y) - (b.y-a.y)*(point.x-a.x) < -0.000001 then return false end
+  end
+  return true
+end
+local standaloneCases = 0
+for _, id in ipairs(Config.needleOrder) do
+  for _, fraction in ipairs({0,0.5,1}) do
+    local angle = require('src/layout').rpmStart + math.rad(240) * fraction
+    for _, theme in ipairs({'dark','light'}) do
+      for _, lights in ipairs({false,true}) do
+        local palette = Theme.get(theme)
+        local tint = fraction == 1 and palette.red or (fraction == 0.5 and palette.amber or nil)
+        local calls = harness.drawNeedle(vec2(180,180), 1, angle, Config.needles[id], palette, lights and 1 or 0, tint)
+        for _, hole in ipairs(holes[id] or {}) do
+          local point = vec2(180 + hole[1]*math.cos(angle)-hole[2]*math.sin(angle),
+            180 + hole[1]*math.sin(angle)+hole[2]*math.cos(angle))
+          for _, call in ipairs(calls) do assert(not covers(call, point), id .. ' must leave its holes empty') end
+        end
+        state.analogNeedleNormalized, state.headlights = fraction, lights
+        state.rpmWarning, state.rpmRedline = fraction >= 0.5, fraction == 1
+        for _, window in ipairs({{300,300},{460,460},{740,420}}) do
+          local drawn = harness.drawDial({analogNeedleStyle=id, theme=theme}, state, window)
+          for _, call in ipairs(drawn) do
+            local function inside(p, radius)
+              if p then
+                radius = radius or 0
+                assert(p.x-radius >= 0 and p.y-radius >= 0 and p.x+radius <= window[1]
+                  and p.y+radius <= window[2], 'standalone primitives must fit')
+              end
+            end
+            inside(call.a, call.radius); inside(call.b)
+            for _, p in ipairs(call.points or {}) do inside(p) end
+          end
+          standaloneCases = standaloneCases + 1
+        end
+      end
+    end
+  end
+end
+state.rpmWarning, state.rpmRedline = false, false
 
 -- Visual controls preserve calibration and central geometry, and fit every frame.
 local Geometry = require('src/instrument_layout')
@@ -261,6 +389,6 @@ Preview.controls.enabled = false
 Preview.update(1 / 60, settings, state)
 assert(Preview.getState() == nil and Preview.settings(settings) == settings)
 
-print('Instruments: shared values, transitions, signed boost, nine geometries, persistence, isolated preview and '
-  .. cases .. ' drawing cases passed')
+print('Instruments: 24 geometries, real holes, migrations, independent selectors, persistence, resets, isolated preview; '
+  .. cases .. ' GT7 and ' .. standaloneCases .. ' standalone drawing cases passed')
 return harness

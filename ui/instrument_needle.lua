@@ -1,90 +1,106 @@
-local Theme = require('src/theme')
-local U = require('src/utils')
 local M = {}
 
--- Local longitudinal/lateral coordinates allow all presets to share transforms.
--- Open bodies are assembled from convex pieces, not fake background cutouts.
+-- Catalog geometry is prepared once. Only the local transform changes per frame.
 function M.draw(center, scale, angle, preset, palette, light, alertColor)
-  local length = preset.length
-  local width = preset.width / 2
-  local effectiveScale = scale * preset.scale
+  local s = scale * preset.scale
   angle = angle + preset.offset
   local dx, dy = math.cos(angle), math.sin(angle)
   local function p(x, y)
-    return center + vec2((x * dx - y * dy) * effectiveScale, (x * dy + y * dx) * effectiveScale)
+    return center + vec2((x * dx - y * dy) * s, (x * dy + y * dx) * s)
   end
   local color = alertColor or palette[preset.color]
-  local edge = palette[preset.edge]
-  local function polygon(points, fill)
+  local lit = math.max(0, math.min(1, light or 0)) * preset.glow
+  if lit > 0 and not alertColor then
+    local illumination = palette[preset.illumination]
+    color = rgbm(color.r + (illumination.r - color.r) * lit,
+      color.g + (illumination.g - color.g) * lit,
+      color.b + (illumination.b - color.b) * lit, color.mult)
+  end
+  local function tint(role)
+    return role == 'edge' and palette[preset.edge] or (role and palette[role] or color)
+  end
+  local function path(points)
     ui.pathClear()
     for _, v in ipairs(points) do ui.pathLineTo(p(v[1], v[2])) end
-    ui.pathFillConvex(fill or color)
-    ui.pathClear()
-    for _, v in ipairs(points) do ui.pathLineTo(p(v[1], v[2])) end
-    ui.pathStroke(edge, true, preset.borderWidth * effectiveScale)
   end
-  local function line(x1, y1, x2, y2, thickness, tint)
-    ui.drawLine(p(x1, y1), p(x2, y2), tint or color, thickness * effectiveScale)
-  end
-  local function ring(x, radius)
-    ui.drawCircle(p(x, 0), radius * effectiveScale, color, 20, 1.3 * effectiveScale)
-  end
+  local g = preset.geometry
   ui.pushStyleVarAlpha(preset.opacity)
-  if light > 0 and preset.glow > 0 then
-    line(0, 0, length, 0, preset.width + 3,
-      Theme.withAlpha(palette[preset.illumination], light * preset.glow))
+  if preset.hubShape == 'mini' then
+    -- Keep the original fuel/boost hand, including its hub and backlight.
+    local primary = alertColor or palette[preset.color]
+    if (light or 0) > 0 and preset.glow > 0 then
+      local c = palette[preset.illumination]
+      ui.drawLine(p(0, 0), p(preset.length, 0), rgbm(c.r, c.g, c.b, light * preset.glow),
+        (preset.width + 3) * s)
+    end
+    for _, points in ipairs(g) do
+      path(points); ui.pathFillConvex(primary)
+      path(points); ui.pathStroke(palette[preset.edge], true, preset.borderWidth * s)
+    end
+    local r = preset.hubRadius
+    ui.drawCircleFilled(center + vec2(0, 1.5 * s), (r + 2) * s, palette.void, 24)
+    ui.drawCircleFilled(center, r * s, palette.panelRaised, 24)
+    ui.drawCircle(center, r * s, palette.metal, 24, 1.5 * s)
+    ui.drawCircle(center, (r - 2) * s, palette.outline, 24, 0.8 * s)
+    ui.drawCircleFilled(center, r * 0.56 * s, palette[preset.hubCenter], 24)
+    ui.drawCircle(center, r * 0.56 * s, palette.primary, 24, 0.6 * s)
+    ui.drawLine(p(-r * 0.24, 0), p(r * 0.24, 0), palette.metalDim, 0.8 * s)
+    ui.popStyleVar(1)
+    return
   end
-  local body = preset.body
-  if body == 'cutout' or body == 'twin' then
-    local inner = body == 'twin' and width * 0.72 or width * 0.40
-    polygon({ {0, -width}, {length, -preset.tipWidth}, {length * 0.75, -preset.tipWidth}, {12, -inner} })
-    polygon({ {12, inner}, {length * 0.75, preset.tipWidth}, {length, preset.tipWidth}, {0, width} })
-    polygon({ {length * 0.75, -preset.tipWidth}, {length, -preset.tipWidth},
-      {length, preset.tipWidth}, {length * 0.75, preset.tipWidth} })
-    if body == 'twin' then line(22, -inner, 22, inner, 1) end
-  elseif body == 'loop' then
-    line(0, -width, length, 0, 1.1)
-    line(length, 0, 0, width, 1.1)
-  elseif body == 'line' then
-    line(0, 0, length - (preset.tip and 8 or 0), 0, preset.width)
-  elseif body == 'paddle' then
-    polygon({ {0, -width}, {18, -width}, {length, -preset.tipWidth},
-      {length, preset.tipWidth}, {18, width}, {0, width} })
-    line(8, 0, 25, 0, 2, palette.metalDim)
+  for _, part in ipairs(g.polygons) do
+    path(part.points)
+    ui.pathFillConvex(tint(part.role))
+  end
+  for _, part in ipairs(g.outlines) do
+    path(part.points)
+    ui.pathStroke(tint(part.role), part.closed, part.width * s)
+  end
+  for _, part in ipairs(g.circles) do
+    if part.fill then ui.drawCircleFilled(p(part.x, 0), part.radius * s, tint(part.role), 32)
+    else ui.drawCircle(p(part.x, 0), part.radius * s, tint(part.role), 32, part.width * s) end
+  end
+
+  local r, hub = preset.hubRadius, preset.hubShape
+  if hub ~= 'open' then
+    ui.drawCircleFilled(center + vec2(0, 1.5 * s), (r + 2) * s, palette.void, 32)
+    ui.drawCircleFilled(center, r * s, palette.panelRaised, 32)
+  end
+  ui.drawCircle(center, r * s, hub == 'rivet' and palette.outline or palette.metal, 32, 1.1 * s)
+  if hub == 'open' then
+    -- Arms terminate at the ring, leaving the center genuinely open.
+    ui.drawCircle(center, (r - 1.7) * s, color, 32, 1.1 * s)
+  elseif hub == 'rivet' then
+    ui.drawCircleFilled(center, r * 0.29 * s, color, 24)
+  elseif hub == 'cap' then
+    ui.drawCircleFilled(center, r * 0.70 * s, palette.metalDim, 32)
+    ui.drawCircle(center, r * 0.70 * s, palette.primary, 32, 0.75 * s)
+    ui.drawLine(p(-r * 0.48, -r * 0.48), p(r * 0.48, r * 0.48), palette.metal, 0.9 * s)
+  elseif hub == 'faceted' then
+    path(preset.hubGeometry)
+    ui.pathFillConvex(palette.metalDim)
+    path(preset.hubGeometry)
+    ui.pathStroke(palette.metal, true, 0.8 * s)
+    path(preset.hubMarker)
+    ui.pathFillConvex(color)
+  elseif hub == 'weight' then
+    path(preset.hubGeometry)
+    ui.pathFillConvex(palette.metal)
+    path(preset.hubGeometry)
+    ui.pathStroke(palette.outline, true, 1.4 * s)
+    ui.drawCircleFilled(p(-preset.counterweightLength, 0), 4 * s, palette.metal, 24)
+    ui.drawCircle(p(-preset.counterweightLength, 0), 4 * s, palette.primary, 24, 0.6 * s)
   else
-    polygon({ {0, -width}, {length, -preset.tipWidth}, {length, preset.tipWidth}, {0, width} })
-  end
-  if preset.tip == 'ring' then ring(length - 4, 5)
-  elseif preset.tip == 'arrow' then
-    polygon({ {length - 16, -8}, {length, 0}, {length - 16, 8} })
-  end
-  local tail, tailWidth = preset.counterweightLength, preset.counterweightWidth / 2
-  if preset.counterweight == 'ring' then
-    line(-tail + 4, 0, 0, 0, 1); ring(-tail, 4)
-  elseif preset.counterweight == 'disc' then
-    line(-tail, 0, 0, 0, 1.5)
-    ui.drawCircleFilled(p(-tail, 0), tailWidth * effectiveScale, color, 20)
-  elseif preset.counterweight == 'slot' then
-    line(-tail, -tailWidth, 0, -tailWidth, 1)
-    line(-tail, tailWidth, 0, tailWidth, 1)
-    line(-tail, -tailWidth, -tail, tailWidth, 1)
-  elseif preset.counterweight == 'diamond' then
-    polygon({ {-tail, 0}, {-tail / 2, -tailWidth * 2}, {0, 0}, {-tail / 2, tailWidth * 2} })
-  elseif preset.counterweight == 'block' then
-    line(-tail, 0, 0, 0, 2)
-    polygon({ {-tail, -tailWidth}, {-tail + 12, -tailWidth}, {-tail + 12, tailWidth}, {-tail, tailWidth} })
-  else
-    polygon({ {-tail, -tailWidth}, {0, -tailWidth}, {0, tailWidth}, {-tail, tailWidth} })
-  end
-  local radius = preset.hubRadius * effectiveScale
-  ui.drawCircleFilled(center + vec2(0, 1.5 * effectiveScale), radius + 2 * effectiveScale, palette.void, 24)
-  ui.drawCircleFilled(center, radius, palette.panelRaised, 24)
-  ui.drawCircle(center, radius, palette.metal, 24, 1.5 * effectiveScale)
-  ui.drawCircle(center, radius - 2 * effectiveScale, palette.outline, 24, 0.8 * effectiveScale)
-  if preset.hubShape ~= 'open' then
-    ui.drawCircleFilled(center, radius * 0.56, palette[preset.hubCenter], 24)
-    ui.drawCircle(center, radius * 0.56, palette.primary, 24, 0.6 * effectiveScale)
-    line(-radius * 0.24 / effectiveScale, 0, radius * 0.24 / effectiveScale, 0, 0.8, palette.metalDim)
+    ui.drawCircle(center, (r - 2) * s, palette.outline, 32, 0.8 * s)
+    local core = hub == 'small_rivet' and 0.32 or 0.56
+    ui.drawCircleFilled(center, r * core * s, palette[preset.hubCenter], 24)
+    ui.drawCircle(center, r * core * s, palette.primary, 24, 0.6 * s)
+    ui.drawLine(p(-r * 0.24, 0), p(r * 0.24, 0), palette.metalDim, 0.8 * s)
+    if hub == 'riveted' then
+      for _, v in ipairs(preset.hubRivets) do
+        ui.drawCircleFilled(p(v[1], v[2]), 1.1 * s, color, 12)
+      end
+    end
   end
   ui.popStyleVar(1)
 end

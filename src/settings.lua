@@ -1,5 +1,6 @@
 local M = {}
 local SettingsUI = require('src/settings_ui')
+local InstrumentConfig = require('src/instrument_config')
 
 M.lastChange = 'Ready'
 
@@ -14,6 +15,7 @@ M.values = ac.storage({
   instrumentMode = 'digital',
   theme = 'dark',
   analogAuxiliaryMode = 'auto',
+  analogNeedleStyle = 'a01',
   gt7SpeedNeedleMode = 'digital',
   gt7RpmNeedleMode = 'digital',
   gt7LowerPanelMode = 'limit',
@@ -42,6 +44,7 @@ if (M.values.layoutVersion or 1) < 3 then
 end
 
 M.values.theme = M.values.theme == 'light' and 'light' or 'dark'
+M.values.analogNeedleStyle = InstrumentConfig.normalizeNeedleStyle(M.values.analogNeedleStyle, 'a01')
 if M.values.instrumentMode == 'gt7_retro' then M.values.instrumentMode = 'digital' end
 
 -- A previous settings build could leave both RPM thresholds at 100%. That
@@ -138,6 +141,7 @@ local function percentageSlider(label, key, minimum, maximum)
 end
 
 local function resetVisualSettings()
+  M.values.analogNeedleStyle = 'a01'
   M.values.hudScale = 0.72
   M.values.backgroundOpacity = 0.72
   M.values.opacity = 1.0
@@ -161,6 +165,8 @@ function M.draw()
     SettingsUI.choice('dial', 'mode', 'Instrument mode', M.values.instrumentMode,
       instrumentModes, function(value) M.values.instrumentMode = value end)
     if M.values.instrumentMode == 'analog' then
+      SettingsUI.choice('dial', 'needleStyle', 'RPM needle style', M.values.analogNeedleStyle,
+        InstrumentConfig.needleChoices, function(value) M.values.analogNeedleStyle = value end)
       SettingsUI.choice('dial', 'lower', 'Analog lower gauge', M.values.analogAuxiliaryMode,
         { { label = 'Auto', value = 'auto' }, { label = 'Turbo', value = 'turbo' },
           { label = 'Fuel', value = 'fuel' }, { label = 'Off', value = 'off' } },

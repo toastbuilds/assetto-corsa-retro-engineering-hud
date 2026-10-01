@@ -109,7 +109,7 @@ def main():
         presentation = presentation[0]
     renders = {}
 
-    def render(name, mode="analog", style="classic", lights=False, theme="dark", frame="classic", window=None, dial_scale=1, spacing=0, indicator_scale=1):
+    def render(name, mode="analog", style="b01", lights=False, theme="dark", frame="classic", window=None, dial_scale=1, spacing=0, indicator_scale=1):
         options = lua.table_from(dict(gt7SpeedNeedleMode=mode, gt7RpmNeedleMode=mode,
             gt7SpeedNeedleStyle=style, gt7RpmNeedleStyle=style, theme=theme, speedUnit="km/h",
             gt7SimulateVacuum=True, gt7VacuumMinimum=-0.5, showLights=True,
@@ -139,15 +139,44 @@ def main():
     render("outer-large-spaced", frame="outer_pedals", dial_scale=1.25, spacing=160)
     render("large-lower-indicators", indicator_scale=1.5)
     # Full-size dials in a separate sheet avoid confusing overview scale.
-    sheet = Image.new("RGB", (1050, 1180), "#121416")
     styles = lua.eval("require('src/instrument_config').needleOrder")
-    for i, (_, style) in enumerate(styles.items()):
+    names = lua.eval("require('src/instrument_config').needleNames")
+    style_ids = [styles[i] for i in range(1, len(styles) + 1)]
+    columns, cell_w, cell_h = 6, 350, 405
+    sheet = Image.new("RGB", (columns * cell_w, math.ceil(len(style_ids) / columns) * cell_h), "#121416")
+    standalone = Image.new("RGB", (columns * cell_w, math.ceil(len(style_ids) / columns) * cell_h), "#121416")
+    details = Image.new("RGB", (columns * 480, math.ceil(len(style_ids) / columns) * 250), "#121416")
+    label_font = ImageFont.truetype(str(FONT), 15)
+    for i, style in enumerate(style_ids):
         picture = render("needle-" + style, style=style)
         dial = picture.crop((0, 78, 350, 433))
-        x, y = (i % 3) * 350, (i // 3) * 390
+        x, y = (i % columns) * cell_w, (i // columns) * cell_h
         sheet.paste(dial, (x, y))
-        ImageDraw.Draw(sheet).text((x+12, y+357), style.upper(), font=ImageFont.truetype(str(FONT), 18), fill="#f2dbae")
+        ImageDraw.Draw(sheet).text((x+8, y+361), names[style], font=label_font, fill="#f2dbae")
+        state["analogNeedleNormalized"] = 0.65
+        options = lua.table_from(dict(analogNeedleStyle=style, theme="dark", hudScale=1))
+        calls = harness["drawDial"](options, state, lua.table_from((620, 620)))
+        picture = raster(calls, 620, 620)
+        picture.save(OUTPUT / ("standalone-" + style + ".png"))
+        standalone.paste(picture.resize((350, 350), Image.Resampling.LANCZOS), (x, y))
+        ImageDraw.Draw(standalone).text((x+8, y+361), names[style], font=label_font, fill="#f2dbae")
+        preset = lua.eval("require('src/instrument_config').needles")[style]
+        palette = lua.eval("require('src/theme').get('dark')")
+        center = lua.globals().vec2(140, 115)
+        calls = harness["drawNeedle"](center, 2.7, -0.25, preset, palette, 0, None)
+        detail = raster(calls, 480, 225)
+        dx, dy = (i % columns) * 480, (i // columns) * 250
+        details.paste(detail, (dx, dy))
+        ImageDraw.Draw(details).text((dx+8, dy+225), names[style], font=label_font, fill="#f2dbae")
     sheet.save(OUTPUT / "needle-styles.png")
+    standalone.save(OUTPUT / "standalone-needle-styles.png")
+    details.save(OUTPUT / "needle-details.png")
+    for theme in ("dark", "light"):
+        for lights in (False, True):
+            state["headlights"] = lights
+            options = lua.table_from(dict(analogNeedleStyle="c03", theme=theme, hudScale=1))
+            calls = harness["drawDial"](options, state, lua.table_from((620, 620)))
+            raster(calls, 620, 620).save(OUTPUT / f"standalone-{theme}-{'on' if lights else 'off'}.png")
     # Four lighting/mode combinations, pair of dials at actual design size.
     pairs = Image.new("RGB", (1440, 760), "#121416")
     draw = ImageDraw.Draw(pairs)

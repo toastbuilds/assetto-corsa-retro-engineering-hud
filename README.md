@@ -74,9 +74,13 @@ restaura la composición Classic.
 Los dials laterales **Premium** tienen modos Analog y Digital independientes.
 Analog usa escalas concéntricas y miniagujas para fuel/boost; Digital presenta
 velocidad y RPM grandes con aros de bloques y subinstrumentos segmentados.
-**Speed needle style** y **RPM needle style** seleccionan nueve familias de
-aguja sin cambiar la telemetría ni su respuesta. Las luces reales del coche
-activan una retroiluminación gradual, incluso si se oculta el indicador de luces.
+**Speed needle style** y **RPM needle style** seleccionan 24 variantes de
+aguja, identificadas como **A01–D06** según los seis recuadros inferiores de
+`assets/needle a.png` a `assets/needle d.png`. Cada variante conserva su cuerpo,
+punta, contrapeso y centro; sus ranuras y perforaciones dejan ver el fondo real.
+Las nueve selecciones anteriores migran automáticamente a su referencia equivalente.
+Las luces reales del coche activan una retroiluminación gradual, incluso si se
+oculta el indicador de luces.
 
 En **Advanced**, **Simulate vacuum when boost is zero** añade un vacío estimado
 por acelerador mientras gira el motor. Su mínimo inicial es −0.5 bar y se puede
@@ -105,6 +109,13 @@ puntos alineados con los números de cada escala.
 Los parámetros visuales se centralizan en `src/instrument_config.lua`: escalas,
 segmentos, tamaños, grosores, subinstrumentos, agujas/hub y transiciones. Sus
 colores usan los roles de `src/theme.lua`, compatibles con ambos temas.
+
+En **Dial > Gauge and display**, el modo Analog ofrece **RPM needle style**
+con las mismas 24 variantes. Su selección es independiente de las dos agujas
+GT7 y se guarda al reiniciar; velocidad mantiene su lectura numérica.
+Los estilos conservan los valores, escalas y respuesta mecánica de cada aguja.
+Fuel y boost mantienen sus miniagujas. **Reset appearance** y **Reset all**
+restauran B01 en GT7 y A01 en el dial independiente.
 
 La edición **Free** mantiene el GT7 Classic y sus indicadores ABS/TC sin incluir
 el editor Premium. Las selecciones Premium se guardan en claves propias, por lo
@@ -181,13 +192,17 @@ vueltas y 96 combinaciones de dibujo con ambos temas,
 tres tamaños de ventana y las secciones opcionales.
 
 `lua tests/instruments.lua` verifica las transiciones, los valores compartidos,
-el vacío simulado, las nueve geometrías de aguja, la persistencia, el aislamiento
-del preview y 288 escenarios adicionales. También ejecuta la suite de layouts
-GT7. Si no hay un ejecutable Lua, se puede usar Python con `lupa.lua52`.
+el vacío simulado, las 24 geometrías de aguja, sus huecos reales, la migración,
+los tres selectores independientes, la persistencia, los resets y el aislamiento
+del preview, con 768 escenarios GT7 y 864 del dial independiente. También ejecuta
+la suite de layouts GT7. Si no hay un ejecutable Lua, se puede usar Python con
+`lupa.lua52`.
 
 `python tools/preview-instruments.py` genera capturas desde las llamadas reales
 de dibujo en `output/instruments/` (requiere Pillow, Lupa y Consolas). Incluye
-ambos modos/temas, luces OFF/ON, las nueve agujas y alertas. Estas capturas ayudan
+ambos modos/temas, luces OFF/ON, las 24 agujas y alertas. `needle-styles.png`
+muestra el catálogo GT7, `standalone-needle-styles.png` el dial independiente y
+`needle-details.png` las geometrías ampliadas. Estas capturas ayudan
 a revisar composición y legibilidad; la rasterización final depende de CSP.
 
 ## Licencia

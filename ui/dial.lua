@@ -1,6 +1,8 @@
 local Theme = require('src/theme')
 local Layout = require('src/layout')
 local U = require('src/utils')
+local InstrumentConfig = require('src/instrument_config')
+local Needle = require('ui/instrument_needle')
 
 local M = {}
 local drawAnalogElectronics
@@ -263,29 +265,12 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   ui.drawCircle(gearCenter, (Layout.analogGearPodRadius - 5) * scale, C.outlineDim, 32, 1 * scale)
 
   local needleAngle = Layout.rpmStart + span * state.analogNeedleNormalized
-  local needleTip = U.polar(dialCenter, Layout.analogNeedleLength * scale, needleAngle)
   local needleColor = state.rpmRedline and redlineColor(state, settings)
-    or (state.rpmWarning and C.amber or C.primary)
-  if backlit then
-    local tipGlowRadius = Layout.analogNeedleBacklightTipRadius * scale
-    ui.drawCircleFilled(needleTip, tipGlowRadius, Theme.withAlpha(C.backlight, 0.16), 32)
-    drawArc(dialCenter, (Layout.analogNeedleLength + 3) * scale,
-      needleAngle - Layout.analogNeedleBacklightArcSpan / 2,
-      needleAngle + Layout.analogNeedleBacklightArcSpan / 2,
-      Theme.withAlpha(C.backlight, 0.42), 3.4 * scale, 16)
-    drawLine(dialCenter, needleTip, Theme.withAlpha(C.backlight, 0.14),
-      (Layout.analogNeedleGlowWidth + 8) * scale)
-    drawLine(dialCenter, needleTip, Theme.withAlpha(C.backlight, 0.30),
-      (Layout.analogNeedleHaloWidth + 4) * scale)
-  end
-  drawLine(dialCenter, needleTip, Theme.withAlpha(needleColor, 0.12), Layout.analogNeedleGlowWidth * scale)
-  drawLine(dialCenter, needleTip, Theme.withAlpha(needleColor, 0.32), Layout.analogNeedleHaloWidth * scale)
-  drawLine(dialCenter, needleTip, C.outlineDim, (Layout.analogNeedleWidth + 5) * scale)
-  drawLine(dialCenter, needleTip, needleColor, Layout.analogNeedleWidth * scale)
-  ui.drawCircleFilled(dialCenter, 12 * scale, C.panelRaised, 24)
-  ui.drawCircle(dialCenter, 12 * scale, C.outline, 24, 1.8 * scale)
-  ui.drawCircleFilled(dialCenter, 4 * scale,
-    state.rpmRedline and redlineColor(state, settings) or (state.rpmWarning and C.amber or C.primary), 16)
+    or (state.rpmWarning and C.amber or nil)
+  local style = InstrumentConfig.normalizeNeedleStyle(settings.analogNeedleStyle, 'a01')
+  local preset = InstrumentConfig.needlePreset(style)
+  Needle.draw(dialCenter, scale * Layout.analogNeedleLength / preset.length,
+    needleAngle, preset, C, backlit and 1 or 0, needleColor)
 
   centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
     gearColor, scale, backlit)

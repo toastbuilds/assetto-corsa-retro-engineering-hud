@@ -39,8 +39,8 @@ M.values = ac.storage({
   gt7LowerFrameStyle = 'classic',
   gt7SpeedNeedleMode = 'digital',
   gt7RpmNeedleMode = 'digital',
-  gt7SpeedNeedleStyle = 'classic',
-  gt7RpmNeedleStyle = 'classic',
+  gt7SpeedNeedleStyle = 'b01',
+  gt7RpmNeedleStyle = 'b01',
   gt7SimulateVacuum = true,
   gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
@@ -91,7 +91,7 @@ local function sanitizeComposition()
   setComposition(normalized)
   if not presetIds[M.values.gt7Layout] then M.values.gt7Layout = 'classic' end
   for _, key in ipairs({ 'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle' }) do
-    if not InstrumentConfig.needles[M.values[key]] then M.values[key] = 'classic' end
+    M.values[key] = InstrumentConfig.normalizeNeedleStyle(M.values[key])
   end
 end
 sanitizeComposition()
@@ -161,7 +161,7 @@ function M.draw()
       M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
       M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
       M.values.gt7IndicatorScale = 1
-      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'classic', 'classic'
+      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
     end)
   end)
   SettingsUI.section('gt7', 'gauges', 'Components and presets', true, function()
@@ -238,7 +238,7 @@ function M.draw()
       M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
       M.values.gt7IndicatorScale = 1
       M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
-      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'classic', 'classic'
+      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
       M.values.gt7SimulateVacuum, M.values.gt7VacuumMinimum = true, InstrumentConfig.vacuumMinimum
       InstrumentPreview.reset()
       M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true

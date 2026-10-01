@@ -6,7 +6,7 @@ local M = {}
 
 -- Deliberately not ac.storage: preview must never resume after an app restart.
 M.controls = { enabled = false, speedMode = 'analog', rpmMode = 'analog',
-  style = 'classic', lights = false, speed = 0.5, rpm = 0.5, fuel = 0.6,
+  style = 'b01', lights = false, speed = 0.5, rpm = 0.5, fuel = 0.6,
   boost = 0.6, turbo = true, missingFuel = false }
 local state
 local car = { gear = 3, gas = 0.7, brake = 0, clutch = 1, handbrake = 0,

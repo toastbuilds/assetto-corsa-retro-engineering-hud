@@ -739,4 +739,23 @@ for _, id in ipairs(ids) do draw(id) end
 state.pedalHistory, state.proximityRadarAvailable = history, true
 
 print('GT7 layouts: settings, persistence, pedal geometry, radar/flags, steering and ' .. scenarios .. ' drawing scenarios passed')
-return { draw = draw, state = state }
+local function drawDial(overrides, drawState, window)
+  local options = {instrumentMode='analog', analogNeedleStyle='a01', analogAuxiliaryMode='auto',
+    hudScale=0.72, opacity=1, backgroundOpacity=0.72, theme='dark', showSteering=true,
+    showLights=true, showClutch=true, showTcAbsLevels=true}
+  for key, value in pairs(overrides or {}) do options[key] = value end
+  width, height = 620, 620
+  if window then width, height = window[1], window[2] end
+  calls = {}
+  require('ui/dial').draw(drawState or state, options)
+  assert(fonts == 0 and alphaDepth == 0, 'dial drawing must balance fonts and styles')
+  return calls
+end
+local function drawNeedle(center, scale, angle, preset, palette, lights, alert)
+  calls = {}
+  require('ui/instrument_needle').draw(center, scale, angle, preset, palette, lights, alert)
+  assert(alphaDepth == 0, 'needle drawing must balance styles')
+  return calls
+end
+return { draw=draw, drawDial=drawDial, drawNeedle=drawNeedle, state=state,
+  pendingCombos=pendingCombos, pendingButtons=pendingButtons }
