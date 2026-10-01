@@ -20,6 +20,7 @@ local sim = { raceFlagType = nil }
 local carId = 'test_car'
 local windowWidth, windowHeight = 460, 460
 local pendingCombos = {}
+local pendingSliders, pendingButtons = {}, {}
 local storageByPrefix = {}
 local coreErrors = {}
 local lastWindowConstraint
@@ -94,8 +95,16 @@ ui = {
     return selected or index, selected ~= nil
   end,
   checkbox = function() return false end,
-  slider = function(_, value) return value, false end,
-  button = function() return false end
+  slider = function(label, value)
+    local selected = pendingSliders[label]
+    pendingSliders[label] = nil
+    return selected or value, selected ~= nil
+  end,
+  button = function(label)
+    local pressed = pendingButtons[label]
+    pendingButtons[label] = nil
+    return pressed or false
+  end
 }
 
 -- This smoke test exercises the app's core windows; external panels have
@@ -115,6 +124,43 @@ local Theme = require('src/theme')
 local DialLayout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
 local ClassicGt7Layout = Gt7Layout.get('classic')
+
+local ConditionSettings = require('src/condition_settings')
+assert(ConditionSettings.current(Settings.values).temperatureCoreWeight == 0.8,
+  'existing installs must default to the original 80/20 mix')
+pendingSliders['Core weight'] = 35
+ConditionSettings.draw()
+assert(ConditionSettings.current(Settings.values).temperatureCoreWeight == 0.35)
+package.loaded['src/condition_settings'] = nil
+ConditionSettings = require('src/condition_settings')
+assert(ConditionSettings.values.temperatureCoreWeight == 0.35, 'core ratio must persist after reload')
+pendingCombos['##condition.temperatureDisplay'] = 2
+pendingSliders['Core weight'] = 65
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureDisplay == 'surface'
+  and ConditionSettings.values.temperatureCoreWeight == 0.35
+  and pendingSliders['Core weight'] == 65, 'surface mode must hide the blend slider and preserve its saved ratio')
+pendingCombos['##condition.temperatureDisplay'] = 1
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 0.65,
+  'uniform General must expose the same blend slider')
+pendingSliders['Core weight'] = 0
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 0, '0% core must be selectable')
+pendingSliders['Core weight'] = 100
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 1, '100% core must be selectable')
+pendingButtons['Reset appearance##condition'] = true
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 0.8, 'appearance reset must restore 80/20')
+ConditionSettings.values.temperatureCoreWeight = 0.4
+pendingButtons['>  Advanced##condition.advanced'] = true
+pendingButtons['Reset all##condition'] = true
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 0.4, 'full reset must wait for confirmation')
+pendingButtons['Confirm reset##condition'] = true
+ConditionSettings.draw()
+assert(ConditionSettings.values.temperatureCoreWeight == 0.8, 'full reset must restore 80/20')
 
 assert(Settings.values.instrumentMode == 'analog', 'v5 migration must preserve analog')
 assert(Settings.values.layoutVersion == 9, 'v9 migration must complete')

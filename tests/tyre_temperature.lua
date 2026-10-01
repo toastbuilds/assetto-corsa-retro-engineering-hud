@@ -149,4 +149,21 @@ assert(zone({}, 65) == 65, 'missing core must preserve the real zone temperature
 assert(zone(blendedWheel, nil) == general(blendedWheel)
   and zone(blendedWheel, math.huge) == general(blendedWheel),
   'invalid or missing zone readings must use the general fallback')
+for _, weight in ipairs({0, 0.35, 0.5, 0.8, 1}) do
+  local expected = 80 * weight + 70 * (1 - weight)
+  assert(math.abs(general(blendedWheel, weight) - expected) < 0.001,
+    'general temperature must follow the selected core/surface ratio')
+  assert(math.abs(zone(blendedWheel, 50, weight) - (80 * weight + 50 * (1-weight))) < 0.001)
+  assert(math.abs((zone(blendedWheel, 50, weight) + zone(blendedWheel, 65, weight)
+    + zone(blendedWheel, 95, weight)) / 3 - expected) < 0.001)
+  assert(zone(blendedWheel, nil, weight) == general(blendedWheel, weight),
+    'missing zones must use the selected general mix')
+  assert(general({temperatureCore=80}, weight) == 80
+    and general({temperatureMiddle=65}, weight) == 65,
+    'missing channels must keep the remaining valid source')
+end
+assert(Temperatures.coreWeight(-1) == 0 and Temperatures.coreWeight(2) == 1)
+for _, invalid in ipairs({0/0, math.huge, -math.huge, 'invalid'}) do
+  assert(Temperatures.coreWeight(invalid) == 0.8, 'invalid ratios must retain the 80/20 default')
+end
 print('Tyre temperature: working windows, axle separation, caching, compound changes and missing data passed')

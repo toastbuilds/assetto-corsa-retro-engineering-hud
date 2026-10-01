@@ -287,6 +287,22 @@ wheel.temperatureCore, wheel.temperature = 80, 80
 wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 50, 65, 95
 draw('dark', {temperatureDisplay = 'surface'})
 assert(#gradients > 0, 'surface mode must remain selectable independently of the general reading')
+for _, tyre in ipairs(state.condition.wheels) do
+  tyre.temperatureCore, tyre.temperature = 95, 95
+  tyre.temperatureInside, tyre.temperatureMiddle, tyre.temperatureOutside = 80, 80, 80
+end
+for _, mode in ipairs({'general','uniform'}) do
+  draw('dark', {temperatureDisplay=mode, temperatureCoreWeight=0})
+  assert(rectangles[1].color.g > rectangles[1].color.r * 1.5,
+    '0% core must render the optimum surface temperature')
+  draw('dark', {temperatureDisplay=mode, temperatureCoreWeight=1})
+  assert(rectangles[1].color.r > rectangles[1].color.g * 1.45,
+    '100% core must render the overheated core temperature')
+end
+for _, tyre in ipairs(state.condition.wheels) do
+  tyre.temperatureCore, tyre.temperature = 80, 80
+  tyre.temperatureInside, tyre.temperatureMiddle, tyre.temperatureOutside = 50, 65, 95
+end
 texts, rectangles, gradients, pathColors = {}, {}, {}, {}
 Condition.draw(state, {theme = 'dark', opacity = 1})
 assert(#centralHalves() == 8, 'weighted zone gradient must be the default when no mode is specified')

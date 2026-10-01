@@ -35,7 +35,11 @@ local function finite(value)
     and value ~= math.huge and value ~= -math.huge
 end
 
-function M.generalTemperature(wheel)
+function M.coreWeight(value)
+  return finite(value) and U.clamp(value, 0, 1) or Layout.tyreGeneralCoreWeight
+end
+
+function M.generalTemperature(wheel, coreWeight)
   local sum, count = 0, 0
   for _, field in ipairs(surfaceFields) do
     local value = wheel[field]
@@ -44,17 +48,18 @@ function M.generalTemperature(wheel)
   local core = wheel.temperatureCore
   if finite(core) then
     if count == 0 then return core end
-    return core * Layout.tyreGeneralCoreWeight + (sum / count) * (1 - Layout.tyreGeneralCoreWeight)
+    local weight = M.coreWeight(coreWeight)
+    return core * weight + (sum / count) * (1 - weight)
   end
   if count > 0 then return sum / count end
   return finite(wheel.temperature) and wheel.temperature or nil
 end
 
-function M.zoneTemperature(wheel, surfaceTemperature)
-  if not finite(surfaceTemperature) then return M.generalTemperature(wheel) end
+function M.zoneTemperature(wheel, surfaceTemperature, coreWeight)
+  if not finite(surfaceTemperature) then return M.generalTemperature(wheel, coreWeight) end
   if not finite(wheel.temperatureCore) then return surfaceTemperature end
-  return wheel.temperatureCore * Layout.tyreGeneralCoreWeight
-    + surfaceTemperature * (1 - Layout.tyreGeneralCoreWeight)
+  local weight = M.coreWeight(coreWeight)
+  return wheel.temperatureCore * weight + surfaceTemperature * (1 - weight)
 end
 
 local function crossing(a, b, grip)

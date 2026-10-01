@@ -277,14 +277,14 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
     local minimum, maximum = temperatureWindow(wheel)
     local temperature
     if settings.temperatureDisplay == 'surface' then temperature = wheel.temperature
-    else temperature = TyreTemperature.generalTemperature(wheel) end
+    else temperature = TyreTemperature.generalTemperature(wheel, settings.temperatureCoreWeight) end
     colorMiddle = temperatureColor(temperature, minimum, maximum)
     colorLeft, colorRight = colorMiddle, colorMiddle
     if settings.temperatureDisplay ~= 'uniform'
       and wheel.temperatureInside and wheel.temperatureMiddle and wheel.temperatureOutside then
       local function zoneColor(value)
         if settings.temperatureDisplay ~= 'surface' then
-          value = TyreTemperature.zoneTemperature(wheel, value)
+          value = TyreTemperature.zoneTemperature(wheel, value, settings.temperatureCoreWeight)
         end
         return temperatureColor(value, minimum, maximum)
       end

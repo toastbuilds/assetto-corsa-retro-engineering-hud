@@ -47,6 +47,12 @@ preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 
 ## Ajustes
 
+**Condition > Appearance > Core weight** permite mezclar la temperatura del
+núcleo y la superficie de los neumáticos entre 0 % y 100 % core. El porcentaje
+surface es el complementario; el valor inicial es 80 % core / 20 % surface y
+se guarda entre sesiones. Se aplica a **General zones** y **General (uniform)**;
+**Surface zones** utiliza las lecturas de superficie. Los resets restauran 80/20.
+
 **GT7 Premium > Components and presets** permite combinar por separado la
 velocidad, marcha, dirección, barra RPM, posición y diseño de pedales, radar,
 banderas y apariencia del panel inferior. **Classic**, **Modern**,
