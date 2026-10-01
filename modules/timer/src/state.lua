@@ -188,6 +188,7 @@ function State:completeLap(carState, car)
     local status, _, delta = classify(time, valid, oldPersonal, oldSession)
     self:showResult('lap', lap.number, time, status, delta, valid)
     if valid and (oldPersonal == nil or time < oldPersonal) then self.personalBestLap = time end
+    if status == 'session_best' then self.audioEventId = self.audioEventId + 1 end
   end
   if valid and (oldSession == nil or time < oldSession) then self.sessionBestLap = time end
 end

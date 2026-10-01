@@ -4,6 +4,7 @@ local Settings = {}
 
 local DEFAULTS = {
   scale = 1.0,
+  backgroundOpacity = 0.70,
   freezeDuration = 3.0,
   audioEnabled = true,
   autoPlacement = true,
@@ -29,6 +30,7 @@ Settings.values = makeValues()
 function Settings.normalize()
   local v = Settings.values
   v.scale = clamp(v.scale, 0.65, 1.50, DEFAULTS.scale)
+  v.backgroundOpacity = clamp(v.backgroundOpacity, 0, 1, DEFAULTS.backgroundOpacity)
   v.freezeDuration = clamp(v.freezeDuration, 1.0, 8.0, DEFAULTS.freezeDuration)
   v.audioEnabled = v.audioEnabled ~= false
   v.autoPlacement = v.autoPlacement ~= false
@@ -38,6 +40,11 @@ end
 local function slider(label, key, minimum, maximum, format)
   local value, changed = ui.slider(label, Settings.values[key], minimum, maximum, format, 1)
   if changed then Settings.values[key] = value end
+end
+
+local function percentSlider(label, key)
+  local value, changed = ui.slider(label, Settings.values[key] * 100, 0, 100, '%.0f%%', 1)
+  if changed then Settings.values[key] = value / 100 end
 end
 
 local function checkbox(label, key)
@@ -51,18 +58,22 @@ function Settings.draw()
   ui.header('Timer')
   SettingsUI.section('timer', 'basics', 'Basics', true, function()
     slider('HUD scale', 'scale', 0.65, 1.50, '%.2fx')
+    percentSlider('Background opacity', 'backgroundOpacity')
     slider('Result hold', 'freezeDuration', 1.0, 8.0, '%.1f s')
-    checkbox('Sector record sound', 'audioEnabled')
+    checkbox('Record sound', 'audioEnabled')
   end)
   SettingsUI.section('timer', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
     checkbox('Pin / lock window', 'locked')
   end)
   SettingsUI.section('timer', 'advanced', 'Advanced', false, function()
-    ui.textWrapped('The sound is used only when you set a new absolute sector record for the current session.')
+    ui.textWrapped('The sound plays when you set a new absolute sector or lap record for the current session.')
   end)
   ui.separator()
-  SettingsUI.resetAppearance('timer', function() Settings.values.scale = DEFAULTS.scale end)
+  SettingsUI.resetAppearance('timer', function()
+    Settings.values.scale = DEFAULTS.scale
+    Settings.values.backgroundOpacity = DEFAULTS.backgroundOpacity
+  end)
   SettingsUI.resetAll('timer', function()
     for key, value in pairs(DEFAULTS) do Settings.values[key] = value end
   end, 'Restore all local Timer settings? Global theme and opacity settings are retained.')
