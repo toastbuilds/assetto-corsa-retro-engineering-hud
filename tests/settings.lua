@@ -23,6 +23,8 @@ local stores = {
     rpmWarningFraction=0.8, gt7SpeedNeedleStyle='d05', gt7RpmNeedleStyle='a02', hudScale=0.8},
   ['retro-ui.relative.']={opacity=0.2, instrumentOpacity=0.3, backgroundOpacity=0.4},
   ['retro-ui.delta.']={opacity=0.3},
+  ['retro-ui.timer.']={scale=1},
+  ['retro-ui.laps.']={scale=1,rows=10},
   ['retro-ui.leaderboard.']={opacity=0.4, fallbackTheme='light'},
   ['retro-ui.telemetry.']={opacity=0.2, theme='light'},
   ['retro-ui.map.']={dotOpacity=0.4, surfaceOpacity=0.9}
@@ -141,11 +143,13 @@ General.values.version=0
 General.initialize({theme='light',speedUnit='km/h',temperatureUnit='C',sharedUnitsVersion=0},'mph','F','C')
 assert(General.values.speedUnit=='mph' and General.values.temperatureUnit=='F','legacy separate units must migrate')
 
--- All nine settings pages start with only Basics expanded.
+-- All eleven settings pages start with only Basics expanded.
 local pages={
   {'general',General.draw},{'dial',Dial.draw},{'gt7',GT7.draw},{'condition',Condition.draw},
   {'relative',require('modules/relative/main').windowSettings},
   {'delta',require('modules/delta/src/settings').draw},
+  {'timer',require('modules/timer/src/settings').draw},
+  {'laps',require('modules/laps/src/settings').draw},
   {'leaderboard',require('modules/leaderboard/src/settings').draw},
   {'telemetry',require('modules/telemetry/src/settings').draw},
   {'map',require('modules/map/src/settings').draw}
@@ -230,7 +234,7 @@ for _,page in ipairs(pages) do
   end
 end
 for _,id in ipairs({'relative','leaderboard'}) do
-  local draw= id=='relative' and pages[5][2] or pages[7][2]
+  local draw= id=='relative' and pages[5][2] or pages[9][2]
   local count=#writes
   pending['Reset all##'..id]=true;frame(draw)
   assert(#writes==count,'class reset requires confirmation')
@@ -241,7 +245,7 @@ end
 
 -- Draw actual window callbacks: a 50% global opacity must halve every foreground
 -- primitive once, even when obsolete local opacity fields hold other values.
-local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','leaderboardMain','telemetryMain','mapMain'}
+local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain'}
 local function assertGlobalOpacity(callback)
   General.values.opacity=1
   local _,full=frame(script[callback])
@@ -319,4 +323,4 @@ for _,page in ipairs(pages) do
   assert(visible['Reset all##'..page[1]],'reset must remain reachable')
 end
 
-print('Settings ('..(free and 'Free' or 'Premium')..'): nine pages, migration, sliders, presets, resets and eight opacity consumers passed')
+print('Settings ('..(free and 'Free' or 'Premium')..'): eleven pages, migration, sliders, presets, resets and ten opacity consumers passed')

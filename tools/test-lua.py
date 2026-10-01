@@ -11,6 +11,7 @@ def main():
     suites = [
         "tests/runtime_smoke.lua",
         "tests/relative.lua",
+        "tests/timing_apps.lua",
         "tests/car_condition.lua",
         "tests/tyre_temperature.lua",
         "tests/instrument_illumination.lua",

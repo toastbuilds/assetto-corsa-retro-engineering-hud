@@ -43,8 +43,8 @@ for (const [, callback] of callbacks) {
   }
 }
 const windows = [...manifest.matchAll(/^ID = (\w+)$/gm)]
-if (windows.length !== 9 || new Set(windows.map((match) => match[1])).size !== 9) {
-  console.error(`manifest.ini: expected 9 distinct windows, got ${windows.length}`)
+if (windows.length !== 11 || new Set(windows.map((match) => match[1])).size !== 11) {
+  console.error(`manifest.ini: expected 11 distinct windows, got ${windows.length}`)
   failures++
 }
 

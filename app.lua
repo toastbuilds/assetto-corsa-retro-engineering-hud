@@ -13,6 +13,8 @@ local ConditionLayout = require('src/car_condition_layout')
 local panels = {
   relative = require('modules/relative/main'),
   delta = require('modules/delta/main'),
+  timer = require('modules/timer/main'),
+  laps = require('modules/laps/main'),
   leaderboard = require('modules/leaderboard/main'),
   telemetry = require('modules/telemetry/main'),
   map = require('modules/map/main')
@@ -73,7 +75,7 @@ function script.update(dt)
   updateCore('GT7', gt7State, dt, Gt7Settings.current)
   local ok, err = pcall(publishTheme, dt)
   if not ok then reportOnce('theme update', tostring(err)) end
-  for _, name in ipairs({ 'relative', 'delta', 'leaderboard', 'telemetry' }) do
+  for _, name in ipairs({ 'relative', 'delta', 'timer', 'laps', 'leaderboard', 'telemetry' }) do
     invoke(name, 'update', dt)
   end
 end
@@ -111,6 +113,8 @@ end
 
 function script.relativeMain(_) invoke('relative', 'windowMain', _) end
 function script.deltaMain(_) invoke('delta', 'windowMain', _) end
+function script.timerMain(_) invoke('timer', 'windowMain', _) end
+function script.lapsMain(_) invoke('laps', 'windowMain', _) end
 function script.leaderboardMain(_) invoke('leaderboard', 'windowMain', _) end
 function script.telemetryMain(_) invoke('telemetry', 'windowMain', _) end
 function script.mapMain(_) invoke('map', 'windowMain', _) end
@@ -128,6 +132,8 @@ local pages = {
   { id = 'condition', label = 'Condition', draw = ConditionSettings.draw },
   { id = 'relative', label = 'Relative', draw = function() invoke('relative', 'windowSettings') end },
   { id = 'delta', label = 'Delta', draw = function() invoke('delta', 'windowSettings') end },
+  { id = 'timer', label = 'Timer', draw = function() invoke('timer', 'windowSettings') end },
+  { id = 'laps', label = 'Laps', draw = function() invoke('laps', 'windowSettings') end },
   { id = 'leaderboard', label = 'Leaderboard', draw = function() invoke('leaderboard', 'windowSettings') end },
   { id = 'telemetry', label = 'Telemetry', draw = function() invoke('telemetry', 'settingsMain') end },
   { id = 'map', label = 'Map', draw = function() invoke('map', 'windowSettings') end }

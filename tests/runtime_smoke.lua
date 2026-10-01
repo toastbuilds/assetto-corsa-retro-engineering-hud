@@ -109,7 +109,7 @@ ui = {
 
 -- This smoke test exercises the app's core windows; external panels have
 -- separate runtimes and need not emulate their full CSP surface here.
-for _, name in ipairs({ 'relative', 'delta', 'leaderboard', 'telemetry', 'map' }) do
+for _, name in ipairs({ 'relative', 'delta', 'timer', 'laps', 'leaderboard', 'telemetry', 'map' }) do
   package.preload['modules/' .. name .. '/main'] = function()
     return { getTemperatureUnit = function() return 'C' end, update = noop }
   end
