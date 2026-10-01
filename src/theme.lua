@@ -78,9 +78,9 @@ Theme.colors = Theme.palettes.dark
 -- Targets belong to the side instruments, never to external status lamps.
 Theme.dialBacklight = {
   dark = {
-    warm = rgbm(1, 0.95, 0.80, 1), core = rgbm(1, 0.985, 0.90, 1),
-    amber = rgbm(1, 0.76, 0.40, 1), cyan = rgbm(0.48, 0.81, 0.91, 1), cyanDim = rgbm(0.25, 0.56, 0.66, 1),
-    red = rgbm(0.98, 0.31, 0.20, 1), ambient = rgbm(0.52, 0.35, 0.16, 1),
+    warm = rgbm(1, 0.985, 0.90, 1), core = rgbm(1, 1, 0.95, 1),
+    amber = rgbm(1, 0.81, 0.46, 1), cyan = rgbm(0.52, 0.87, 0.96, 1), cyanDim = rgbm(0.28, 0.61, 0.71, 1),
+    red = rgbm(1, 0.33, 0.20, 1), ambient = rgbm(0.52, 0.35, 0.16, 1),
   },
   light = {
     warm = rgbm(0.42, 0.31, 0.15, 1), core = rgbm(0.48, 0.34, 0.15, 1),
