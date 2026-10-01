@@ -75,6 +75,20 @@ Theme.palettes = {
 -- palette, while the dial uses get() for the selected theme each frame.
 Theme.colors = Theme.palettes.dark
 
+-- Targets belong to the side instruments, never to external status lamps.
+Theme.dialBacklight = {
+  dark = {
+    warm = rgbm(1, 0.95, 0.80, 1), core = rgbm(1, 0.985, 0.90, 1),
+    amber = rgbm(1, 0.76, 0.40, 1), cyan = rgbm(0.48, 0.81, 0.91, 1), cyanDim = rgbm(0.25, 0.56, 0.66, 1),
+    red = rgbm(0.98, 0.31, 0.20, 1), ambient = rgbm(0.52, 0.35, 0.16, 1),
+  },
+  light = {
+    warm = rgbm(0.42, 0.31, 0.15, 1), core = rgbm(0.48, 0.34, 0.15, 1),
+    amber = rgbm(0.66, 0.35, 0.04, 1), cyan = rgbm(0.04, 0.48, 0.61, 1), cyanDim = rgbm(0.35, 0.56, 0.64, 1),
+    red = rgbm(0.75, 0.17, 0.10, 1), ambient = rgbm(0.60, 0.40, 0.18, 1),
+  },
+}
+
 function Theme.get(name)
   return Theme.palettes[name] or Theme.palettes.dark
 end

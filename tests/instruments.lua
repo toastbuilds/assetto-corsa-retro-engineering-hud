@@ -301,6 +301,18 @@ for _, id in ipairs(Config.needleOrder) do
             180 + hole[1]*math.sin(angle)+hole[2]*math.cos(angle))
           for _, call in ipairs(calls) do assert(not covers(call, point), id .. ' must leave its holes empty') end
         end
+        local backlight = require('ui/instrument_illumination').resolve(palette, theme, lights and 1 or 0)
+        local illuminated = harness.drawNeedle(vec2(180,180), 1, angle, Config.needles[id], palette,
+          lights and 1 or 0, tint, backlight)
+        for _, hole in ipairs(holes[id] or {}) do
+          local point = vec2(180 + hole[1]*math.cos(angle)-hole[2]*math.sin(angle),
+            180 + hole[1]*math.sin(angle)+hole[2]*math.cos(angle))
+          for _, call in ipairs(illuminated) do
+            assert(not covers(call, point), id .. ' backlight must preserve real holes')
+          end
+        end
+        if lights then assert(#illuminated > #calls, id .. ' must add emission layers')
+        else assert(#illuminated == #calls, 'OFF must not add needle layers') end
         state.analogNeedleNormalized, state.headlights = fraction, lights
         state.rpmWarning, state.rpmRedline = fraction >= 0.5, fraction == 1
         for _, window in ipairs({{300,300},{460,460},{740,420}}) do

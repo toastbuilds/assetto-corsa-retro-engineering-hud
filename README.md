@@ -110,6 +110,19 @@ Los parámetros visuales se centralizan en `src/instrument_config.lua`: escalas,
 segmentos, tamaños, grosores, subinstrumentos, agujas/hub y transiciones. Sus
 colores usan los roles de `src/theme.lua`, compatibles con ambos temas.
 
+Los dials laterales Premium comparten una retroiluminación interna continua:
+con luces encendidas se iluminan números, graduaciones, agujas, iconos y
+segmentos activos, manteniendo el aro exterior discreto. La transición ease-out
+dura 220 ms; no modifica escalas ni la respuesta de las agujas. El tema claro
+conserva su fondo y usa una respuesta más tenue. Los botones externos y el dial
+independiente conservan su iluminación anterior.
+
+`instrument_config.illumination` permite ajustar intensidad, radio y opacidad
+de los halos por elemento, núcleo de agujas, hub, luz ambiental interior y aro
+Analog/Digital. `lightTransition` controla la duración; `Theme.dialBacklight`
+contiene los colores destino por tema. Los núcleos geométricos de las agujas se
+preparan al cargar el catálogo y respetan ranuras, perforaciones y centros abiertos.
+
 En **Dial > Gauge and display**, el modo Analog ofrece **RPM needle style**
 con las mismas 24 variantes. Su selección es independiente de las dos agujas
 GT7 y se guarda al reiniciar; velocidad mantiene su lectura numérica.
@@ -204,6 +217,17 @@ ambos modos/temas, luces OFF/ON, las 24 agujas y alertas. `needle-styles.png`
 muestra el catálogo GT7, `standalone-needle-styles.png` el dial independiente y
 `needle-details.png` las geometrías ampliadas. Estas capturas ayudan
 a revisar composición y legibilidad; la rasterización final depende de CSP.
+
+`python tools/preview-instruments.py --output output/backlight/after` genera las
+comparativas OFF/ON con 139 km/h, 5200 RPM, 60 % fuel y 0.7 bar boost. Incluye
+`modes-and-lights-no-ring.png`, sin aro luminoso ni bezel, y
+`needle-styles-on.png`, con las 24 agujas retroiluminadas. El preview compone
+explícitamente la opacidad de los textos para no exagerar el halo.
+
+`lua tests/instrument_illumination.lua` ejecuta las suites de instrumentos y
+layouts y añade verificaciones de duración, inversión de luces, jerarquía,
+geometría, segmentos inactivos, controles externos y datos ausentes. La revisión
+de antialiasing y rendimiento durante gameplay requiere Assetto Corsa con CSP.
 
 ## Licencia
 

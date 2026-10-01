@@ -751,9 +751,9 @@ local function drawDial(overrides, drawState, window)
   assert(fonts == 0 and alphaDepth == 0, 'dial drawing must balance fonts and styles')
   return calls
 end
-local function drawNeedle(center, scale, angle, preset, palette, lights, alert)
+local function drawNeedle(center, scale, angle, preset, palette, lights, alert, backlight)
   calls = {}
-  require('ui/instrument_needle').draw(center, scale, angle, preset, palette, lights, alert)
+  require('ui/instrument_needle').draw(center, scale, angle, preset, palette, lights, alert, backlight)
   assert(alphaDepth == 0, 'needle drawing must balance styles')
   return calls
 end

@@ -1,6 +1,38 @@
 -- Built once when the catalog loads. All holes are tessellated empty space;
 -- no surface-colored masks or concave CSP fills are needed.
 local M = {}
+
+-- Clip against each inward-offset edge. The resulting luminous core stays
+-- inside the original convex material, including tessellated slotted blades.
+function M.inset(points, margin)
+  local result = points
+  for i, a in ipairs(points) do
+    local b = points[i % #points + 1]
+    local dx, dy = b[1] - a[1], b[2] - a[2]
+    local length = math.sqrt(dx * dx + dy * dy)
+    if length > 0.000001 then
+      local clipped = {}
+      local function distance(p) return (dx * (p[2] - a[2]) - dy * (p[1] - a[1])) / length - margin end
+      for j, p in ipairs(result) do
+        local q = result[j % #result + 1]
+        local dp, dq = distance(p), distance(q)
+        if dp >= 0 then clipped[#clipped + 1] = p end
+        if (dp >= 0) ~= (dq >= 0) then
+          local t = dp / (dp - dq)
+          clipped[#clipped + 1] = {p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t}
+        end
+      end
+      result = clipped
+      if #result < 3 then return nil end
+    end
+  end
+  local area = 0
+  for i, p in ipairs(result) do
+    local q = result[i % #result + 1]
+    area = area + p[1] * q[2] - q[1] * p[2]
+  end
+  return area > 0.000001 and result or nil
+end
 local function half(profile, x)
   for i = 2, #profile do
     local a, b = profile[i - 1], profile[i]
@@ -77,7 +109,10 @@ local function shape(g, profile, holes, border)
     end
   end
   outline(g, contour(profile), border, 'edge')
-  for _, hole in ipairs(holes or {}) do outline(g, contour(hole), border, 'edge') end
+  for _, hole in ipairs(holes or {}) do
+    outline(g, contour(hole), border, 'edge')
+    g.outlines[#g.outlines].hole = true
+  end
 end
 
 local function slot(a, b, w, tip)
@@ -186,6 +221,11 @@ function M.build(p)
       local a = i * math.pi * 2 / 3
       p.hubRivets[#p.hubRivets + 1] = {math.cos(a) * r * 0.77, math.sin(a) * r * 0.77}
     end
+  end
+  g.cores = {}
+  for _, part in ipairs(g.polygons) do
+    local points = M.inset(part.points, p.coreInset)
+    if points then g.cores[#g.cores + 1] = points end
   end
   p.geometry = g
   return p

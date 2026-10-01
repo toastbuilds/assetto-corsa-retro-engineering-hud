@@ -25,9 +25,18 @@ end
 function M.update(state, settings, dt)
   local visual = state.gt7Instruments
   if not visual then visual = {}; state.gt7Instruments = visual end
-  visual.light = transition(visual.light,
-    state.available and state.lightsAvailable and state.headlights == true and 1 or 0,
-    dt, Config.lightTransition)
+  local target = state.available and state.lightsAvailable and state.headlights == true and 1 or 0
+  if visual.light == nil then
+    visual.light, visual.lightTarget, visual.lightFrom, visual.lightElapsed = target, target, target, 0
+  else
+    if visual.lightTarget ~= target then
+      visual.lightTarget, visual.lightFrom, visual.lightElapsed = target, visual.light, 0
+    end
+    visual.lightElapsed = math.min((visual.lightElapsed or 0) + math.max(dt or 0, 0), Config.lightTransition)
+    local progress = U.clamp(visual.lightElapsed / math.max(Config.lightTransition, 0.001), 0, 1)
+    local eased = 1 - (1 - progress) * (1 - progress)
+    visual.light = visual.lightFrom + (target - visual.lightFrom) * eased
+  end
   visual.speedDigital = transition(visual.speedDigital,
     settings.gt7SpeedNeedleMode == 'digital' and 1 or 0, dt, Config.modeTransition)
   visual.rpmDigital = transition(visual.rpmDigital,

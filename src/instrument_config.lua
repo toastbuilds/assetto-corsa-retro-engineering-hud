@@ -3,6 +3,29 @@
 local M = {
   modeTransition = 0.15,
   lightTransition = 0.22,
+  -- Backlight only: crisp faces keep their existing geometry. Halo radii are
+  -- in design pixels, not screen pixels; opacity is deliberately much lower.
+  illumination = {
+    lightThemeStrength = 0.42, lightThemeHalo = 0.35,
+    number = { intensity = 0.90, radius = 0.75, opacity = 0.055 },
+    value = { intensity = 1, radius = 1.0, opacity = 0.065 },
+    label = { intensity = 0.62, radius = 0.5, opacity = 0.025 },
+    major = { intensity = 0.85, radius = 0.7, opacity = 0.07 },
+    medium = { intensity = 0.48, radius = 0.35, opacity = 0.035 },
+    minor = { intensity = 0.20, radius = 0, opacity = 0 },
+    inner = { intensity = 0.32, radius = 0, opacity = 0 },
+    icon = { intensity = 0.80, radius = 0.65, opacity = 0.05 },
+    segment = { intensity = 0.85, radius = 0.55, opacity = 0.06 },
+    subSegment = { intensity = 0.65, radius = 0.45, opacity = 0.045 },
+    printedWarning = { intensity = 0.18, radius = 0, opacity = 0 },
+    needle = { intensity = 0.96, radius = 0.75, opacity = 0.065, core = 0.28 },
+    subNeedle = { intensity = 0.78, radius = 0.5, opacity = 0.045, core = 0.20 },
+    hub = { intensity = 0.25, radius = 0, opacity = 0 },
+    needleCoreInset = 0.32, needleCoreWidth = 0.45,
+    ring = { analog = 0.20, digital = 0.28, warmRatio = 0.70,
+      haloOpacity = 0.025, haloWidth = 3 },
+    ambient = { opacity = 0.012, centerRadius = 78, subRadius = 43, layers = 3 },
+  },
   fuelWarning = 0.15,
   boostWarning = 0.9,
   vacuumMinimum = -0.5,
@@ -14,7 +37,6 @@ local M = {
     numberSize = 19, denseNumberSize = 16, unitSize = 13,
     valueSize = 56, rpmValueSize = 48, valueWidth = 180, valueY = -10,
     segmentCount = 40, segmentRadius = 151, segmentDepth = 11, segmentGap = 0.24,
-    glowAlpha = 0.08, glowWidth = 5,
     coldStart = math.rad(140), coldEnd = math.rad(270),
   },
   sub = {
@@ -36,6 +58,7 @@ local M = {
 }
 
 local Geometry = require('src/instrument_needle_geometry')
+M.needle.coreInset = M.illumination.needleCoreInset
 -- A–D are the asset sheets; 01–06 are their lower cards, left to right.
 local catalog = {
   {'a01', 'Classic', {body='taper', width=3.5, counterweight='block', counterweightLength=35,
@@ -121,6 +144,11 @@ M.subNeedle.geometry = {
   {{-mini.counterweightLength, -mini.counterweightWidth / 2}, {0, -mini.counterweightWidth / 2},
     {0, mini.counterweightWidth / 2}, {-mini.counterweightLength, mini.counterweightWidth / 2}},
 }
+M.subNeedle.cores = {}
+for _, points in ipairs(M.subNeedle.geometry) do
+  local core = Geometry.inset(points, M.illumination.needleCoreInset)
+  if core then M.subNeedle.cores[#M.subNeedle.cores + 1] = core end
+end
 
 function M.normalizeNeedleStyle(id, fallback)
   id = M.needleAliases[id] or id
