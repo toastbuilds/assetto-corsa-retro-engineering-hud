@@ -99,8 +99,7 @@ function rgb(r, g, b)
   return { r = r, g = g, b = b, clone = function(self) return rgb(self.r, self.g, self.b) end }
 end
 __dirname = '.'
-local globalSettings = { theme = 'dark', temperatureUnit = 'C' }
-package.preload['src/settings'] = function() return { values = globalSettings } end
+local globalSettings = require('src/general_settings').values
 local sim = { currentSessionIndex = 0, ambientTemperature = 24, roadTemperature = 31,
   rainIntensity = 0, weatherConditions = { currentType = 1, upcomingType = 1 } }
 local trackID, trackName = 'render[]gp', 'Spa-Francorchamps'
@@ -136,6 +135,7 @@ local function capture(kind, data)
 end
 local function noop() end
 ui = {
+  pushStyleVarAlpha = function() end, popStyleVar = function() end,
   windowWidth = function() return width end,
   windowSize = function() return vec2(width, height) end,
   time = function() return now end,

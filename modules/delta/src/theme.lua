@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = {}
 
 -- Semantic roles and palette values are adapted from the MIT-licensed
@@ -64,7 +65,7 @@ end
 
 function Theme.withAlpha(color, alpha)
   alpha = math.max(0, math.min(1, tonumber(alpha) or 1))
-  return rgbm(color.r, color.g, color.b, alpha)
+  return GeneralSettings.color(color, alpha)
 end
 
 function Theme.blend(a, b, amount)

@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = {}
 
 -- Both palettes use the same semantic roles. The dial only asks for a role
@@ -98,7 +99,7 @@ Theme.fonts = {
 }
 
 function Theme.withAlpha(color, alpha)
-  return rgbm(color.r, color.g, color.b, alpha)
+  return GeneralSettings.color(color, alpha)
 end
 
 return Theme

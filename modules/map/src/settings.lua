@@ -7,8 +7,6 @@ M.values = ac.storage({
   miniOrientation = 'heading',
   miniRadius = 500,
   backgroundMode = 'dots',
-  surfaceOpacity = 0.45,
-  dotOpacity = 0.12,
   dotThickness = 1.15,
   radialDotTaper = true,
   markerScale = 1.25,
@@ -18,8 +16,6 @@ M.values = ac.storage({
 
 local function resetAppearance()
   M.values.backgroundMode = 'dots'
-  M.values.surfaceOpacity = 0.45
-  M.values.dotOpacity = 0.12
   M.values.dotThickness = 1.15
   M.values.radialDotTaper = true
   M.values.markerScale = 1.25
@@ -40,8 +36,6 @@ function M.current()
   if values.miniOrientation ~= 'fixed' then values.miniOrientation = 'heading' end
   if values.backgroundMode ~= 'surface' then values.backgroundMode = 'dots' end
   values.miniRadius = math.max(200, math.min(1200, tonumber(values.miniRadius) or 500))
-  values.surfaceOpacity = math.max(0, math.min(1, tonumber(values.surfaceOpacity) or 0.45))
-  values.dotOpacity = math.max(0, math.min(0.28, tonumber(values.dotOpacity) or 0.12))
   values.dotThickness = math.max(0.50, math.min(4.00, tonumber(values.dotThickness) or 1.15))
   values.radialDotTaper = values.radialDotTaper ~= false
   values.markerScale = math.max(0.80, math.min(2.00, tonumber(values.markerScale) or 1.25))
@@ -53,7 +47,7 @@ end
 function M.draw()
   local values = M.current()
   ui.header('Map')
-  SettingsUI.section('map', 'view', 'View', true, function()
+  SettingsUI.section('map', 'basics', 'Basics', true, function()
     SettingsUI.choice('map', 'mode', 'Mode', values.mode,
       { { label = 'Full circuit', value = 'full' }, { label = 'Mini map', value = 'mini' } },
       function(value) values.mode = value end)
@@ -66,18 +60,13 @@ function M.draw()
       if changed then values.miniRadius = radius end
     end
   end)
-  SettingsUI.section('map', 'appearance', 'Appearance', true, function()
+  SettingsUI.section('map', 'personalization', 'Personalization', false, function()
     SettingsUI.choice('map', 'backgroundMode', 'Background', values.backgroundMode,
       { { label = 'Dots', value = 'dots' }, { label = 'Surface', value = 'surface' } },
       function(value) values.backgroundMode = value end)
     if values.backgroundMode == 'surface' then
-      local surface, surfaceChanged = ui.slider('Radial surface', values.surfaceOpacity * 100,
-        0, 100, '%.0f%%', 1)
-      if surfaceChanged then values.surfaceOpacity = surface / 100 end
       ui.textWrapped('Race flag alerts color the track.')
     else
-      local opacity, changed = ui.slider('Background dots', values.dotOpacity * 100, 0, 28, '%.0f%%', 1)
-      if changed then values.dotOpacity = opacity / 100 end
       local dotThickness, thicknessChanged = ui.slider('Dot thickness', values.dotThickness,
         0.50, 4.00, '%.2fx', 1)
       if thicknessChanged then values.dotThickness = dotThickness end
@@ -94,12 +83,10 @@ function M.draw()
     local carDotSize, carDotChanged = ui.slider('Car dots', values.carDotSize,
       2.0, 8.0, '%.1f px', 1)
     if carDotChanged then values.carDotSize = carDotSize end
-    ui.textWrapped('Set the selected background opacity to 0% for a fully clear background.')
-    SettingsUI.resetAppearance('map', resetAppearance)
   end)
-  SettingsUI.section('map', 'reset', 'Reset', false, function()
-    SettingsUI.resetAll('map', resetAll, 'Restore map mode, mini orientation, zoom and appearance?')
-  end)
+  ui.separator()
+  SettingsUI.resetAppearance('map', resetAppearance)
+  SettingsUI.resetAll('map', resetAll, 'Restore map mode, mini orientation, zoom and appearance? Global settings are managed in General.')
 end
 
 return M

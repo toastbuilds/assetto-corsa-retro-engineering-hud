@@ -4,7 +4,7 @@ local ConditionSettings = require('src/condition_settings')
 local SettingsUI = require('src/settings_ui')
 local Telemetry = require('src/telemetry')
 local Instruments = require('src/instrument_state')
-local InstrumentPreview = require('src/instrument_preview')
+local GeneralSettings = require('src/general_settings')
 local Dial = require('ui/dial')
 local Gt7 = require('ui/gt7_retro')
 local Condition = require('ui/car_condition')
@@ -18,13 +18,8 @@ local panels = {
   map = require('modules/map/main')
 }
 
-if (DialSettings.values.sharedUnitsVersion or 0) < 1 then
-  if Gt7Settings.values.speedUnit == 'mph' then DialSettings.values.speedUnit = 'mph' end
-  if panels.relative.getTemperatureUnit() == 'F' or panels.leaderboard.getTemperatureUnit() == 'F' then
-    DialSettings.values.temperatureUnit = 'F'
-  end
-  DialSettings.values.sharedUnitsVersion = 1
-end
+GeneralSettings.initialize(DialSettings.values, Gt7Settings.values.speedUnit,
+  panels.relative.getTemperatureUnit(), panels.leaderboard.getTemperatureUnit())
 
 local dialState = Telemetry.new()
 local gt7State = Telemetry.new()
@@ -58,7 +53,6 @@ local function updateCore(name, state, dt, values)
     Telemetry.update(state, dt, resolved)
     if name == 'GT7' and resolved.gt7InstrumentsEnabled then
       Instruments.update(state, resolved, dt)
-      InstrumentPreview.update(dt, resolved, state)
     end
   end)
   if not ok then reportOnce(name .. ' update', tostring(err)) end
@@ -66,7 +60,7 @@ end
 
 local function publishTheme(dt)
   themeTimer = themeTimer + (dt or 0)
-  local values = DialSettings.values
+  local values = GeneralSettings.values
   local payload = string.format('%s|%.3f|%.3f', values.theme, values.backgroundOpacity, values.opacity)
   if payload ~= lastTheme or themeTimer >= 1 then
     if ac.broadcastSharedEvent then ac.broadcastSharedEvent('retro-engineering-hud/theme/v1', payload) end
@@ -75,7 +69,7 @@ local function publishTheme(dt)
 end
 
 function script.update(dt)
-  updateCore('dial', dialState, dt, DialSettings.values)
+  updateCore('dial', dialState, dt, DialSettings.current)
   updateCore('GT7', gt7State, dt, Gt7Settings.current)
   local ok, err = pcall(publishTheme, dt)
   if not ok then reportOnce('theme update', tostring(err)) end
@@ -85,7 +79,7 @@ function script.update(dt)
 end
 
 function script.windowMain(_)
-  Dial.draw(dialState, DialSettings.values)
+  Dial.draw(dialState, DialSettings.current())
 end
 
 function script.gt7Main(_)
@@ -97,8 +91,7 @@ function script.gt7Main(_)
     end
   end
   local settings = Gt7Settings.current()
-  local previewState = settings.gt7InstrumentsEnabled and InstrumentPreview.getState() or nil
-  Gt7.draw(previewState or gt7State, previewState and InstrumentPreview.settings(settings) or settings)
+  Gt7.draw(gt7State, settings)
 end
 
 function script.conditionMain(_)
@@ -113,7 +106,7 @@ function script.conditionMain(_)
         height * ConditionLayout.width / ConditionLayout.height), math.max(height, ConditionLayout.height)))
     end
   end
-  Condition.draw(dialState, ConditionSettings.current(DialSettings.values))
+  Condition.draw(dialState, ConditionSettings.current())
 end
 
 function script.relativeMain(_) invoke('relative', 'windowMain', _) end
@@ -128,29 +121,8 @@ function script.leaderboardShow(_) invoke('leaderboard', 'windowShow', _) end
 
 local settingsState = ac.storage({ selectedPage = 'general' }, 'retro-ui.settings-ui.')
 
-local function drawGeneral()
-  local values = DialSettings.values
-  ui.header('General')
-  SettingsUI.section('general', 'theme', 'Theme and units', true, function()
-    SettingsUI.choice('general', 'theme', 'Theme', values.theme,
-      { { label = 'Dark', value = 'dark' }, { label = 'Light', value = 'light' } },
-      function(value) values.theme = value end)
-    SettingsUI.choice('general', 'speed', 'Speed', values.speedUnit,
-      { { label = 'km/h', value = 'km/h' }, { label = 'mph', value = 'mph' } },
-      function(value) values.speedUnit = value end)
-    SettingsUI.choice('general', 'temperature', 'Temperature', values.temperatureUnit,
-      { { label = 'Celsius', value = 'C' }, { label = 'Fahrenheit', value = 'F' } },
-      function(value) values.temperatureUnit = value end)
-  end)
-  SettingsUI.section('general', 'reset', 'Reset', false, function()
-    SettingsUI.resetAll('general', function()
-      values.theme, values.speedUnit, values.temperatureUnit = 'dark', 'km/h', 'C'
-    end, 'Restore the shared theme, speed and temperature units?')
-  end)
-end
-
 local pages = {
-  { id = 'general', label = 'General', draw = drawGeneral },
+  { id = 'general', label = 'General', draw = GeneralSettings.draw },
   { id = 'dial', label = 'Dial', draw = DialSettings.draw },
   { id = 'gt7', label = 'GT7', draw = Gt7Settings.draw },
   { id = 'condition', label = 'Condition', draw = ConditionSettings.draw },
@@ -187,7 +159,7 @@ function script.settingsMain(_)
         if settingsState.selectedPage == page.id then page.draw(); return end
       end
       settingsState.selectedPage = 'general'
-      drawGeneral()
+      GeneralSettings.draw()
     end)
   end)
   if not ok then

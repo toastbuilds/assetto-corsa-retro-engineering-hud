@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = {}
 
 Theme.palettes = {
@@ -51,11 +52,11 @@ function Theme.get(name)
 end
 
 function Theme.withAlpha(color, alpha)
-  return rgbm(color.r, color.g, color.b, alpha)
+  return GeneralSettings.color(color, alpha)
 end
 
 function Theme.fromRgb(color, alpha)
-  return rgbm(color.r, color.g, color.b, alpha)
+  return GeneralSettings.color(color, alpha)
 end
 
 return Theme

@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layout = require('src/layout')
 local U = require('src/utils')
@@ -694,7 +695,7 @@ local function drawDebug(origin, scale, state)
 end
 
 function M.draw(state, settings)
-  C = Theme.get(settings.theme)
+  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
 
   local width = ui.windowWidth()
   local height = ui.windowHeight()
@@ -704,7 +705,7 @@ function M.draw(state, settings)
   local origin = vec2((width - designSize) / 2,
     (height - designSize) / 2 + Layout.viewportOffsetY * scale)
   local center = point(origin, scale, Layout.centerX, Layout.centerY)
-  local backdropOpacity = settings.backgroundOpacity or 0.72
+  local backdropOpacity = 0.72 -- Authored reference; palette applies global background opacity.
   local outerSurface = Theme.withAlpha(C.void, backdropOpacity * 0.82)
   local innerSurface = Theme.withAlpha(C.surface, backdropOpacity)
   local coreSurface = Theme.withAlpha(C.panel, math.min(0.92, backdropOpacity + 0.16))

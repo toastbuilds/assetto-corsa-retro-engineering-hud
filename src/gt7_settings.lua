@@ -2,7 +2,7 @@ local DialSettings = require('src/settings')
 local SettingsUI = require('src/settings_ui')
 local Layout = require('src/gt7_retro_layout')
 local InstrumentConfig = require('src/instrument_config')
-local InstrumentPreview = require('src/instrument_preview')
+local GeneralSettings = require('src/general_settings')
 local M = {}
 
 local COMPOSITION_VERSION = 1
@@ -107,11 +107,6 @@ local function slider(label, key, low, high, format)
   if changed then M.values[key] = value end
 end
 
-local function percent(label, key, low, high)
-  local value, changed = ui.slider(label, M.values[key] * 100, low * 100, high * 100, '%.0f%%', 1)
-  if changed then M.values[key] = value / 100 end
-end
-
 local function checkbox(label, key)
   if ui.checkbox(label, M.values[key]) then M.values[key] = not M.values[key] end
 end
@@ -128,127 +123,137 @@ function M.current()
   -- guaranteed to enumerate stored fields with pairs().
   local values = {}
   for _, key in ipairs({
-    'hudScale', 'gt7DialScale', 'gt7DialSpacing', 'gt7IndicatorScale', 'opacity', 'backgroundOpacity', 'speedUnit', 'gt7Layout',
+    'hudScale', 'gt7DialScale', 'gt7DialSpacing', 'gt7IndicatorScale', 'gt7Layout',
     'gt7SpeedStyle', 'gt7GearStyle', 'gt7SteeringStyle', 'gt7RpmBarVisible',
     'gt7PedalPosition', 'gt7PedalStyle', 'gt7RadarPresentation',
     'gt7FlagPresentation', 'gt7LowerFrameStyle',
     'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7LowerPanelMode',
     'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle', 'gt7SimulateVacuum', 'gt7VacuumMinimum',
-    'gt7ProximityRadar', 'gt7RadarStyle', 'rpmWarningFraction',
-    'rpmRedlineFraction', 'fallbackRpm', 'showSteering', 'showLights',
-    'animateIndicators', 'animateFlagAlert', 'animateShiftAlert',
-    'animateRedlineAlert', 'debug'
+    'gt7ProximityRadar', 'gt7RadarStyle', 'showSteering', 'showLights', 'debug'
   }) do
     values[key] = M.values[key]
   end
-  values.theme = DialSettings.values.theme
-  values.speedUnit = DialSettings.values.speedUnit
   values.instrumentMode = 'gt7_retro'
   values.gt7InstrumentsEnabled = true
-  return values
+  return GeneralSettings.apply(values)
+end
+
+local presets = {
+  {id='classic', label='Classic'}, {id='modern', label='Modern'},
+  {id='outer_pedals', label='Outer Pedals'}, {id='steering_dial', label='Steering Dial'}
+}
+
+function M.currentPreset()
+  sanitizeComposition()
+  local function matches(id)
+    local expected = Layout.preset(id, M.values)
+    for _, key in ipairs(compositionKeys) do
+      if M.values[key] ~= expected[key] then return false end
+    end
+    return true
+  end
+  if matches(M.values.gt7Layout) then return M.values.gt7Layout end
+  for _, preset in ipairs(presets) do if matches(preset.id) then return preset.id end end
+  return 'custom'
+end
+
+local function resetAppearance()
+  M.values.hudScale, M.values.gt7DialScale, M.values.gt7DialSpacing = 0.72, 1, 0
+  M.values.gt7IndicatorScale = 1
+  M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
 end
 
 function M.draw()
   ui.header('GT7 Premium')
-  SettingsUI.section('gt7', 'appearance', 'Appearance', true, function()
+  SettingsUI.section('gt7', 'basics', 'Basics', true, function()
+    local width = ui.availableSpaceX()
+    local columns = width >= 540 and 4 or (width >= 280 and 2 or 1)
+    for i, preset in ipairs(presets) do
+      if (i - 1) % columns ~= 0 then ui.sameLine() end
+      if ui.button(preset.label .. '##gt7.preset.' .. preset.id,
+          vec2((width - (columns - 1) * 8) / columns, 0)) then M.applyPreset(preset.id) end
+    end
+    local current, name = M.currentPreset(), 'Custom'
+    for _, preset in ipairs(presets) do if preset.id == current then name = preset.label end end
+    ui.text('Composition: ' .. name)
     slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
-    slider('Side dial scale', 'gt7DialScale', 0.75, 1.25, '%.2fx')
-    slider('Side dial spacing', 'gt7DialSpacing', 0, 160, '%.0f px')
-    slider('Lower indicator scale', 'gt7IndicatorScale', 0.65, 1.5, '%.2fx')
-    percent('Backdrop opacity', 'backgroundOpacity', 0.18, 0.82)
-    percent('Instrument opacity', 'opacity', 0.55, 1)
-    SettingsUI.resetAppearance('gt7', function()
-      M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
-      M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
-      M.values.gt7IndicatorScale = 1
-      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
-    end)
-  end)
-  SettingsUI.section('gt7', 'gauges', 'Components and presets', true, function()
-    SettingsUI.choice('gt7', 'layout', 'Apply preset', M.values.gt7Layout,
-      { { label = 'Classic', value = 'classic' }, { label = 'Modern', value = 'modern' },
-        { label = 'Outer Pedals', value = 'outer_pedals' },
-        { label = 'Steering Dial', value = 'steering_dial' } },
-      M.applyPreset)
-
-    choice('speedStyle', 'Center speed',
-      { { label = 'Classic', value = 'classic' }, { label = 'Modern', value = 'modern' },
-        { label = 'Large Steering Dial', value = 'large' } })
-    choice('gearStyle', 'Gear',
-      { { label = 'Classic', value = 'classic' }, { label = 'Modern', value = 'modern' },
-        { label = 'High Steering Dial', value = 'high' } })
-    choice('steeringStyle', 'Steering',
-      { { label = 'Classic line', value = 'classic' }, { label = 'Modern graduated line', value = 'modern' },
-        { label = 'Steering Dial', value = 'dial' } })
-    checkbox('Horizontal RPM bar', 'gt7RpmBarVisible')
-    choice('pedalPosition', 'Pedal position',
-      { { label = 'Inner', value = 'inner' }, { label = 'Outer', value = 'outer' } })
-    choice('pedalStyle', 'Pedal design',
-      { { label = 'Classic rectangles', value = 'classic' },
-        { label = 'Modern wide-top blocks', value = 'modern' } })
-    choice('lowerFrameStyle', 'Lower panel appearance',
-      { { label = 'Classic compact rounded', value = 'classic' },
-        { label = 'Modern angular', value = 'modern' },
-        { label = 'Steering Dial wide angular', value = 'wide' } })
-
-    local needles = { { label = 'Digital', value = 'digital' }, { label = 'Analog', value = 'analog' } }
+    local modes = {{label='Digital', value='digital'}, {label='Analog', value='analog'}}
     SettingsUI.choice('gt7', 'speedNeedle', 'Speed dial mode', M.values.gt7SpeedNeedleMode,
-      needles, function(value) M.values.gt7SpeedNeedleMode = value end)
+      modes, function(value) M.values.gt7SpeedNeedleMode = value end)
     SettingsUI.choice('gt7', 'rpmNeedle', 'RPM dial mode', M.values.gt7RpmNeedleMode,
-      needles, function(value) M.values.gt7RpmNeedleMode = value end)
-    choice('speedNeedleStyle', 'Speed needle style', InstrumentConfig.needleChoices)
-    choice('rpmNeedleStyle', 'RPM needle style', InstrumentConfig.needleChoices)
-    SettingsUI.choice('gt7', 'lower', 'Lower panel content', M.values.gt7LowerPanelMode,
-      { { label = 'Grip limit', value = 'limit' }, { label = 'FFB', value = 'ffb' },
-        { label = 'Pedal history', value = 'pedal_history' }, { label = 'Hidden', value = 'invisible' } },
-      function(value) M.values.gt7LowerPanelMode = value end)
-    checkbox('Show steering marker', 'showSteering')
-    checkbox('Show lights', 'showLights')
+      modes, function(value) M.values.gt7RpmNeedleMode = value end)
   end)
-  SettingsUI.section('gt7', 'radar', 'Radar and flags', true, function()
-    checkbox('Side proximity radar', 'gt7ProximityRadar')
-    choice('radarPresentation', 'Radar presentation',
-      { { label = 'Arcs', value = 'arcs' }, { label = 'Classic lights', value = 'classic_lights' },
-        { label = 'Modern bars', value = 'modern_bars' }, { label = '3-light column', value = 'column_3' },
-        { label = '9-light column', value = 'column_9' } })
-    choice('flagPresentation', 'Flags',
-      { { label = 'Classic lights', value = 'classic_lights' },
-        { label = 'Modern continuous strips', value = 'modern_strips' },
-        { label = '3-light column', value = 'column_3' },
-        { label = '9-light column', value = 'column_9' } })
-  end)
-  SettingsUI.section('gt7', 'rpm', 'RPM and alerts', false, function()
-    percent('Warning threshold', 'rpmWarningFraction', 0.70, 0.98)
-    percent('Redline threshold', 'rpmRedlineFraction', 0.82, 1)
-    M.values.rpmWarningFraction = math.min(M.values.rpmWarningFraction, M.values.rpmRedlineFraction - 0.04)
-    slider('Fallback RPM', 'fallbackRpm', 4000, 16000, '%.0f rpm')
-    checkbox('Blink turn indicators', 'animateIndicators')
-    checkbox('Blink race flag alert', 'animateFlagAlert')
-    checkbox('Blink shift zone', 'animateShiftAlert')
-    checkbox('Blink redline alert', 'animateRedlineAlert')
+  SettingsUI.section('gt7', 'personalization', 'Personalization', false, function()
+    SettingsUI.section('gt7', 'dials', 'Side dials', true, function()
+      if M.values.gt7SpeedNeedleMode == 'analog' then
+        SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
+          InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)
+      end
+      if M.values.gt7RpmNeedleMode == 'analog' then
+        SettingsUI.needle('gt7', 'rpmNeedleStyle', 'RPM needle', M.values.gt7RpmNeedleStyle,
+          InstrumentConfig, function(value) M.values.gt7RpmNeedleStyle = value end)
+      end
+      slider('Side dial scale', 'gt7DialScale', 0.75, 1.25, '%.2fx')
+      slider('Side dial spacing', 'gt7DialSpacing', 0, 160, '%.0f px')
+      slider('Status indicator scale', 'gt7IndicatorScale', 0.65, 1.5, '%.2fx')
+      checkbox('Show lights', 'showLights')
+    end)
+    SettingsUI.section('gt7', 'center', 'Center and pedals', false, function()
+      choice('speedStyle', 'Center speed design',
+        {{label='Classic', value='classic'}, {label='Modern', value='modern'}, {label='Large', value='large'}})
+      choice('gearStyle', 'Gear display design',
+        {{label='Classic', value='classic'}, {label='Modern', value='modern'}, {label='Raised', value='high'}})
+      checkbox('Show steering marker', 'showSteering')
+      if M.values.showSteering then
+        choice('steeringStyle', 'Steering display',
+          {{label='Simple line', value='classic'}, {label='Graduated line', value='modern'}, {label='Dial', value='dial'}})
+      end
+      checkbox('Show horizontal RPM bar', 'gt7RpmBarVisible')
+      choice('pedalPosition', 'Pedal position', {{label='Inner', value='inner'}, {label='Outer', value='outer'}})
+      choice('pedalStyle', 'Pedal design',
+        {{label='Rectangular', value='classic'}, {label='Wide top', value='modern'}})
+    end)
+    SettingsUI.section('gt7', 'lowerPanel', 'Lower panel', false, function()
+      SettingsUI.choice('gt7', 'lower', 'Content', M.values.gt7LowerPanelMode,
+        {{label='Grip limit', value='limit'}, {label='FFB', value='ffb'},
+         {label='Pedal history', value='pedal_history'}, {label='Hidden', value='invisible'}},
+        function(value) M.values.gt7LowerPanelMode = value end)
+      if M.values.gt7LowerPanelMode ~= 'invisible' then
+        choice('lowerFrameStyle', 'Frame design',
+          {{label='Compact rounded', value='classic'}, {label='Angular', value='modern'}, {label='Wide angular', value='wide'}})
+      end
+    end)
+    SettingsUI.section('gt7', 'radar', 'Radar and flags', false, function()
+      checkbox('Side proximity radar', 'gt7ProximityRadar')
+      if M.values.gt7ProximityRadar then
+        choice('radarPresentation', 'Radar display',
+          {{label='Arcs', value='arcs'}, {label='Classic lights', value='classic_lights'},
+           {label='Bars', value='modern_bars'}, {label='3-light column', value='column_3'},
+           {label='9-light column', value='column_9'}})
+      end
+      choice('flagPresentation', 'Flag display',
+        {{label='Classic lights', value='classic_lights'}, {label='Continuous strips', value='modern_strips'},
+         {label='3-light column', value='column_3'}, {label='9-light column', value='column_9'}})
+    end)
   end)
   SettingsUI.section('gt7', 'advanced', 'Advanced', false, function()
     checkbox('Developer debug view', 'debug')
     checkbox('Simulate vacuum when boost is zero', 'gt7SimulateVacuum')
-    slider('Simulated vacuum minimum', 'gt7VacuumMinimum', -1, -0.1, '%.2f bar')
-    ui.textWrapped('CSP provides positive boost. Vacuum is an estimate from throttle while the engine runs; positive boost remains measured.')
-    InstrumentPreview.draw(M.values)
-    SettingsUI.resetAll('gt7', function()
-      M.values.hudScale, M.values.backgroundOpacity, M.values.opacity = 0.72, 0.72, 1
-      M.values.gt7DialScale, M.values.gt7DialSpacing = 1, 0
-      M.values.gt7IndicatorScale = 1
-      M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
-      M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
-      M.values.gt7SimulateVacuum, M.values.gt7VacuumMinimum = true, InstrumentConfig.vacuumMinimum
-      InstrumentPreview.reset()
-      M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true
-      M.values.rpmWarningFraction, M.values.rpmRedlineFraction, M.values.fallbackRpm = 0.86, 0.96, 8000
-      for _, key in ipairs({ 'showSteering', 'showLights', 'animateIndicators',
-          'animateFlagAlert', 'animateShiftAlert', 'animateRedlineAlert' }) do M.values[key] = true end
-      M.values.debug = false
-      M.applyPreset('classic')
-    end, 'Restore every GT7 setting? Shared theme and units will stay as they are.')
+    if M.values.gt7SimulateVacuum then
+      slider('Simulated vacuum minimum', 'gt7VacuumMinimum', -1, -0.1, '%.2f bar')
+      ui.textWrapped('Vacuum is estimated from throttle while the engine runs; positive boost is measured.')
+    end
   end)
+  ui.separator()
+  SettingsUI.resetAppearance('gt7', resetAppearance)
+  SettingsUI.resetAll('gt7', function()
+    resetAppearance()
+    M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
+    M.values.gt7SimulateVacuum, M.values.gt7VacuumMinimum = true, InstrumentConfig.vacuumMinimum
+    M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true
+    M.values.showSteering, M.values.showLights, M.values.debug = true, true, false
+    M.applyPreset('classic')
+  end, 'Restore all local GT7 settings? Global settings are managed in General.')
 end
 
 return M

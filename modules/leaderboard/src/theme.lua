@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = {}
 
 -- Semantic roles are shared with the Retro Engineering HUD, but the module is
@@ -59,11 +60,11 @@ function Theme.get(name)
 end
 
 function Theme.withAlpha(color, alpha)
-  return rgbm(color.r, color.g, color.b, math.max(0, math.min(1, alpha)))
+  return GeneralSettings.color(color, math.max(0, math.min(1, alpha)))
 end
 
 function Theme.fromRgb(color, alpha)
-  return rgbm(color.r, color.g, color.b, math.max(0, math.min(1, alpha)))
+  return GeneralSettings.color(color, math.max(0, math.min(1, alpha)))
 end
 
 return Theme

@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layouts = require('src/gt7_retro_layout')
 local Layout = Layouts
@@ -816,7 +817,7 @@ end
 
 function M.draw(state, settings)
   Layout = InstrumentLayout.resolve(Layouts.resolve(settings), settings)
-  C = Theme.get(settings.theme)
+  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
   local fitWidth, fitHeight = Layout.fitRight - Layout.fitLeft, Layout.fitBottom - Layout.fitTop
@@ -828,7 +829,7 @@ function M.draw(state, settings)
   local scale = fittedScale * U.clamp(sliderScale, 0.82, 1.28)
   local origin = vec2((width - fitWidth * scale) / 2 - Layout.fitLeft * scale,
     (height - fitHeight * scale) / 2 - Layout.fitTop * scale)
-  local backdropOpacity = settings.backgroundOpacity or 0.72
+  local backdropOpacity = 0.72 -- Authored reference; palette applies global background opacity.
 
   ui.pushStyleVarAlpha(settings.opacity or 1)
   ui.pushDWriteFont(Theme.fonts.utility)
@@ -854,9 +855,7 @@ function M.draw(state, settings)
   end
   drawStatusStrips(origin, scale, state, settings, backdropOpacity)
   if settings.debug then drawDebug(origin, scale, state, width, height) end
-  if settings.gt7PreviewActive then
-    centeredText('INSTRUMENT PREVIEW', 11 * scale, point(origin, scale, Layout.width / 2, 22), C.amber)
-  end
+
 
   ui.popDWriteFont()
   ui.popStyleVar(1)

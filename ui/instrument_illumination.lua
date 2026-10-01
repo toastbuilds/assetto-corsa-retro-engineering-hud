@@ -2,7 +2,7 @@ local Config = require('src/instrument_config')
 local Theme = require('src/theme')
 local M = {}
 local I = Config.illumination
-local cache = {}
+local cache = setmetatable({}, {__mode = 'k'})
 local segmentPositions = setmetatable({}, {__mode = 'k'})
 
 function M.mix(a, b, amount)

@@ -13,7 +13,7 @@ function collect(directory) {
   }
 }
 
-for (const directory of ['src', 'ui', 'modules']) collect(directory)
+for (const directory of ['src', 'ui', 'modules', 'free-edition', 'tests']) collect(directory)
 files.push('app.lua', 'RetroUI.lua')
 
 let failures = 0

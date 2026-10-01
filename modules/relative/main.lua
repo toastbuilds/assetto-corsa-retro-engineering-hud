@@ -7,7 +7,7 @@ local Display = require('modules/relative/src/display')
 local Weather = require('modules/relative/src/weather')
 local Sectors = require('modules/relative/src/sectors')
 local Records = require('modules/relative/src/records')
-local GlobalSettings = require('src/settings')
+local GlobalSettings = require('src/general_settings')
 local SettingsUI = require('src/settings_ui')
 local FlagCause = require('src/flag_cause')
 
@@ -21,8 +21,7 @@ local settings = ac.storage({
   showRecords = true,
   temperatureUnit = 'C',
   automaticClasses = true, debug = false, visualStyleVersion = 0,
-  backgroundColor = rgb(0.043, 0.035, 0.027), backgroundOpacity = 0.72,
-  instrumentOpacity = 1, overallOpacity = 1,
+  backgroundColor = rgb(0.043, 0.035, 0.027),
   approachColor = rgb(1.00, 0.58, 0.12),
   showApproaching = true, approachRange = 8.0, approachRate = 0.20,
   classColorHY = Classes.colors.HY:clone(), classColorLMP1 = Classes.colors.LMP1:clone(),
@@ -46,11 +45,10 @@ if (settings.visualStyleVersion or 0) < 1 then
 end
 
 local function visualStyle()
-  local overallOpacity = math.max(0, math.min(1, tonumber(settings.overallOpacity) or 1))
   return {
-    palette = Theme.get(GlobalSettings.values.theme),
-    backdropOpacity = settings.backgroundOpacity or 0.72,
-    instrumentOpacity = (settings.instrumentOpacity or 1) * overallOpacity
+    palette = GlobalSettings.palette(Theme.get(GlobalSettings.values.theme)),
+    backdropOpacity = 0.72,
+    instrumentOpacity = 1 -- Applied once by the window wrapper.
   }
 end
 
@@ -583,7 +581,7 @@ function M.update(dt)
   end
 end
 
-function M.windowMain(_)
+local function drawWindow(_)
   local ok, err = pcall(drawMain)
   if not ok then
     local message = tostring(err)
@@ -594,11 +592,17 @@ function M.windowMain(_)
   end
 end
 
+function M.windowMain(...)
+  ui.pushStyleVarAlpha(GlobalSettings.values.opacity)
+  local ok, err = pcall(drawWindow, ...)
+  ui.popStyleVar(1)
+  if not ok then error(err) end
+end
+
 function M.getTemperatureUnit() return settings.temperatureUnit end
 
 local function resetAppearance()
-  settings.uiScale, settings.overallOpacity = 1, 1
-  settings.backgroundOpacity, settings.instrumentOpacity = 0.72, 1
+  settings.uiScale = 1
   settings.fontSize, settings.classMarkerWidth = 18, 4
   settings.approachColor = rgb(1, 0.58, 0.12)
   for _, classID in ipairs(classIDs) do
@@ -627,77 +631,75 @@ end
 
 function M.windowSettings()
   ui.header('Relative')
-  SettingsUI.section('relative', 'appearance', 'Appearance', true, function()
-    settings.uiScale = ui.slider('Panel scale', settings.uiScale, 0.70, 1.30, '%.2fx')
-    local opacity, changed = ui.slider('Overall opacity', (settings.overallOpacity or 1) * 100,
-      0, 100, '%.0f%%', 1)
-    if changed then settings.overallOpacity = opacity / 100 end
-    settings.backgroundOpacity = ui.slider('Backdrop opacity', settings.backgroundOpacity, 0.18, 0.95, '%.2f')
-    settings.instrumentOpacity = ui.slider('Instrument opacity', settings.instrumentOpacity, 0.45, 1, '%.2f')
-    settings.fontSize = ui.slider('Font size', settings.fontSize, 12, 32, '%.0f px')
-    settings.classMarkerWidth = ui.slider('Class marker width', settings.classMarkerWidth, 2, 8, '%.0f px')
-    SettingsUI.resetAppearance('relative', resetAppearance)
-  end)
-  SettingsUI.section('relative', 'grid', 'Grid and columns', true, function()
+  SettingsUI.section('relative', 'basics', 'Basics', true, function()
+    settings.uiScale = ui.slider('HUD scale', settings.uiScale, 0.70, 1.30, '%.2fx')
     if ui.checkbox('Show relative', settings.showRelative) then settings.showRelative = not settings.showRelative end
     settings.ahead = ui.slider('Cars ahead', settings.ahead, 1, 10, '%.0f')
     settings.behind = ui.slider('Cars behind', settings.behind, 1, 10, '%.0f')
     SettingsUI.choice('relative', 'mode', 'Cars', settings.mode,
-      { { label = 'All cars', value = 0 }, { label = 'Same class', value = 1 } },
-      function(value) settings.mode = value end)
-    for _, item in ipairs({
-      { 'Overall position', 'showOverall' }, { 'Class position', 'showClassPosition' },
-      { 'Class name', 'showClassText' }, { 'Car number', 'showNumber' },
-      { 'Driver name', 'showDriver' }, { 'Gap', 'showGap' },
-      { 'Pit indicator', 'showPitIndicator' }, { 'Lap difference', 'showLapDifference' },
-      { 'Cars in pits', 'showPits' }, { 'Header', 'showHeader' }
-    }) do
-      if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
-    end
+      {{label='All cars', value=0}, {label='Same class', value=1}}, function(value) settings.mode = value end)
   end)
-  SettingsUI.section('relative', 'conditions', 'Weather, sectors and timing', true, function()
-    for _, item in ipairs({ { 'Weather', 'showWeather' }, { 'Air and track temperatures', 'showTemperatures' },
-        { 'Sector colors', 'showSectors' }, { 'Session and track records', 'showRecords' } }) do
-      if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
-    end
-    ui.textWrapped('Sector colors: purple = class best, green = personal best, amber = slower, red/X = invalid. The outline and dot mark the active sector.')
-    ui.textWrapped('Session record: your fastest valid lap this session. Track record: your fastest locally recorded lap across sessions with this car on this track layout.')
-    settings.decimals = ui.slider('Gap decimals', settings.decimals, 1, 3, '%.0f')
-    settings.maximumGap = ui.slider('Maximum gap', settings.maximumGap, 5, 90, '%.0fs')
-    settings.smoothing = ui.slider('Gap smoothing', settings.smoothing, 0.05, 1.5, '%.2fs')
+  SettingsUI.section('relative', 'personalization', 'Personalization', false, function()
+    SettingsUI.section('relative', 'grid', 'Columns', true, function()
+      for _, item in ipairs({
+        {'Overall position','showOverall'}, {'Class position','showClassPosition'},
+        {'Class name','showClassText'}, {'Car number','showNumber'}, {'Driver name','showDriver'},
+        {'Gap','showGap'}, {'Pit indicator','showPitIndicator'}, {'Lap difference','showLapDifference'},
+        {'Cars in pits','showPits'}, {'Header','showHeader'}
+      }) do
+        if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
+      end
+    end)
+    SettingsUI.section('relative', 'conditions', 'Weather, sectors and timing', false, function()
+      for _, item in ipairs({{'Weather','showWeather'}, {'Air and track temperatures','showTemperatures'},
+          {'Sector colors','showSectors'}, {'Session and track records','showRecords'}}) do
+        if ui.checkbox(item[1], settings[item[2]]) then settings[item[2]] = not settings[item[2]] end
+      end
+      ui.textWrapped('Sectors: purple = class best, green = personal best, amber = slower, red/X = invalid. Outline and dot = active sector.')
+      ui.textWrapped('Session record: fastest valid lap this session. Track record: fastest locally recorded lap with this car and track layout.')
+      settings.decimals = ui.slider('Gap decimals', settings.decimals, 1, 3, '%.0f')
+      settings.maximumGap = ui.slider('Maximum gap', settings.maximumGap, 5, 90, '%.0fs')
+      settings.smoothing = ui.slider('Gap smoothing', settings.smoothing, 0.05, 1.5, '%.2fs')
+    end)
+    SettingsUI.section('relative', 'appearance', 'Text and class colors', false, function()
+      settings.fontSize = ui.slider('Font size', settings.fontSize, 12, 32, '%.0f px')
+      settings.classMarkerWidth = ui.slider('Class marker width', settings.classMarkerWidth, 2, 8, '%.0f px')
+      for _, classID in ipairs(classIDs) do
+        ui.text(classID); ui.sameLine(110)
+        ui.colorButton('##classColor' .. classID, classColor(classID), ui.ColorPickerFlags.PickerHueBar)
+      end
+    end)
+    SettingsUI.section('relative', 'warnings', 'Faster-class warning', false, function()
+      if ui.checkbox('Faster-class warning', settings.showApproaching) then settings.showApproaching = not settings.showApproaching end
+      if settings.showApproaching then
+        settings.approachRange = ui.slider('Warning range', settings.approachRange, 2, 20, '%.1fs')
+        settings.approachRate = ui.slider('Minimum closing rate', settings.approachRate, 0.05, 2, '%.2f s/s')
+        ui.text('Warning color'); ui.sameLine()
+        ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
+      end
+    end)
   end)
-  SettingsUI.section('relative', 'classes', 'Classes and warnings', false, function()
+  SettingsUI.section('relative', 'advanced', 'Advanced', false, function()
     if ui.checkbox('Automatic class detection', settings.automaticClasses) then
       settings.automaticClasses = not settings.automaticClasses
       metadata = {}; sectors:reset()
     end
-    if ui.checkbox('Faster-class warning', settings.showApproaching) then settings.showApproaching = not settings.showApproaching end
-    if settings.showApproaching then
-      settings.approachRange = ui.slider('Warning range', settings.approachRange, 2, 20, '%.1fs')
-      settings.approachRate = ui.slider('Minimum closing rate', settings.approachRate, 0.05, 2, '%.2f s/s')
-    end
-    ui.text('Warning color'); ui.sameLine(); ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
-    for _, classID in ipairs(classIDs) do
-      ui.text(classID); ui.sameLine(110)
-      ui.colorButton('##classColor' .. classID, classColor(classID), ui.ColorPickerFlags.PickerHueBar)
-    end
-  end)
-  SettingsUI.section('relative', 'advanced', 'Advanced', false, function()
     if ui.checkbox('Developer debug view', settings.debug) then settings.debug = not settings.debug end
     ui.text('Detected cars: click to change their class.')
     if #cars == 0 then ui.text('No cars detected in the current session.') end
-    local choices = { 'UNKNOWN', 'HY', 'LMP1', 'LMP2', 'LMP3', 'GT3', 'GT4', 'GTE', 'TCR', 'TC', 'CUP' }
+    local choices = {'UNKNOWN', 'HY', 'LMP1', 'LMP2', 'LMP3', 'GT3', 'GT4', 'GTE', 'TCR', 'TC', 'CUP'}
     for _, row in ipairs(cars) do
       if ui.button(shorten(row.carID, 27) .. ' -> ' .. row.classID .. '##class' .. row.index) then
         local n = 1
         for i, value in ipairs(choices) do if value == row.classID then n = i % #choices + 1 end end
-        Classes.setOverride(row.carID, choices[n]); metadata[row.index] = nil
-        sectors:reset()
+        Classes.setOverride(row.carID, choices[n]); metadata[row.index] = nil; sectors:reset()
       end
     end
-    SettingsUI.resetAll('relative', resetAll,
-      'Restore all Relative settings and class assignments? classes.ini will be backed up in Documents first. Lap records and CSP window position stay unchanged.')
   end)
+  ui.separator()
+  SettingsUI.resetAppearance('relative', resetAppearance)
+  SettingsUI.resetAll('relative', resetAll,
+    'Restore local Relative settings and class assignments? classes.ini is backed up in Documents first. Saved laps, window position and global settings are retained.')
 end
 
 return M

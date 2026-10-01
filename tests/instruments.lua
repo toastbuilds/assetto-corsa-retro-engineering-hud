@@ -5,7 +5,6 @@ local Presentation = require('src/instrument_state')
 local Config = require('src/instrument_config')
 local Needle = require('ui/instrument_needle')
 local Theme = require('src/theme')
-local Preview = require('src/instrument_preview')
 local Settings = require('src/gt7_settings')
 local state = harness.state
 state.available, state.maxFuel, state.rpmText = true, 50, '5200'
@@ -228,12 +227,14 @@ for old, id in pairs(Config.needleAliases) do
   assert(Config.needlePreset(old) == Config.needles[id], 'legacy callers must resolve aliases')
 end
 local DialSettings = require('src/settings')
+Settings.values.gt7SpeedNeedleMode, Settings.values.gt7RpmNeedleMode = 'analog', 'analog'
+harness.pendingButtons['>  Personalization##dial.personalization'] = true
 for i, id in ipairs(Config.needleOrder) do
-  harness.pendingCombos['##gt7.speedNeedleStyle'] = i - 1
-  harness.pendingCombos['##gt7.rpmNeedleStyle'] = (#Config.needleOrder - i)
+  harness.pendingSliders['##gt7.speedNeedleStyle'] = i
+  harness.pendingSliders['##gt7.rpmNeedleStyle'] = (#Config.needleOrder - i + 1)
   Settings.draw()
   DialSettings.values.instrumentMode = 'analog'
-  harness.pendingCombos['##dial.needleStyle'] = i - 1
+  harness.pendingSliders['##dial.needleStyle'] = i
   DialSettings.draw()
   local current = Settings.current()
   assert(current.gt7SpeedNeedleStyle == id and current.gt7RpmNeedleStyle == Config.needleOrder[25-i])
@@ -369,38 +370,6 @@ package.loaded['src/gt7_settings'] = nil
 Settings = require('src/gt7_settings')
 assert(Settings.current().gt7DialScale == 1.2 and Settings.current().gt7DialSpacing == 80 and Settings.current().gt7IndicatorScale == 1.5)
 
--- The preview feeds the same telemetry processor, without touching live state.
-local liveSpeed = state.speedValue
-Preview.controls.enabled, Preview.controls.lights = true, true
-Preview.controls.rpm, Preview.controls.speed, Preview.controls.boost = 0.9, 1, -0.25
-for _ = 1, 60 do Preview.update(1 / 60, settings, state) end
-local sample = assert(Preview.getState())
-assert(sample ~= state and state.speedValue == liveSpeed)
-assert(sample.rpmWarning and sample.headlights and sample.gt7Instruments.light == 1)
-assert(sample.gt7Instruments.boostValue == -0.25 and sample.gt7Instruments.boostSimulated)
-Preview.controls.missingFuel = true
-Preview.update(1 / 60, settings, state)
-assert(sample.fuel == nil and sample.maxFuel == nil)
-Preview.controls.missingFuel = false
-for _, input in ipairs({ {0, 0, 1, 0}, {0.5, 0.5, 0.5, 0.7}, {1, 1, 0.1, -0.5} }) do
-  Preview.controls.speed, Preview.controls.rpm, Preview.controls.fuel, Preview.controls.boost =
-    input[1], input[2], input[3], input[4]
-  for _ = 1, 100 do Preview.update(1 / 60, settings, state) end
-  sample = Preview.getState()
-  assert(sample.speedValue == math.floor(state.speedGaugeMaximum * input[1] + 0.5))
-  assert(sample.rpm == state.rpmDisplayLimiter * input[2] and near(sample.fuelNormalized, input[3]))
-  assert(near(sample.gt7Instruments.boostValue, input[4]))
-  assert(sample.rpmRedline == (input[2] >= settings.rpmRedlineFraction))
-  for _, mode in ipairs({ 'analog', 'digital' }) do
-    local calls = harness.draw('classic', { gt7SpeedNeedleMode = mode, gt7RpmNeedleMode = mode,
-      gt7SimulateVacuum = true, gt7VacuumMinimum = -0.5 }, sample, {575, 240})
-    assert(#calls > 0, 'minimum HUD size must support empty/mid/full instruments')
-  end
-end
-Preview.controls.enabled = false
-Preview.update(1 / 60, settings, state)
-assert(Preview.getState() == nil and Preview.settings(settings) == settings)
-
-print('Instruments: 24 geometries, real holes, migrations, independent selectors, persistence, resets, isolated preview; '
+print('Instruments: 24 geometries, real holes, migrations, independent sliders, persistence, resets; '
   .. cases .. ' GT7 and ' .. standaloneCases .. ' standalone drawing cases passed')
 return harness

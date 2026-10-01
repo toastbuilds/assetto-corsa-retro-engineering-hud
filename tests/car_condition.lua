@@ -42,6 +42,7 @@ ui = {
   pushStyleVarAlpha = noop, popStyleVar = noop
 }
 
+ac = {storage = function(defaults) return defaults end}
 local Condition = require('ui/car_condition')
 local state = { clock = 0, condition = {
   available = true, body = {}, engineDamage = 0, gearboxDamage = 0, wheels = {}

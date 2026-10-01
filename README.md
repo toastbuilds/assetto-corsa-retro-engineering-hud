@@ -47,13 +47,13 @@ preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 
 ## Ajustes
 
-**Condition > Appearance > Core weight** permite mezclar la temperatura del
+**Condition > Personalization > Core weight** permite mezclar la temperatura del
 núcleo y la superficie de los neumáticos entre 0 % y 100 % core. El porcentaje
 surface es el complementario; el valor inicial es 80 % core / 20 % surface y
-se guarda entre sesiones. Se aplica a **General zones** y **General (uniform)**;
+se guarda entre sesiones. Se aplica a **Core + surface zones** y **Core + surface uniform**;
 **Surface zones** utiliza las lecturas de superficie. Los resets restauran 80/20.
 
-**GT7 Premium > Components and presets** permite combinar por separado la
+**GT7 Premium > Personalization** permite combinar por separado la
 velocidad, marcha, dirección, barra RPM, posición y diseño de pedales, radar,
 banderas y apariencia del panel inferior. **Classic**, **Modern**,
 **Outer Pedals** y **Steering Dial** siguen disponibles como presets que aplican
@@ -80,8 +80,9 @@ restaura la composición Classic.
 Los dials laterales **Premium** tienen modos Analog y Digital independientes.
 Analog usa escalas concéntricas y miniagujas para fuel/boost; Digital presenta
 velocidad y RPM grandes con aros de bloques y subinstrumentos segmentados.
-**Speed needle style** y **RPM needle style** seleccionan 24 variantes de
-aguja, identificadas como **A01–D06** según los seis recuadros inferiores de
+**Speed needle** y **RPM needle** usan sliders de 24 pasos independientes.
+Se encuentran en **GT7 → Personalization → Side dials**, aparecen únicamente
+en modo Analog y aplican el cambio directamente al HUD. Las variantes están identificadas como **A01–D06** según los seis recuadros inferiores de
 `assets/needle a.png` a `assets/needle d.png`. Cada variante conserva su cuerpo,
 punta, contrapeso y centro; sus ranuras y perforaciones dejan ver el fondo real.
 Las nueve selecciones anteriores migran automáticamente a su referencia equivalente.
@@ -91,11 +92,10 @@ oculta el indicador de luces.
 En **Advanced**, **Simulate vacuum when boost is zero** añade un vacío estimado
 por acelerador mientras gira el motor. Su mínimo inicial es −0.5 bar y se puede
 ajustar o desactivar; cualquier boost positivo sigue usando el valor real de CSP.
-El SDK de apps no ofrece vacío real. **Instrument preview (temporary)** permite
-probar modos, agujas, luces, velocidad, RPM, reserva, boost y datos ausentes sin
-modificar el coche ni las otras ventanas; no se guarda al reiniciar.
+El SDK de apps no ofrece vacío real. Los ajustes se comprueban directamente
+con la telemetría del HUD; el antiguo simulador de previsualización se ha retirado.
 
-En **GT7 → Appearance**, **Side dial scale** ajusta ambos instrumentos entre
+En **GT7 → Personalization → Side dials**, **Side dial scale** ajusta ambos instrumentos entre
 0.75× y 1.25× y **Side dial spacing** añade de 0 a 160 píxeles de separación
 respecto al centro. Los valores neutros son 1× y 0; el encaje en la ventana se
 recalcula para incluir los dials y sus indicadores. En la composición de pedales
@@ -106,7 +106,7 @@ y las subdivisiones menores más finas y próximas.
 Fuel y boost comparten la superficie del dial; una banda elevada respalda las
 cifras de las escalas principales.
 
-**Lower indicator scale** ajusta los indicadores circulares inferiores entre
+**Status indicator scale** ajusta los indicadores circulares inferiores entre
 0.65× y 1.50×, con separación y encaje adaptados. La zona de redline conserva
 segmentos digitales incluso en analógico: quedan tenues antes del umbral real
 y se iluminan al alcanzarlo. El arco interno analógico usa pequeñas marcas y
@@ -129,7 +129,7 @@ Analog/Digital. `lightTransition` controla la duración; `Theme.dialBacklight`
 contiene los colores destino por tema. Los núcleos geométricos de las agujas se
 preparan al cargar el catálogo y respetan ranuras, perforaciones y centros abiertos.
 
-En **Dial > Gauge and display**, el modo Analog ofrece **RPM needle style**
+En **Dial > Personalization**, el modo Analog ofrece el slider **RPM needle**
 con las mismas 24 variantes. Su selección es independiente de las dos agujas
 GT7 y se guarda al reiniciar; velocidad mantiene su lectura numérica.
 Los estilos conservan los valores, escalas y respuesta mecánica de cada aguja.
@@ -146,10 +146,9 @@ en el coche. **Orientation** permite girarlo con el coche o mantener fija la
 orientación del circuito mientras el mapa se desplaza. El cambio de modo conserva
 el tamaño y la posición de la ventana. El radio visible del mini mapa empieza
 en 500 m. **Background** permite elegir entre puntos o una superficie radial;
-solo se dibuja el modo seleccionado. **Radial surface** controla la opacidad
-de la superficie en el centro, que baja a 0 en el borde circular.
-**Background dots** controla la intensidad de los puntos; **Dot thickness**
-permite ampliarlos hasta 4×. Por defecto son un 15 % más gruesos que antes y se
+solo se dibuja el modo seleccionado. **General > Background opacity** controla
+la intensidad de ambos fondos y la superficie se desvanece hacia el borde circular.
+**Dot thickness** permite ampliar los puntos hasta 4×. Por defecto son un 15 % más gruesos que antes y se
 desvanecen hacia los bordes. **Radial dot taper** reduce su grosor desde el
 centro hacia el exterior y se puede desactivar. Las alertas amarillas, rojas o
 azules producen una onda repetida en los puntos; en modo Superficie, colorean el
@@ -173,12 +172,27 @@ personal, ámbar para un sector más lento y rojo con X para uno inválido. El
 borde y el punto indican el sector activo. Los récords, los sectores y las
 condiciones se pueden mostrar por separado desde los ajustes de Relative.
 
-**General** controla el tema y las unidades de velocidad y temperatura de toda
-la app. La lista lateral abre los ajustes de cada instrumento, ordenados en
-secciones; **Advanced** contiene opciones menos frecuentes. Escala y opacidad
-siguen siendo independientes por ventana. **Reset appearance** solo restaura el
-aspecto; **Reset all** pide confirmación y restaura los ajustes del instrumento.
-Para Relative y Leaderboard, Reset all también restaura `classes.ini` y guarda
+**General** controla tema, unidades y opacidades de contenido y fondo para
+las ocho ventanas del HUD. Los fondos conservan la intensidad propia de cada
+diseño: los puntos del mapa siguen siendo más sutiles que su superficie.
+Escala, proporciones y tamaños continúan siendo locales. Los umbrales RPM,
+RPM de respaldo y parpadeos de Dial y GT7 también se configuran en General.
+Depuración y detección de clases permanecen en cada instrumento.
+
+Todas las páginas abren **Basics**; **Personalization** y **Advanced** se
+despliegan cuando hacen falta. En GT7 Premium, Basics contiene cuatro botones
+de preset, escala y modos de los diales. Los presets cambian solo composición;
+**Custom** identifica una combinación personalizada y cualquier preset puede
+reaplicarse con un clic. Personalization agrupa Side dials, Center and pedals,
+Lower panel y Radar and flags. Free muestra los controles de GT7 Classic.
+Dial usa su propio slider de aguja en Personalization cuando está en Analog.
+
+Al actualizar, tema, unidades y ajustes locales se conservan. Los nuevos
+valores globales arrancan una sola vez con contenido al 100 %, fondo al 72 %,
+umbrales RPM al 86 % y 96 %, respaldo de 8000 RPM y parpadeos activados.
+**Reset appearance** restaura el aspecto local; **Reset all** pide confirmación
+para restaurar el instrumento. General dispone de sus propios resets compartidos.
+En Relative y Leaderboard, Reset all también restaura `classes.ini` y guarda
 una copia anterior en `Documents/Assetto Corsa/RetroUI/Class Backups`.
 
 ## Desarrollo
@@ -197,7 +211,11 @@ Las etiquetas `vX.Y.Z` generan y adjuntan ambos ZIP mediante GitHub Actions.
 La distribución en ZIP separados no cambia la licencia MIT del código que ya
 la incluye ni impide por sí sola redistribuirlo.
 
-`npm run check:lua` comprueba sintaxis, módulos y callbacks CSP. Con Lua 5.2
+`npm run check:lua` comprueba sintaxis, módulos y callbacks CSP, incluidos
+los archivos Free y las pruebas. `python tools/test-lua.py` ejecuta todas las
+suites con Lupa y Lua 5.2, incluyendo los ajustes Premium y Free en runtimes
+separados. `tests/settings.lua` verifica las nueve páginas, migración, sliders,
+presets, resets y aplicación única de opacidad en las ocho ventanas. Con Lua 5.2
 o LuaJIT, ejecuta `lua tests/runtime_smoke.lua` y `lua tests/gt7_layouts.lua`
 para comprobar las ventanas principales y los layouts GT7 con una interfaz CSP
 simulada. Las pruebas de GT7 incluyen migración y persistencia de la composición,
@@ -212,8 +230,7 @@ tres tamaños de ventana y las secciones opcionales.
 
 `lua tests/instruments.lua` verifica las transiciones, los valores compartidos,
 el vacío simulado, las 24 geometrías de aguja, sus huecos reales, la migración,
-los tres selectores independientes, la persistencia, los resets y el aislamiento
-del preview, con 768 escenarios GT7 y 864 del dial independiente. También ejecuta
+los tres sliders independientes, la persistencia y los resets, con 768 escenarios GT7 y 864 del dial independiente. También ejecuta
 la suite de layouts GT7. Si no hay un ejecutable Lua, se puede usar Python con
 `lupa.lua52`.
 

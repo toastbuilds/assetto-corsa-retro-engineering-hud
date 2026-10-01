@@ -5,9 +5,6 @@ local Classes = require('modules/leaderboard/src/classes')
 M.values = ac.storage({
   settingsVersion = 1,
   hudScale = 0.84,
-  instrumentOpacity = 1.0,
-  backdropOpacity = 0.72,
-  fallbackTheme = 'dark',
   automaticClasses = true,
   showClass = true,
   showCompound = false,
@@ -38,17 +35,8 @@ local function slider(label, key, minimum, maximum, format)
   if changed then M.values[key] = value end
 end
 
-local function percentageSlider(label, key, minimum, maximum)
-  local value, changed = ui.slider(label, (M.values[key] or minimum) * 100,
-    minimum * 100, maximum * 100, '%.0f%%', 1)
-  if changed then M.values[key] = value / 100 end
-end
-
 local function resetVisualSettings()
   M.values.hudScale = 0.84
-  M.values.instrumentOpacity = 1.0
-  M.values.backdropOpacity = 0.72
-  M.values.fallbackTheme = 'dark'
 end
 
 local function resetAll()
@@ -65,12 +53,9 @@ end
 
 function M.normalize()
   M.values.hudScale = clamp(tonumber(M.values.hudScale) or 0.84, 0.55, 1.20)
-  M.values.instrumentOpacity = clamp(tonumber(M.values.instrumentOpacity) or 1, 0, 1)
-  M.values.backdropOpacity = clamp(tonumber(M.values.backdropOpacity) or 0.72, 0.18, 0.95)
   M.values.maxRows = math.floor(clamp(tonumber(M.values.maxRows) or 5, 3, 5) + 0.5)
   M.values.intervalRefresh = clamp(tonumber(M.values.intervalRefresh) or 0.25, 0.10, 1.00)
   M.values.fuelReserve = math.max(0, tonumber(M.values.fuelReserve) or 2)
-  M.values.fallbackTheme = M.values.fallbackTheme == 'light' and 'light' or 'dark'
   M.values.temperatureUnit = M.values.temperatureUnit == 'F' and 'F' or 'C'
   M.values.lockX = tonumber(M.values.lockX) or -1
   M.values.lockY = tonumber(M.values.lockY) or -1
@@ -79,32 +64,33 @@ end
 function M.draw()
   M.normalize()
   ui.header('Leaderboard')
-  SettingsUI.section('leaderboard', 'appearance', 'Appearance', true, function()
+  SettingsUI.section('leaderboard', 'basics', 'Basics', true, function()
     slider('HUD scale', 'hudScale', 0.55, 1.20, '%.2fx')
-    percentageSlider('Backdrop opacity', 'backdropOpacity', 0.18, 0.95)
-    percentageSlider('Instrument opacity', 'instrumentOpacity', 0.55, 1.00)
-    SettingsUI.resetAppearance('leaderboard', resetVisualSettings)
+    slider('Maximum rows', 'maxRows', 3, 5, '%.0f rows')
+    checkbox('Show fuel calculator', 'showFuel')
   end)
-  SettingsUI.section('leaderboard', 'rows', 'Columns and rows', true, function()
+  SettingsUI.section('leaderboard', 'personalization', 'Personalization', false, function()
+    ui.header('Columns')
     checkbox('Show class', 'showClass')
     checkbox('Show tyre compound', 'showCompound')
     checkbox('Show flag indicator', 'showFlags')
     checkbox('Scroll long driver names', 'scrollLongNames')
-    slider('Maximum rows', 'maxRows', 3, 5, '%.0f rows')
     slider('Interval refresh', 'intervalRefresh', 0.10, 1.00, '%.2fs')
-  end)
-  SettingsUI.section('leaderboard', 'fuel', 'Fuel calculator', true, function()
-    checkbox('Show fuel calculator', 'showFuel')
-    if M.values.showFuel then slider('Fuel reserve', 'fuelReserve', 0, 20, '%.1f L') end
-    checkbox('Timed-race lap estimate', 'showLapEstimate')
+    if M.values.showFuel then
+      ui.header('Fuel calculator')
+      slider('Fuel reserve', 'fuelReserve', 0, 20, '%.1f L')
+      checkbox('Timed-race lap estimate', 'showLapEstimate')
+    end
   end)
   SettingsUI.section('leaderboard', 'advanced', 'Advanced', false, function()
     checkbox('Automatic class detection', 'automaticClasses')
     checkbox('Lock overlay position', 'lockWindow')
     checkbox('Developer debug view', 'debug')
-    SettingsUI.resetAll('leaderboard', resetAll,
-      'Restore all Leaderboard settings and class assignments? classes.ini will be backed up in Documents first. Lap records and CSP window position stay unchanged.')
   end)
+  ui.separator()
+  SettingsUI.resetAppearance('leaderboard', resetVisualSettings)
+  SettingsUI.resetAll('leaderboard', resetAll,
+    'Restore local Leaderboard settings and class assignments? classes.ini is backed up in Documents first. Saved laps, window position and global settings are retained.')
 end
 
 return M

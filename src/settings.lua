@@ -1,9 +1,12 @@
 local M = {}
 local SettingsUI = require('src/settings_ui')
 local InstrumentConfig = require('src/instrument_config')
+local GeneralSettings = require('src/general_settings')
 
 M.lastChange = 'Ready'
 
+-- Legacy shared fields are retained for one-time migration and older GT7
+-- installs. Renderers consume current(), with General as the sole authority.
 M.values = ac.storage({
   layoutVersion = 1,
   hudScale = 0.72,
@@ -106,13 +109,6 @@ if (M.values.layoutVersion or 1) < 9 then M.values.layoutVersion = 9 end
 
 if M.values.gt7RadarStyle ~= 'arcs' then M.values.gt7RadarStyle = 'lights' end
 
-local function normalizeRpmThresholds()
-  local redline = math.max(0.82, math.min(M.values.rpmRedlineFraction or 0.96, 1.0))
-  local warning = math.max(0.70, math.min(M.values.rpmWarningFraction or 0.86, 0.98))
-  M.values.rpmRedlineFraction = redline
-  M.values.rpmWarningFraction = math.min(warning, redline - 0.04)
-end
-
 local function checkbox(label, key)
   if ui.checkbox(label, M.values[key]) then
     M.values[key] = not M.values[key]
@@ -128,23 +124,9 @@ local function slider(label, key, minimum, maximum, format)
   end
 end
 
--- CSP sliders work with fractions for opacity and RPM thresholds, but their
--- printf formatter does not turn 0.86 into 86%. Draw those controls in human
--- readable percentage points and convert back before persisting them.
-local function percentageSlider(label, key, minimum, maximum)
-  local value, changed = ui.slider(label, (M.values[key] or minimum) * 100,
-    minimum * 100, maximum * 100, '%.0f%%', 1)
-  if changed then
-    M.values[key] = value / 100
-    M.lastChange = label
-  end
-end
-
 local function resetVisualSettings()
   M.values.analogNeedleStyle = 'a01'
   M.values.hudScale = 0.72
-  M.values.backgroundOpacity = 0.72
-  M.values.opacity = 1.0
   M.lastChange = 'Visual settings reset'
 end
 
@@ -153,23 +135,29 @@ local instrumentModes = {
   { value = 'analog', label = 'Analog dial' }
 }
 
+function M.current()
+  local values = {}
+  for _, key in ipairs({'hudScale', 'instrumentMode', 'analogAuxiliaryMode', 'analogNeedleStyle',
+      'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'debug'}) do
+    values[key] = M.values[key]
+  end
+  return GeneralSettings.apply(values)
+end
+
 function M.draw()
   ui.header('Dial')
-  SettingsUI.section('dial', 'appearance', 'Appearance', true, function()
+  SettingsUI.section('dial', 'basics', 'Basics', true, function()
     slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
-    percentageSlider('Backdrop opacity', 'backgroundOpacity', 0.18, 0.82)
-    percentageSlider('Instrument opacity', 'opacity', 0.55, 1.0)
-    SettingsUI.resetAppearance('dial', resetVisualSettings)
-  end)
-  SettingsUI.section('dial', 'gauge', 'Gauge and display', true, function()
-    SettingsUI.choice('dial', 'mode', 'Instrument mode', M.values.instrumentMode,
+    SettingsUI.choice('dial', 'mode', 'Dial mode', M.values.instrumentMode,
       instrumentModes, function(value) M.values.instrumentMode = value end)
+  end)
+  SettingsUI.section('dial', 'personalization', 'Personalization', false, function()
     if M.values.instrumentMode == 'analog' then
-      SettingsUI.choice('dial', 'needleStyle', 'RPM needle style', M.values.analogNeedleStyle,
-        InstrumentConfig.needleChoices, function(value) M.values.analogNeedleStyle = value end)
-      SettingsUI.choice('dial', 'lower', 'Analog lower gauge', M.values.analogAuxiliaryMode,
-        { { label = 'Auto', value = 'auto' }, { label = 'Turbo', value = 'turbo' },
-          { label = 'Fuel', value = 'fuel' }, { label = 'Off', value = 'off' } },
+      SettingsUI.needle('dial', 'needleStyle', 'RPM needle', M.values.analogNeedleStyle,
+        InstrumentConfig, function(value) M.values.analogNeedleStyle = value end)
+      SettingsUI.choice('dial', 'lower', 'Auxiliary gauge', M.values.analogAuxiliaryMode,
+        {{label='Auto', value='auto'}, {label='Turbo', value='turbo'},
+         {label='Fuel', value='fuel'}, {label='Off', value='off'}},
         function(value) M.values.analogAuxiliaryMode = value end)
     end
     checkbox('Show steering marker', 'showSteering')
@@ -177,29 +165,19 @@ function M.draw()
     checkbox('Show lights', 'showLights')
     checkbox('Show TC / ABS levels', 'showTcAbsLevels')
   end)
-  SettingsUI.section('dial', 'alerts', 'RPM and alerts', true, function()
-    percentageSlider('Warning threshold', 'rpmWarningFraction', 0.70, 0.98)
-    percentageSlider('Redline threshold', 'rpmRedlineFraction', 0.82, 1.0)
-    normalizeRpmThresholds()
-    slider('Fallback RPM', 'fallbackRpm', 4000, 16000, '%.0f rpm')
-    checkbox('Blink turn indicators', 'animateIndicators')
-    checkbox('Blink race flag alert', 'animateFlagAlert')
-    checkbox('Blink shift zone', 'animateShiftAlert')
-    checkbox('Blink redline alert', 'animateRedlineAlert')
-  end)
   SettingsUI.section('dial', 'advanced', 'Advanced', false, function()
     checkbox('Developer debug view', 'debug')
-    SettingsUI.resetAll('dial', function()
-      resetVisualSettings()
-      M.values.instrumentMode, M.values.analogAuxiliaryMode = 'digital', 'auto'
-      M.values.rpmWarningFraction, M.values.rpmRedlineFraction, M.values.fallbackRpm = 0.86, 0.96, 8000
-      for _, key in ipairs({ 'showSteering', 'showClutch', 'showLights', 'showTcAbsLevels',
-          'animateIndicators', 'animateFlagAlert', 'animateShiftAlert', 'animateRedlineAlert' }) do
-        M.values[key] = true
-      end
-      M.values.debug = false
-    end, 'Restore every Dial setting? Shared theme and units will stay as they are.')
   end)
+  ui.separator()
+  SettingsUI.resetAppearance('dial', resetVisualSettings)
+  SettingsUI.resetAll('dial', function()
+    resetVisualSettings()
+    M.values.instrumentMode, M.values.analogAuxiliaryMode = 'digital', 'auto'
+    for _, key in ipairs({'showSteering', 'showClutch', 'showLights', 'showTcAbsLevels'}) do
+      M.values[key] = true
+    end
+    M.values.debug = false
+  end, 'Restore all local Dial settings? Global settings are managed in General.')
 end
 
 return M

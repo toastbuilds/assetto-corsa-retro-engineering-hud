@@ -5,7 +5,7 @@ local Data = require('modules/leaderboard/src/leaderboard_data')
 local Intervals = require('modules/leaderboard/src/intervals')
 local Fuel = require('modules/leaderboard/src/fuel')
 local Leaderboard = require('modules/leaderboard/ui/leaderboard')
-local GlobalSettings = require('src/settings')
+local GlobalSettings = require('src/general_settings')
 
 local dataState = Data.new()
 local intervalState = Intervals.new()
@@ -53,7 +53,7 @@ function M.windowMain(_)
   else
     Settings.values.lockX, Settings.values.lockY = -1, -1
   end
-  local visual = ThemeSync.visual(Settings.values.fallbackTheme)
+  local visual = ThemeSync.visual()
   local ok, err = pcall(function() Leaderboard.draw(lastSnapshot, Settings.values, visual) end)
   if not ok then
     pcall(function() ac.error('[Retro Engineering Leaderboard] draw error: ' .. tostring(err)) end)

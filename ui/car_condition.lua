@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layout = require('src/car_condition_layout')
 local U = require('src/utils')
@@ -412,7 +413,7 @@ local function drawLegend(origin, scale)
 end
 
 function M.draw(state, settings)
-  C = Theme.get(settings.theme)
+  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
   local scale = math.min(width / Layout.width, height / Layout.height)

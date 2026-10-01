@@ -117,6 +117,7 @@ end
 script = {}
 require('app')
 local Settings = require('src/settings')
+local GeneralSettings = require('src/general_settings')
 local Gt7Settings = require('src/gt7_settings')
 local Telemetry = require('src/telemetry')
 local Gt7Retro = require('ui/gt7_retro')
@@ -126,11 +127,12 @@ local Gt7Layout = require('src/gt7_retro_layout')
 local ClassicGt7Layout = Gt7Layout.get('classic')
 
 local ConditionSettings = require('src/condition_settings')
-assert(ConditionSettings.current(Settings.values).temperatureCoreWeight == 0.8,
+assert(ConditionSettings.current().temperatureCoreWeight == 0.8,
   'existing installs must default to the original 80/20 mix')
+pendingButtons['>  Personalization##condition.personalization'] = true
 pendingSliders['Core weight'] = 35
 ConditionSettings.draw()
-assert(ConditionSettings.current(Settings.values).temperatureCoreWeight == 0.35)
+assert(ConditionSettings.current().temperatureCoreWeight == 0.35)
 package.loaded['src/condition_settings'] = nil
 ConditionSettings = require('src/condition_settings')
 assert(ConditionSettings.values.temperatureCoreWeight == 0.35, 'core ratio must persist after reload')
@@ -188,6 +190,9 @@ assert(Gt7Settings.values.gt7SpeedNeedleMode == 'analog'
   and Gt7Settings.values.gt7RpmNeedleMode == 'analog',
   'GT7 RPM needle selection must be independent')
 assert(Gt7Settings.values.gt7RadarPresentation == 'arcs', 'GT7 radar presentation must default to arcs')
+pendingButtons['>  Personalization##gt7.personalization'] = true
+pendingButtons['>  Radar and flags##gt7.radar'] = true
+pendingButtons['>  Lower panel##gt7.lowerPanel'] = true
 pendingCombos['##gt7.radarPresentation'] = 1
 Gt7Settings.draw()
 assert(Gt7Settings.values.gt7RadarPresentation == 'classic_lights'
@@ -299,7 +304,7 @@ end
 
 local telemetry = Telemetry.new()
 car = makeCar({ ffbFinal = 0.62 })
-for _ = 1, 30 do Telemetry.update(telemetry, 1 / 60, Settings.values) end
+for _ = 1, 30 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
 assert(telemetry.speedGaugeMaximum == 280 and telemetry.speedGaugeStep == 40
   and telemetry.speedGaugeSource == 'car-ui',
   'GT7 speed scale must use the current car metadata with a readable rounded range')
@@ -319,11 +324,11 @@ assert(telemetry.condition.wheels[4].isBlown
   and telemetry.condition.wheels[4].conditionSeverity == 1,
   'punctures must take priority over other tyre-condition signals')
 
-Settings.values.speedUnit = 'mph'
-Telemetry.update(telemetry, 1 / 60, Settings.values)
+GeneralSettings.values.speedUnit = 'mph'
+Telemetry.update(telemetry, 1 / 60, Settings.current())
 assert(telemetry.speedGaugeMaximum == 175 and telemetry.speedGaugeStep == 25,
   'GT7 speed scale must rebuild cleanly for mph')
-Settings.values.speedUnit = 'km/h'
+GeneralSettings.values.speedUnit = 'km/h'
 
 local primaryCar = car
 
@@ -338,7 +343,7 @@ local radarLeft = makeCar({ index = 1, position = { x = 6, y = 0, z = 0 } })
 local radarRight = makeCar({ index = 2, position = { x = -4, y = 0, z = -6 } })
 car, radarCars = radarPlayer, { radarLeft, radarRight }
 local radarTelemetry = Telemetry.new()
-Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
 assert(radarTelemetry.proximityRadarAvailable
   and radarTelemetry.radarLeftLevel == 3
   and radarTelemetry.radarRightLevel == 2,
@@ -444,19 +449,19 @@ ui.pathArcTo, ui.pathStroke = noop, noop
 ui.pathClear, ui.pathLineTo, ui.pathFillConvex, ui.drawCircleFilled = noop, noop, noop, noop
 
 radarCars = { makeCar({ index = 3, position = { x = -4, y = 0, z = 6 } }) }
-Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
 assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
   'GT7 radar must ignore laterally offset cars beyond the forward allowance')
 radarCars[1].position.z = Gt7Layout.radarFrontAllowance
-Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
 assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel >= 1,
   'GT7 radar must retain a side car up to five meters ahead')
 radarCars[1].position.z = Gt7Layout.radarFrontAllowance + 0.1
-Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
 assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
   'GT7 radar must clear a side car beyond the forward allowance')
 radarCars[1].position.x, radarCars[1].position.z = 0, 3
-Telemetry.update(radarTelemetry, 1 / 60, Settings.values)
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
 assert(radarTelemetry.radarLeftLevel == 0 and radarTelemetry.radarRightLevel == 0,
   'GT7 side radar must still ignore a car directly ahead')
 
@@ -466,7 +471,7 @@ carId = 'missing_metadata_car'
 io.load = function() return nil end
 local fallbackTelemetry = Telemetry.new()
 car = makeCar({ rpmLimiter = 6200 })
-Telemetry.update(fallbackTelemetry, 1 / 60, Settings.values)
+Telemetry.update(fallbackTelemetry, 1 / 60, Settings.current())
 assert(fallbackTelemetry.speedGaugeMaximum == 320
   and fallbackTelemetry.speedGaugeSource == 'fallback',
   'missing top-speed metadata must retain the explicit speed fallback')
@@ -477,16 +482,16 @@ carId = 'test_car'
 car = primaryCar
 
 car.ffbFinal = -1.03
-Telemetry.update(telemetry, 1 / 60, Settings.values)
+Telemetry.update(telemetry, 1 / 60, Settings.current())
 assert(telemetry.ffbClipping, 'absolute FFB saturation must trigger clipping')
 assert(telemetry.ffbNeedle < 0.9,
   'FFB needle must preserve mechanical inertia during a sudden saturation spike')
-for _ = 1, 45 do Telemetry.update(telemetry, 1 / 60, Settings.values) end
+for _ = 1, 45 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
 assert(telemetry.ffbNeedle > 0.95,
   'FFB needle must reach sustained high load after its inertial sweep')
 
 car.physicsAvailable = false
-Telemetry.update(telemetry, 1 / 60, Settings.values)
+Telemetry.update(telemetry, 1 / 60, Settings.current())
 assert(not telemetry.ffbAvailable and telemetry.ffbPercent == 0,
   'missing physics must use explicit FFB fallback')
 assert(telemetry.ffbNeedle == 0 and telemetry.ffbNeedleVelocity == 0,
@@ -501,17 +506,17 @@ car = makeCar({ ffbFinal = 0, wheels = {
   [2] = { tyreSlip = 0.82, slipRatio = 0.14, slipAngle = 0.03, load = 1 },
   [3] = { tyreSlip = 0.76, slipRatio = 0.12, slipAngle = 0.03, load = 1 }
 } })
-for _ = 1, 30 do Telemetry.update(limitTelemetry, 1 / 60, Settings.values) end
+for _ = 1, 30 do Telemetry.update(limitTelemetry, 1 / 60, Settings.current()) end
 assert(limitTelemetry.limitRear > limitTelemetry.limitFront and limitTelemetry.limitNeedle > 0.65,
   'LIMIT must prioritize the more utilized axle and retain its worst-wheel peak')
 car.tractionControlInAction = true
 car.absInAction = true
-Telemetry.update(limitTelemetry, 1 / 60, Settings.values)
+Telemetry.update(limitTelemetry, 1 / 60, Settings.current())
 assert(limitTelemetry.limitTcWarning and limitTelemetry.limitAbsWarning,
   'TC and ABS must warn without being part of the LIMIT calculation')
 car.tractionControlInAction = false
 car.absInAction = false
-for _ = 1, 25 do Telemetry.update(limitTelemetry, 1 / 60, Settings.values) end
+for _ = 1, 25 do Telemetry.update(limitTelemetry, 1 / 60, Settings.current()) end
 assert(not limitTelemetry.limitTcWarning and not limitTelemetry.limitAbsWarning,
   'LIMIT assist warnings must release after their visible hold')
 
@@ -519,20 +524,20 @@ local unavailableLimitTelemetry = Telemetry.new()
 car = makeCar({ wheels = {
   [0] = { load = 1 }, [1] = { load = 1 }, [2] = { load = 1 }, [3] = { load = 1 }
 } })
-Telemetry.update(unavailableLimitTelemetry, 1 / 60, Settings.values)
+Telemetry.update(unavailableLimitTelemetry, 1 / 60, Settings.current())
 assert(not unavailableLimitTelemetry.limitAvailable and unavailableLimitTelemetry.limitNeedle == 0,
   'LIMIT must not derive an estimate when wheel-slip telemetry is absent')
 
 local boostTelemetry = Telemetry.new()
 car = makeCar({ turboCount = 1, turboBoost = 1.2 })
-Telemetry.update(boostTelemetry, 1 / 60, Settings.values)
+Telemetry.update(boostTelemetry, 1 / 60, Settings.current())
 assert(boostTelemetry.boostNeedleNormalized > 0 and boostTelemetry.boostNeedleNormalized < 0.8,
   'boost needle must preserve inertia on a sudden pressure increase')
-for _ = 1, 60 do Telemetry.update(boostTelemetry, 1 / 60, Settings.values) end
+for _ = 1, 60 do Telemetry.update(boostTelemetry, 1 / 60, Settings.current()) end
 assert(boostTelemetry.boostNeedleNormalized > 0.75 and boostTelemetry.boostNeedleNormalized <= 0.81,
   'boost needle must settle at the normalized pressure')
 car.turboCount = 0
-Telemetry.update(boostTelemetry, 1 / 60, Settings.values)
+Telemetry.update(boostTelemetry, 1 / 60, Settings.current())
 assert(boostTelemetry.boostNeedleNormalized == 0 and boostTelemetry.boostNeedleVelocity == 0,
   'naturally aspirated cars must park the hidden boost needle')
 
@@ -565,9 +570,9 @@ local scenarios = {
 for _, scenario in ipairs(scenarios) do
   local values = scenario.mode == 'gt7_retro' and Gt7Settings.values or Settings.values
   Settings.values.instrumentMode = scenario.mode
-  Settings.values.speedUnit = scenario.unit
+  GeneralSettings.values.speedUnit = scenario.unit
   values.hudScale = scenario.scale or 0.72
-  Settings.values.theme = scenario.width > 1000 and 'light' or 'dark'
+  GeneralSettings.values.theme = scenario.width > 1000 and 'light' or 'dark'
   values.gt7SpeedNeedleMode = scenario.speedNeedle or values.gt7SpeedNeedleMode
   values.gt7RpmNeedleMode = scenario.rpmNeedle or values.gt7RpmNeedleMode
   values.gt7LowerPanelMode = scenario.lowerPanel or values.gt7LowerPanelMode

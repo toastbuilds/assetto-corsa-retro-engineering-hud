@@ -37,6 +37,18 @@ function M.choice(page, key, label, current, choices, set)
   if changed and choices[selected + 1] then set(choices[selected + 1].value) end
 end
 
+function M.needle(page, key, label, current, config, set)
+  local index = 1
+  for i, id in ipairs(config.needleOrder) do if id == current then index = i; break end end
+  ui.text(label .. ': ' .. config.needleNames[config.needleOrder[index]])
+  local selected, changed = ui.slider('##' .. page .. '.' .. key, index, 1,
+    #config.needleOrder, '%.0f / ' .. #config.needleOrder, 1)
+  if changed then
+    selected = math.max(1, math.min(#config.needleOrder, math.floor(selected + 0.5)))
+    set(config.needleOrder[selected])
+  end
+end
+
 function M.resetAppearance(page, reset)
   if ui.button('Reset appearance##' .. page) then
     reset()

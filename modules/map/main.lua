@@ -1,7 +1,7 @@
 local Geometry = require('modules/map/src/geometry')
 local Settings = require('modules/map/src/settings')
 local Theme = require('src/theme')
-local GlobalSettings = require('src/settings')
+local GlobalSettings = require('src/general_settings')
 
 local M = {}
 local BOLD = 'Consolas;Weight=Bold'
@@ -379,7 +379,7 @@ local function drawCars(list, player, transform, palette, tl, br, race,
   if ownCenter then drawPlayer(ownCenter, ownPosition, palette, markerScale) end
 end
 
-function M.windowMain()
+local function drawWindow()
   local values = Settings.current()
   local palette = Theme.get(GlobalSettings.values.theme)
   local origin = ui.getCursor()
@@ -392,9 +392,9 @@ function M.windowMain()
   local geometry = Geometry.ensure(sim)
   local flagColor, rippleAge = activeRipple(sim, palette)
   if values.backgroundMode == 'surface' then
-    drawRadialSurface(tl, br, palette, values.surfaceOpacity)
+    drawRadialSurface(tl, br, palette, GlobalSettings.background(0.45))
   else
-    drawDots(tl, br, palette, values.dotOpacity, values.dotThickness,
+    drawDots(tl, br, palette, GlobalSettings.background(0.12), values.dotThickness,
       values.radialDotTaper, flagColor, rippleAge)
   end
   if not geometry then
@@ -414,6 +414,13 @@ function M.windowMain()
       values.markerScale, values.carDotSize, padding)
   end)
   ui.popClipRect()
+  if not ok then error(err) end
+end
+
+function M.windowMain()
+  ui.pushStyleVarAlpha(GlobalSettings.values.opacity)
+  local ok, err = pcall(drawWindow)
+  ui.popStyleVar(1)
   if not ok then error(err) end
 end
 

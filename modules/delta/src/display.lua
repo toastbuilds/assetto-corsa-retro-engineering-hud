@@ -222,7 +222,7 @@ end
 
 function Display.draw(snapshot, settings, visual, pinned)
   local colors = visual.palette
-  local opacity = (settings.opacity or 1) * (visual.instrumentOpacity or 1)
+  local opacity = visual.instrumentOpacity or 1
   local now = ui.time()
   local mouse = ui.mouseLocalPos()
   local width, height = ui.windowWidth(), ui.windowHeight()

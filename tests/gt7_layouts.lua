@@ -26,7 +26,7 @@ end }
 local width, height = 1440, 500
 local calls, path, arc = {}, {}, nil
 local fonts, alphaDepth = 0, 0
-local pendingCombos, pendingButtons, comboCalls = {}, {}, {}
+local pendingCombos, pendingButtons, pendingSliders, comboCalls = {}, {}, {}, {}
 local function noop() end
 local function record(kind, values)
   values.kind = kind
@@ -86,7 +86,11 @@ ui = {
   time = function() return 0 end,
   availableSpaceX = function() return 640 end,
   checkbox = function() return false end,
-  slider = function(_, value) return value, false end,
+  slider = function(label, value)
+    local selected = pendingSliders[label]
+    pendingSliders[label] = nil
+    return selected or value, selected ~= nil
+  end,
   combo = function(label, index)
     comboCalls[label] = true
     local value = pendingCombos[label]
@@ -107,6 +111,7 @@ local PedalHistory = require('src/pedal_history')
 local Renderer = require('ui/gt7_retro')
 local DialSettings = require('src/settings')
 local Settings = require('src/gt7_settings')
+local GeneralSettings = require('src/general_settings')
 local ids = { 'classic', 'modern', 'outer_pedals', 'steering_dial' }
 
 assert(Settings.current().gt7Layout == 'classic', 'existing installs must default to Classic')
@@ -152,8 +157,12 @@ assert(sanitized.gt7SpeedStyle == 'classic' and sanitized.gt7GearStyle == 'moder
 Settings.values.gt7LowerPanelMode = 'pedal_history'
 Settings.values.gt7RadarStyle = 'lights'
 Settings.values.gt7SpeedNeedleMode = 'analog'
+pendingButtons['>  Personalization##gt7.personalization'] = true
+pendingButtons['>  Radar and flags##gt7.radar'] = true
+pendingButtons['>  Center and pedals##gt7.center'] = true
 for index, id in ipairs(ids) do
-  pendingCombos['##gt7.layout'] = index - 1
+  local label = ({'Classic', 'Modern', 'Outer Pedals', 'Steering Dial'})[index]
+  pendingButtons[label .. '##gt7.preset.' .. id] = true
   comboCalls = {}
   Settings.draw()
   local current = Settings.current()
@@ -189,7 +198,7 @@ Settings = require('src/gt7_settings')
 expectComponents(Settings.current(), beforeAppearanceReset,
   'composition preferences must survive reload')
 assert(Settings.current().gt7LowerPanelMode == 'pedal_history', 'independent preferences must survive reload')
-DialSettings.values.speedUnit, DialSettings.values.theme = 'mph', 'light'
+GeneralSettings.values.speedUnit, GeneralSettings.values.theme = 'mph', 'light'
 assert(Settings.current().speedUnit == 'mph' and Settings.current().theme == 'light',
   'shared units and theme must still apply')
 pendingButtons['>  Advanced##gt7.advanced'] = true
@@ -199,7 +208,7 @@ assert(Settings.values.gt7Layout == 'modern', 'reset must wait for confirmation'
 pendingButtons['Confirm reset##gt7'] = true
 Settings.draw()
 assert(Settings.current().gt7Layout == 'classic' and Settings.values.gt7LowerPanelMode == 'limit'
-  and DialSettings.values.speedUnit == 'mph' and DialSettings.values.theme == 'light',
+  and GeneralSettings.values.speedUnit == 'mph' and GeneralSettings.values.theme == 'light',
   'confirmed reset must restore GT7 defaults and preserve shared settings')
 expectComponents(Settings.current(), Layouts.preset('classic', Settings.current()),
   'confirmed reset must restore Classic composition')
@@ -758,4 +767,4 @@ local function drawNeedle(center, scale, angle, preset, palette, lights, alert, 
   return calls
 end
 return { draw=draw, drawDial=drawDial, drawNeedle=drawNeedle, state=state,
-  pendingCombos=pendingCombos, pendingButtons=pendingButtons }
+  pendingCombos=pendingCombos, pendingButtons=pendingButtons, pendingSliders=pendingSliders }

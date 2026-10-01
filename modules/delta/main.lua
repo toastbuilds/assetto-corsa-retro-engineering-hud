@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local M = {}
 local Constants = require('modules/delta/src/constants')
 local Display = require('modules/delta/src/display')
@@ -181,7 +182,7 @@ function M.windowMain(_)
   initialize()
   local visualName, backdropOpacity, instrumentOpacity = themeSync:visual(ui.time())
   local visual = {
-    palette = Theme.get(visualName),
+    palette = GeneralSettings.palette(Theme.get(visualName)),
     backdropOpacity = backdropOpacity,
     instrumentOpacity = instrumentOpacity
   }

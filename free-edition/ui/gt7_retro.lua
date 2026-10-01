@@ -1,3 +1,4 @@
+local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
@@ -764,7 +765,7 @@ local function drawDebug(origin, scale, state, width, height)
 end
 
 function M.draw(state, settings)
-  C = Theme.get(settings.theme)
+  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
   local fittedScale = math.min(width / Layout.width, height / Layout.height)
@@ -776,7 +777,7 @@ function M.draw(state, settings)
   local designWidth = Layout.width * scale
   local designHeight = Layout.height * scale
   local origin = vec2((width - designWidth) / 2, (height - designHeight) / 2)
-  local backdropOpacity = settings.backgroundOpacity or 0.72
+  local backdropOpacity = 0.72 -- Authored reference; palette applies global background opacity.
 
   ui.pushStyleVarAlpha(settings.opacity or 1)
   ui.pushDWriteFont(Theme.fonts.utility)

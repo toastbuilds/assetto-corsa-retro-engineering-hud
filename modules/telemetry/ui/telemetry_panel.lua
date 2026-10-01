@@ -261,8 +261,8 @@ function M.draw(state, history, settings, visual)
   local height = ui.windowHeight()
   local scale = U.clamp(settings.hudScale, 0.60, 1.20)
   local palette = visual.palette
-  local instrumentOpacity = U.clamp((visual.instrumentOpacity or 1) * settings.instrumentOpacity, 0, 1)
-  local backdropOpacity = U.clamp((visual.backdropOpacity or 0.72) * settings.backdropOpacity, 0, 1)
+  local instrumentOpacity = U.clamp(visual.instrumentOpacity or 1, 0, 1)
+  local backdropOpacity = 0.72 * 0.72 -- Authored material strength; the palette applies the global control.
   local margin = 5 * scale
   local gap = 0
   local clusterWidth = (settings.showHandbrake and 220 or 205) * scale

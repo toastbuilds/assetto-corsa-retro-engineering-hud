@@ -283,11 +283,11 @@ function M.draw(snapshot, settings, visual)
   scale = math.max(0.55, scale)
   local contentWidth, contentHeight = 1040 * scale, 470 * scale
   local origin = vec2((width - contentWidth) / 2, (height - contentHeight) / 2)
-  local opacity = clamp((visual.instrumentOpacity or 1) * (settings.instrumentOpacity or 1), 0, 1)
-  local backdrop = clamp((visual.backdropOpacity or 0.72) * (settings.backdropOpacity or 0.72), 0, 1)
+  local opacity = 1 -- Per-element alpha; overall opacity is applied once below.
+  local backdrop = 0.72 * 0.72 -- Keep the authored material strength.
   local now = ui.time()
 
-  ui.pushStyleVarAlpha(opacity)
+  ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
   ui.pushDWriteFont(FONT)
   local reveal = clamp((now - (snapshot.enteredAt or now)) / 0.35, 0, 1)
   local clipTop = origin.y + contentHeight * 0.5 - contentHeight * reveal * 0.5
