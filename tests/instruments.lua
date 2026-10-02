@@ -42,6 +42,19 @@ state.throttle = 1
 assert(Presentation.boost(state, settings) == 0)
 state.turboBoost = 0.03
 assert(Presentation.boost(state, settings) == 0.03, 'even a small positive measured boost takes priority')
+state.throttle, state.turboBoost = 0, 0.001
+state.boostNeedleNormalized = state.turboBoost / state.turboDisplayMax
+assert(Presentation.boost(state, settings) < -0.45, 'residual boost near zero must allow vacuum')
+state.gt7Instruments = nil
+Presentation.update(state, settings, 1 / 60)
+assert(state.gt7Instruments.vacuum > 0 and state.gt7Instruments.vacuum < 0.1,
+  'vacuum must begin gradually rather than jump to its minimum')
+for _ = 1, 120 do Presentation.update(state, settings, 1 / 60) end
+assert(state.gt7Instruments.boostNeedleValue < -0.45, 'residual telemetry must settle into vacuum')
+state.turboBoost = 0.03
+state.boostNeedleNormalized = state.turboBoost / state.turboDisplayMax
+for _ = 1, 120 do Presentation.update(state, settings, 1 / 60) end
+assert(state.gt7Instruments.vacuum < 0.00001, 'measured boost must release simulated vacuum')
 state.turboBoost, state.rpm = 0, 0
 assert(Presentation.boost(state, settings) == 0, 'stopped engines must not generate vacuum')
 state.rpm, state.throttle = 3000, 0
@@ -173,7 +186,7 @@ for _, x in ipairs({175,1265}) do
   for _, call in ipairs(analog) do
     if call.kind == 'circle_fill' and near(call.radius, Config.dial.innerDotRadius) then
       local distance = math.sqrt((call.a.x-x)^2 + (call.a.y-258)^2)
-      if near(distance, Config.dial.innerRadius) then count = count + 1 end
+      if near(distance, Config.dial.innerRadius - Config.dial.innerTickLength / 2) then count = count + 1 end
     end
     assert(not (call.kind == 'arc' and near(call.a.x,x) and near(call.a.y,258)
       and near(call.radius,Config.dial.innerRadius)), 'analog inner scale must not be a continuous line')

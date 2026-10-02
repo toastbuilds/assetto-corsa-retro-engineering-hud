@@ -29,10 +29,11 @@ local M = {
   fuelWarning = 0.15,
   boostWarning = 0.9,
   vacuumMinimum = -0.5,
+  vacuumBlendPressure = 0.02,
   dial = {
     lightRadius = 154, innerRadius = 91,
     innerTickLength = 4, innerTickWidth = 0.8, innerDotRadius = 2,
-    tickRadius = 150, numberRadius = 123, numberBandWidth = 27, tickMajor = 16, tickMinor = 5,
+    tickRadius = 150, numberRadius = 115, numberBandWidth = 27, tickMajor = 16, tickMinor = 5,
     tickWidth = 4, minorWidth = 0.8, subdivisions = 10,
     numberSize = 19, denseNumberSize = 16, unitSize = 13,
     valueSize = 56, rpmValueSize = 48, valueWidth = 180, valueY = -10,

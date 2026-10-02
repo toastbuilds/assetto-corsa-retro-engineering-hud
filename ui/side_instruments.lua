@@ -59,8 +59,8 @@ local function scaleGeometry(maximum, step, first, last, rpm)
   local function label(value)
     local a = first + (last - first) * value / maximum
     result.labels[#result.labels + 1] = { x = D.numberRadius * math.cos(a),
-      y = D.numberRadius * math.sin(a), dotX = D.innerRadius * math.cos(a),
-      dotY = D.innerRadius * math.sin(a), value = tostring(U.round(value)) }
+      y = D.numberRadius * math.sin(a), dotX = (D.innerRadius - D.innerTickLength / 2) * math.cos(a),
+      dotY = (D.innerRadius - D.innerTickLength / 2) * math.sin(a), value = tostring(U.round(value)) }
   end
   local value = 0
   while value <= maximum + step * 0.01 and #result.labels < 12 do label(value); value = value + step end
@@ -123,7 +123,8 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     text('NAT ASP', S.labelSize * scale, subCenter + vec2(0, 20 * scale), C.secondary, nil, L.label, scale)
     return
   end
-  local fraction = rpm and U.clamp((pressure - minimum) / (maximum - minimum), 0, 1)
+  local displayedPressure = visual and visual.boostNeedleValue or pressure
+  local fraction = rpm and U.clamp((displayedPressure - minimum) / (maximum - minimum), 0, 1)
     or U.clamp(state.fuelNormalized or 0, 0, 1)
   local zero = rpm and -minimum / (maximum - minimum) or 0
   local low = not rpm and available and fraction < Config.fuelWarning
@@ -208,11 +209,11 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   icon(rpm and M.boostIcon or M.fuelIcon, iconCenter, S.iconScale * scale, tint, available and L.icon or L.inner)
   local labelFirst = S.analogStart + (S.startAngle - S.analogStart) * digital
   local labelLast = S.analogEnd + (S.endAngle - S.analogEnd) * digital
-  local labelRadius = S.analogRadius + 2 + (S.radius + 9 - S.analogRadius - 2) * digital
+  local labelRadius = S.analogRadius - 20 + (S.radius - 16 - S.analogRadius + 20) * digital
   text(rpm and string.format('%.1f', minimum) or 'E', S.endSize * scale,
-    U.polar(subCenter, labelRadius * scale, labelFirst) + vec2(0, 9 * scale), C.secondary, nil, L.label, scale)
+    U.polar(subCenter, labelRadius * scale, labelFirst) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
   text(rpm and string.format('%.1f', maximum) or 'F', S.endSize * scale,
-    U.polar(subCenter, labelRadius * scale, labelLast) + vec2(0, 9 * scale), C.secondary, nil, L.label, scale)
+    U.polar(subCenter, labelRadius * scale, labelLast) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
   text(not available and 'N/A' or (rpm and 'BOOST' or 'FUEL'), S.labelSize * scale,
     subCenter + vec2(0, S.labelY * scale), low and C.red or C.secondary, nil, L.label, scale)
 end

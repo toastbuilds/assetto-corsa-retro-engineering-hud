@@ -14,8 +14,14 @@ function M.boost(state, settings)
   minimum = U.clamp(minimum, -1, 0)
   local pressure = state.turboBoost or 0
   local simulated = state.available ~= false and state.turboAvailable and minimum < 0
-    and pressure == 0 and (state.rpm or 0) > 0
-  if simulated then pressure = minimum * (1 - U.clamp(state.throttle or 0, 0, 1)) end
+    and pressure < Config.vacuumBlendPressure and (state.rpm or 0) > 0
+  if simulated then
+    -- CSP can retain tiny positive residuals while the gauge reads zero.
+    -- Blend continuously into estimated vacuum; boost above this band is real.
+    local blend = 1 - U.clamp(pressure / Config.vacuumBlendPressure, 0, 1)
+    pressure = pressure * (1 - blend)
+      + minimum * (1 - U.clamp(state.throttle or 0, 0, 1)) * blend
+  end
   return pressure, minimum, math.max(state.turboDisplayMax or 1, 0.1), simulated
 end
 
@@ -46,7 +52,7 @@ function M.update(state, settings, dt)
   visual.boostSimulated = simulated
   -- Only the additional vacuum branch needs its own inertia. The measured
   -- positive branch still uses the original boost spring, without retuning.
-  local target = simulated and -pressure or 0
+  local target = simulated and math.max(-pressure, 0) or 0
   local limit = math.max(-minimum, 0.001)
   local step = U.clamp(dt or 0, 0, 0.05)
   if not state.available or not state.turboAvailable then

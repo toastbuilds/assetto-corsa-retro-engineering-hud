@@ -238,7 +238,7 @@ function M.draw()
   end)
   SettingsUI.section('gt7', 'advanced', 'Advanced', false, function()
     checkbox('Developer debug view', 'debug')
-    checkbox('Simulate vacuum when boost is zero', 'gt7SimulateVacuum')
+    checkbox('Simulate vacuum near zero boost', 'gt7SimulateVacuum')
     if M.values.gt7SimulateVacuum then
       slider('Simulated vacuum minimum', 'gt7VacuumMinimum', -1, -0.1, '%.2f bar')
       ui.textWrapped('Vacuum is estimated from throttle while the engine runs; positive boost is measured.')

@@ -89,9 +89,10 @@ Las nueve selecciones anteriores migran automáticamente a su referencia equival
 Las luces reales del coche activan una retroiluminación gradual, incluso si se
 oculta el indicador de luces.
 
-En **Advanced**, **Simulate vacuum when boost is zero** añade un vacío estimado
+En **Advanced**, **Simulate vacuum near zero boost** añade un vacío estimado
 por acelerador mientras gira el motor. Su mínimo inicial es −0.5 bar y se puede
-ajustar o desactivar; cualquier boost positivo sigue usando el valor real de CSP.
+ajustar o desactivar; entre 0 y 0.02 bar se mezcla gradualmente con el vacío
+para tolerar residuos de telemetría. Desde 0.02 bar se usa el boost real de CSP.
 El SDK de apps no ofrece vacío real. Los ajustes se comprueban directamente
 con la telemetría del HUD; el antiguo simulador de previsualización se ha retirado.
 
