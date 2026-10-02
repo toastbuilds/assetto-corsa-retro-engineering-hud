@@ -104,6 +104,22 @@ assert(timer:snapshot().invalid == true, 'live invalidation must be immediate')
 now = 3.01
 assert(timer:snapshot().result == nil, 'frozen result must expire after configured duration')
 
+-- Result expiry must use the update delta even if the UI clock stops advancing.
+resetWorld(94000, 93000,
+  { [0] = 33000, [1] = 34000, [2] = 27000 },
+  { [0] = 32000, [1] = 30000, [2] = 28000 })
+local frozenUiTime = now
+timer = TimerState.new({ freezeDuration = 3 })
+assert(timer:update(0.016))
+player.currentSector = 1
+player.previousSectorTime = 31000
+player.lapTimeMs = 31000
+assert(timer:update(0.016))
+assert(timer:snapshot().result ~= nil)
+for _ = 1, 190 do assert(timer:update(0.016)) end
+assert(now == frozenUiTime and timer:snapshot().result == nil,
+  'a frozen UI clock must not leave the last sector result on screen indefinitely')
+
 -- Timer: crossing the line replaces the sector result with the lap result.
 resetWorld(92000, 90000,
   { [0] = 30000, [1] = 31000, [2] = 31000 },

@@ -21,9 +21,9 @@ local function report(stage, err)
   if type(ac.error) == 'function' then pcall(ac.error, message) end
 end
 
-function M.update()
+function M.update(dt)
   Settings.normalize()
-  local ok, err = pcall(function() state:update() end)
+  local ok, err = pcall(function() state:update(dt) end)
   if not ok then report('update', err) end
   local snapshot = state:snapshot()
   if snapshot.sectorRecordEventId ~= lastSectorRecordEvent then

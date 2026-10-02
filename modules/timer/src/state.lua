@@ -70,6 +70,8 @@ function State.new(settings)
     personalBestSectors = {},
     sessionBestSectors = {},
     result = nil,
+    elapsedTime = 0,
+    lastUiTime = nil,
     sectorRecordEventId = 0,
     lapRecordEventId = 0,
     lastPlayerLapCount = nil,
@@ -83,6 +85,18 @@ function State.new(settings)
       finalLap = false
     }
   }, State)
+end
+
+function State:advanceClock(dt)
+  local uiNow = type(ui.time) == 'function' and tonumber(ui.time()) or nil
+  dt = tonumber(dt)
+  if dt and dt >= 0 then
+    self.elapsedTime = self.elapsedTime + dt
+  elseif uiNow and self.lastUiTime then
+    self.elapsedTime = self.elapsedTime + math.max(0, uiNow - self.lastUiTime)
+  end
+  self.lastUiTime = uiNow
+  return self.elapsedTime
 end
 
 function State:seedRecords()
@@ -141,7 +155,7 @@ function State:ensureContext(sim)
 end
 
 function State:showResult(kind, index, time, status, delta, valid)
-  local now = type(ui.time) == 'function' and ui.time() or 0
+  local now = self.elapsedTime
   self.result = {
     kind = kind,
     index = index,
@@ -270,7 +284,8 @@ function State:publishPlayerData(player)
   self.data.inPits = playerState and playerState.lap and playerState.lap.inPits == true or Timing.isInPit(player)
 end
 
-function State:update()
+function State:update(dt)
+  self:advanceClock(dt)
   local ok, sim = pcall(ac.getSim)
   if not ok or not sim then return false end
   self:ensureContext(sim)
@@ -311,7 +326,7 @@ function State:update()
 end
 
 function State:snapshot()
-  local now = type(ui.time) == 'function' and ui.time() or 0
+  local now = self:advanceClock()
   if self.result and now > self.result.expiresAt then self.result = nil end
   self.data.result = self.result
   self.data.sectorRecordEventId = self.sectorRecordEventId
