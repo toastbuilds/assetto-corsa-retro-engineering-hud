@@ -534,13 +534,15 @@ local playedVolumes = {}
 local playbackPositions = {}
 ac.AudioChannel = { Main = 1 }
 ac.getAudioVolume = function() return 0.25 end
-ui.MediaPlayer = function(path)
-  return {
-    setVolume = function(_, volume) playedVolumes[#playedVolumes + 1] = volume end,
-    setCurrentTime = function(_, position) playbackPositions[#playbackPositions + 1] = position end,
-    play = function() playedSounds[#playedSounds + 1] = path end
-  }
-end
+ui.MediaPlayer = setmetatable({ supported = function() return true end }, {
+  __call = function(_, path)
+    return {
+      setVolume = function(_, volume) playedVolumes[#playedVolumes + 1] = volume end,
+      setCurrentTime = function(_, position) playbackPositions[#playbackPositions + 1] = position end,
+      play = function() playedSounds[#playedSounds + 1] = path end
+    }
+  end
+})
 local RecordAudio = require('modules/timer/src/audio')
 assert(RecordAudio.playLapRecord() and RecordAudio.playSectorRecord())
 assert(#playedSounds == 2 and playedSounds[1] == 'assets/experimental-5btgm.wav'
@@ -548,6 +550,14 @@ assert(#playedSounds == 2 and playedSounds[1] == 'assets/experimental-5btgm.wav'
   'lap and sector records must use their distinct audio files')
 assert(playedVolumes[1] == 1 and playedVolumes[2] == 1,
   'record playback must not apply an extra reduction on top of the game audio mix')
+local workingMediaPlayer = ui.MediaPlayer
+ui.MediaPlayer = setmetatable({}, { __call = function() error('temporary audio initialization failure') end })
+local retryAudio = assert(loadfile('modules/timer/src/audio.lua'))()
+local started, audioError = retryAudio.playLapRecord()
+assert(started == false and audioError:find('temporary audio initialization failure', 1, true),
+  'constructor failures must be returned so sound previews can report them')
+ui.MediaPlayer = workingMediaPlayer
+assert(retryAudio.playLapRecord(), 'a temporary initialization failure must not permanently disable the sound')
 renderSnapshot.history = { { number = 122, time = 120000, status = 'slower' } }
 local function drawTransition(atTime, enabled)
   now = atTime
@@ -650,6 +660,13 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
           delta = outcome.delta, valid = outcome.valid }
         TimerDisplay.draw({ result = result, finalLap = finalLap },
           { scale = scale, backgroundOpacity = opacity }, { palette = colors, instrumentOpacity = 1 })
+        local mainPanelIndex = finalLap and 2 or 1
+        local mainPanel = drawnPanels[mainPanelIndex]
+        for panelIndex = mainPanelIndex + 1, #drawnPanels do
+          assert(drawnPanels[panelIndex].minimum.y == mainPanel.minimum.y
+            and drawnPanels[panelIndex].maximum.y == mainPanel.maximum.y,
+            'sector result sections must have the same height and vertical alignment as the central timer')
+        end
         local bestCount, deltaCount = 0, 0
         local deltaText = require('modules/timing/src/ui').formatDelta(outcome.delta)
         for _, text in ipairs(drawnText) do
@@ -726,6 +743,17 @@ for _, preview in ipairs({
     'a preview must restart the sound so repeated clicks remain audible')
   assert(TimerSettings.values.audioEnabled == false, 'previewing must not enable automatic record alerts')
 end
+local playLapRecord = RecordAudio.playLapRecord
+RecordAudio.playLapRecord = function() return false, 'audio failed' end
+local previewNotice
+ui.textWrapped = function(message) previewNotice = message end
+TimerSettings.draw()
+assert(previewNotice and previewNotice:find('Could not play the record sound', 1, true),
+  'failed previews must give visible feedback instead of silently doing nothing')
+RecordAudio.playLapRecord = playLapRecord
+previewNotice = nil
+TimerSettings.draw()
+assert(previewNotice == nil, 'a successful preview must clear the previous failure notice')
 
 print('Timing apps: transitions, records, audio, validity, pits, freeze, final lap, resets and '
   .. drawingCases .. ' segmented Laps and ' .. timerDrawingCases .. ' Timer drawings; '

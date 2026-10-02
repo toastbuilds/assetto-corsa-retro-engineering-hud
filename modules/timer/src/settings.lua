@@ -2,6 +2,7 @@ local SettingsUI = require('src/settings_ui')
 local Audio = require('modules/timer/src/audio')
 
 local Settings = {}
+local previewFailed = false
 
 local DEFAULTS = {
   scale = 1.0,
@@ -62,8 +63,9 @@ function Settings.draw()
     percentSlider('Background opacity', 'backgroundOpacity')
     slider('Result hold', 'freezeDuration', 1.0, 8.0, '%.1f s')
     checkbox('Record sound', 'audioEnabled')
-    if ui.button('Test sector sound##timer.test-sector-sound') then Audio.playSectorRecord() end
-    if ui.button('Test lap sound##timer.test-lap-sound') then Audio.playLapRecord() end
+    if ui.button('Test sector sound##timer.test-sector-sound') then previewFailed = not Audio.playSectorRecord() end
+    if ui.button('Test lap sound##timer.test-lap-sound') then previewFailed = not Audio.playLapRecord() end
+    if previewFailed then ui.textWrapped('Could not play the record sound. Reload Retro UI and try again.') end
   end)
   SettingsUI.section('timer', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')

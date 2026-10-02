@@ -9,7 +9,7 @@ local function inside(mouse, tl, br)
 end
 
 local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize)
-  TimingUI.chamferRect(tl, tl + vec2(width, height), 7 * scale, fill, stroke, 1.3 * scale)
+  TimingUI.chamferRect(tl, tl + vec2(width, height), 8 * scale, fill, stroke, 1.1 * scale)
   local size = (textSize or 10) * scale
   local measured = ui.measureDWriteText(label, size)
   size = size * math.min(1, (width - 10 * scale) / math.max(1, measured.x),
@@ -69,8 +69,8 @@ function Display.draw(snapshot, settings, visual)
     vec2((timerTL.x + timerBR.x + pitPadding) / 2, timerTop + timerHeight / 2), timeColor)
 
   if result then
-    local resultBadgeHeight = math.min(40 * scale, timerHeight)
-    local badgeTop = timerTop + (timerHeight - resultBadgeHeight) / 2
+    local resultBadgeHeight = timerHeight
+    local badgeTop = timerTop
     if showBest then
       drawBadge(vec2(6 * scale, badgeTop), bestWidth, resultBadgeHeight, 'BEST',
         withBackgroundOpacity(colors.purpleDim, backgroundOpacity),

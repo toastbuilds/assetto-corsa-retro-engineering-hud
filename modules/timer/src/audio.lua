@@ -5,27 +5,34 @@ local sounds = {
 }
 
 local function ensurePlayer(sound)
-  if sound.player or sound.unavailable then return sound.player end
-  if type(ui.MediaPlayer) ~= 'function' then
-    sound.unavailable = true
-    return nil
-  end
-  local ok, player = pcall(ui.MediaPlayer, sound.path)
+  if sound.player then return sound.player end
+  local ok, player = pcall(function() return ui.MediaPlayer(sound.path) end)
   if not ok or player == nil then
-    sound.unavailable = true
-    return nil
+    return nil, ok and 'Media player creation returned no player' or tostring(player)
   end
   sound.player = player
   return player
 end
 
+local function failure(sound, message)
+  if sound.lastError ~= message and type(ac.error) == 'function' then
+    pcall(ac.error, '[Retro UI Timer audio] ' .. sound.path .. ': ' .. message)
+  end
+  sound.lastError = message
+  return false, message
+end
+
 local function play(sound)
-  local player = ensurePlayer(sound)
-  if not player then return false end
-  pcall(function() player:setVolume(1) end)
-  pcall(function() player:setCurrentTime(0) end)
-  local ok = pcall(function() player:play() end)
-  return ok
+  local player, err = ensurePlayer(sound)
+  if not player then return failure(sound, err) end
+  local ok, message = pcall(function()
+    player:setVolume(1)
+    player:setCurrentTime(0)
+    player:play()
+  end)
+  if not ok then return failure(sound, tostring(message)) end
+  sound.lastError = nil
+  return true
 end
 
 function Audio.playSectorRecord()
