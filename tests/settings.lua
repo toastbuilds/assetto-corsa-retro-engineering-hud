@@ -107,7 +107,7 @@ ui = {
 
 local free = TEST_EDITION=='free'
 if free then
-  for _,module in ipairs({'src/gt7_settings','src/gt7_retro_layout','src/theme','ui/gt7_retro'}) do
+  for _,module in ipairs({'src/edition','src/gt7_settings','src/gt7_retro_layout','src/theme','ui/gt7_retro'}) do
     local path='free-edition/' .. module .. '.lua'
     package.preload[module]=assert(loadfile(path))
   end

@@ -32,11 +32,14 @@ function State.new()
     initialized = false,
     sessionIndex = nil,
     trackID = nil,
+    trackName = nil,
+    transitionStartedAt = nil,
     history = {},
     current = nil,
     lastLapCount = nil,
-    lastSector = nil,
-    lastSpline = nil,
+    replayActive = false,
+    lastReplayFrame = nil,
+    lastUpdateTime = nil,
     personalBest = nil,
     sessionBest = nil
   }, State)
@@ -59,9 +62,11 @@ function State:reset(sim, car)
   self.personalBest = nil
   self.sessionBest = nil
   self.lastLapCount = nil
-  self.lastSector = nil
-  self.lastSpline = nil
+  self.replayActive = sim and sim.isReplayActive == true or false
+  self.lastReplayFrame = self.replayActive and tonumber(sim.replayCurrentFrame) or nil
+  self.lastUpdateTime = type(ui.time) == 'function' and ui.time() or nil
   self.current = nil
+  self.transitionStartedAt = nil
   self:seedBest()
   if car then self:startCurrent(car) end
 end
@@ -72,21 +77,22 @@ function State:startCurrent(car)
   self.current = {
     number = lapCount + 1,
     time = Timing.lapTimeMs(car),
+    progress = Timing.currentSpline(car, self.trackName),
+    status = 'current',
     invalid = invalid(car),
     inPits = Timing.isInPit(car)
   }
   self.lastLapCount = lapCount
-  self.lastSector = numberOr(Timing.field(car, 'currentSector', 0), 0)
-  self.lastSpline = numberOr(Timing.field(car, 'splinePosition', 0), 0)
 end
 
 function State:initialize(sim, car)
   self.trackID = Timing.trackID()
+  self.trackName = Timing.trackName()
   self.initialized = true
   self:reset(sim, car)
 end
 
-function State:completeCurrent(car)
+function State:completeCurrent(car, animate)
   if not self.current then return end
   local time = positive(Timing.previousLapTime(car))
   if not time then return end
@@ -100,6 +106,7 @@ function State:completeCurrent(car)
     status = status
   })
   while #self.history > 32 do table.remove(self.history) end
+  self.transitionStartedAt = animate and type(ui.time) == 'function' and ui.time() or nil
   if valid and (self.personalBest == nil or time < self.personalBest) then self.personalBest = time end
   if valid and (self.sessionBest == nil or time < self.sessionBest) then self.sessionBest = time end
 end
@@ -110,6 +117,36 @@ function State:updateSessionBest()
     local best = positive(Timing.field(cars[i], 'bestLapTimeMs', nil))
     if best and (self.sessionBest == nil or best < self.sessionBest) then self.sessionBest = best end
   end
+end
+
+function State:updateCurrentStatus(car)
+  if self.current.invalid then
+    self.current.status = 'invalid'
+    return
+  end
+  local estimate = positive(Timing.field(car, 'estimatedLapTimeMs', nil))
+  if not estimate or (not self.personalBest and not self.sessionBest) then
+    self.current.status = 'current'
+  elseif self.sessionBest and estimate < self.sessionBest then
+    self.current.status = 'session_best'
+  elseif self.personalBest and estimate < self.personalBest then
+    self.current.status = 'personal_best'
+  else
+    self.current.status = 'slower'
+  end
+end
+
+function State:replayDiscontinuity(sim, now)
+  if self.replayActive ~= (sim.isReplayActive == true) then return true end
+  local frame = self.replayActive and tonumber(sim.replayCurrentFrame) or nil
+  if frame == nil or self.lastReplayFrame == nil then return false end
+  local frameDelta = frame - self.lastReplayFrame
+  if frameDelta < 0 then return true end
+  local frameMs = positive(sim.replayFrameMs)
+  if not frameMs or now == nil or self.lastUpdateTime == nil then return false end
+  local elapsed = math.max(0, now - self.lastUpdateTime)
+  local rate = math.max(1, math.abs(numberOr(sim.replayPlaybackRate, 1)))
+  return frameDelta * frameMs > math.max(1000, elapsed * 1000 * rate + 250)
 end
 
 function State:update()
@@ -123,34 +160,38 @@ function State:update()
 
   local lapCount = math.max(0, math.floor(numberOr(Timing.field(car, 'lapCount',
     Timing.field(car, 'sessionLapCount', 0)), 0)))
-  if self.lastLapCount ~= nil and lapCount < self.lastLapCount then
+  local now = type(ui.time) == 'function' and ui.time() or nil
+  if self:replayDiscontinuity(sim, now) or (self.lastLapCount ~= nil
+      and (lapCount < self.lastLapCount or lapCount > self.lastLapCount + 1)) then
     self:reset(sim, car)
     return true
   end
   if not self.current then self:startCurrent(car) end
 
-  local sector = numberOr(Timing.field(car, 'currentSector', 0), 0)
-  local spline = numberOr(Timing.field(car, 'splinePosition', 0), 0)
-  local wrapped = self.lastSpline ~= nil and self.lastSpline > 0.75 and spline < 0.25
+  local spline = Timing.currentSpline(car, self.trackName)
   local lapChanged = self.lastLapCount ~= nil and lapCount > self.lastLapCount
-  if lapChanged or wrapped then
-    self:completeCurrent(car)
+  if lapChanged then
+    self:completeCurrent(car, sim.isLive ~= false or (sim.isReplayActive == true
+      and numberOr(sim.replayPlaybackRate, 1) > 0))
     self:startCurrent(car)
   end
 
   self.current.time = Timing.lapTimeMs(car)
+  self.current.progress = spline
   if invalid(car) then self.current.invalid = true end
   if Timing.isInPit(car) then self.current.inPits = true end
   self.lastLapCount = lapCount
-  self.lastSector = sector
-  self.lastSpline = spline
+  self.lastReplayFrame = self.replayActive and tonumber(sim.replayCurrentFrame) or nil
+  self.lastUpdateTime = now
   self:updateSessionBest()
+  self:updateCurrentStatus(car)
   return true
 end
 
 function State:snapshot()
   return {
     current = self.current,
+    transitionStartedAt = self.transitionStartedAt,
     history = self.history,
     personalBest = self.personalBest,
     sessionBest = self.sessionBest

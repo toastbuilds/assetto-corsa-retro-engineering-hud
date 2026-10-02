@@ -26,7 +26,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app
   }
   if ($Edition -eq 'free') {
-    foreach ($name in @('src/gt7_retro_layout.lua', 'src/gt7_settings.lua', 'src/theme.lua', 'ui/gt7_retro.lua')) {
+    foreach ($name in @('src/edition.lua', 'src/gt7_retro_layout.lua', 'src/gt7_settings.lua', 'src/theme.lua', 'ui/gt7_retro.lua')) {
       $snapshot = Join-Path $project ('free-edition/' + $name)
       Copy-Item -LiteralPath $snapshot -Destination (Join-Path $app $name) -Force
     }

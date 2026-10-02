@@ -30,9 +30,9 @@ function Display.draw(snapshot, settings, visual)
   local badgeWidth = 56 * scale
   local gap = 5 * scale
   local timerWidth = result and math.max(120 * scale, width - 2 * (badgeWidth + gap) - 12 * scale)
-    or math.min(250 * scale, width - 20 * scale)
-  local timerHeight = 58 * scale
+    or width - 12 * scale
   local timerTop = contentTop + finalHeight + 6 * scale
+  local timerHeight = height - timerTop - 2 * scale
   local timerTL = vec2((width - timerWidth) / 2, timerTop)
   local timerBR = timerTL + vec2(timerWidth, timerHeight)
 
@@ -54,8 +54,14 @@ function Display.draw(snapshot, settings, visual)
   TimingUI.chamferRect(timerTL, timerBR, 8 * scale,
     withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
     withBackgroundOpacity(colors.outlineSoft, backgroundOpacity), 1.1 * scale)
-  TimingUI.centeredText(TimingUI.formatTime(time), (result and 28 or 33) * scale,
-    vec2(width / 2, timerTop + timerHeight / 2), timeColor)
+  local timeText = TimingUI.formatTime(time)
+  local timeSize = timerHeight
+  local pitPadding = snapshot.inPits and 18 * scale or 0
+  local measured = ui.measureDWriteText(timeText, timeSize)
+  timeSize = timeSize * math.min(1, (timerWidth - 16 * scale - pitPadding) / math.max(1, measured.x),
+    (timerHeight - 8 * scale) / math.max(1, measured.y))
+  TimingUI.centeredText(timeText, timeSize,
+    vec2(width / 2 + pitPadding / 2, timerTop + timerHeight / 2), timeColor)
 
   if result then
     local resultBadgeHeight = 22 * scale

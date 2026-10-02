@@ -8,9 +8,7 @@ local Window = require('modules/timing/src/window')
 local M = {}
 local APP_TITLE = 'Retro UI Laps'
 local state = State.new()
-local controller = Window.new(APP_TITLE, function(settings)
-  return vec2(330, 38 + (settings.rows or 10) * 34)
-end, 'top-right')
+local controller = Window.new(APP_TITLE, Display.size, 'top-right')
 local lastError
 
 local function report(stage, err)
@@ -31,7 +29,8 @@ function M.windowMain(_)
   Settings.normalize()
   local visual = {
     palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
-    instrumentOpacity = GeneralSettings.values.opacity
+    instrumentOpacity = GeneralSettings.values.opacity,
+    animateLapChanges = Settings.values.animateLapChanges
   }
   local ok, events = pcall(Display.draw, state:snapshot(), Settings.values, visual)
   if not ok then

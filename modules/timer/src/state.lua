@@ -257,13 +257,34 @@ function State:isFinalLap(sim, player)
   return false
 end
 
+function State:publishPlayerData(player)
+  if not player then return end
+  local playerState = self.cars[0]
+  self.data.currentLapTime = Timing.lapTimeMs(player)
+  self.data.lapNumber = playerState and playerState.lap and playerState.lap.number
+    or math.max(0, math.floor(numberOr(Timing.field(player, 'lapCount',
+      Timing.field(player, 'sessionLapCount', 0)), 0))) + 1
+  self.data.sector = Timing.currentSector(player, self.sectorCount)
+  self.data.invalid = playerState and playerState.lap and playerState.lap.invalid == true or isLapInvalid(player)
+  self.data.inPits = playerState and playerState.lap and playerState.lap.inPits == true or Timing.isInPit(player)
+end
+
 function State:update()
   local ok, sim = pcall(ac.getSim)
   if not ok or not sim then return false end
   self:ensureContext(sim)
-  if sim.isLive == false then return true end
-
   local player = Timing.getCar(0)
+  if sim.isLive == false or sim.isReplayActive == true then
+    if sim.isReplayActive == true then
+      self.cars = {}
+      self.result = nil
+      self.lastPlayerLapCount = nil
+    end
+    self:publishPlayerData(player)
+    self.data.finalLap = player and self:isFinalLap(sim, player) or false
+    return true
+  end
+
   if player then
     local playerLapCount = math.max(0, math.floor(numberOr(Timing.field(player, 'lapCount',
       Timing.field(player, 'sessionLapCount', 0)), 0)))
@@ -282,15 +303,8 @@ function State:update()
   end
   if player and not sawPlayer then self:processCar(player) end
 
-  if player then
-    local playerState = self.cars[0]
-    self.data.currentLapTime = Timing.lapTimeMs(player)
-    self.data.lapNumber = playerState and playerState.lap and playerState.lap.number or 1
-    self.data.sector = Timing.currentSector(player, self.sectorCount)
-    self.data.invalid = playerState and playerState.lap and playerState.lap.invalid == true or isLapInvalid(player)
-    self.data.inPits = playerState and playerState.lap and playerState.lap.inPits == true or Timing.isInPit(player)
-    self.data.finalLap = self:isFinalLap(sim, player)
-  end
+  self:publishPlayerData(player)
+  self.data.finalLap = player and self:isFinalLap(sim, player) or false
   self.data.sectorCount = self.sectorCount
   return true
 end

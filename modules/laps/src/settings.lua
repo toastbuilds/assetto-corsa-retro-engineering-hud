@@ -1,10 +1,12 @@
 local SettingsUI = require('src/settings_ui')
+local Edition = require('src/edition')
 
 local Settings = {}
 
 local DEFAULTS = {
   scale = 1.0,
   rows = 10,
+  animateLapChanges = true,
   autoPlacement = true,
   locked = false
 }
@@ -29,6 +31,7 @@ function Settings.normalize()
   local v = Settings.values
   v.scale = clamp(v.scale, 0.65, 1.50, DEFAULTS.scale)
   v.rows = math.floor(clamp(v.rows, 5, 10, DEFAULTS.rows) + 0.5)
+  v.animateLapChanges = v.animateLapChanges ~= false
   v.autoPlacement = v.autoPlacement ~= false
   v.locked = v.locked == true
 end
@@ -52,9 +55,10 @@ function Settings.draw()
   SettingsUI.section('laps', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
     checkbox('Pin / lock window', 'locked')
+    if Edition.premium then checkbox('Animate lap changes', 'animateLapChanges') end
   end)
   SettingsUI.section('laps', 'advanced', 'Advanced', false, function()
-    ui.textWrapped('The current lap always occupies the first row; completed laps are ordered newest first.')
+    ui.textWrapped('The first row shows track progress, colored by projected lap pace. Completed laps show their times, newest first.')
   end)
   ui.separator()
   SettingsUI.resetAppearance('laps', function() Settings.values.scale = DEFAULTS.scale end)

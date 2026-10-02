@@ -1,4 +1,7 @@
 package.path = './?.lua;./?/init.lua;' .. package.path
+if TEST_EDITION == 'free' then
+  package.preload['src/edition'] = assert(loadfile('free-edition/src/edition.lua'))
+end
 
 local now = 0
 ui = {
@@ -56,6 +59,10 @@ local function resetWorld(playerBest, rivalBest, playerSplits, rivalSplits)
   now = 0
   sim.currentSessionIndex = 0
   sim.isLive = true
+  sim.isReplayActive = false
+  sim.replayCurrentFrame = nil
+  sim.replayFrameMs = nil
+  sim.replayPlaybackRate = nil
   sim.raceFlagType = 1
   session.type = ac.SessionType.Race
   session.isTimedRace = false
@@ -181,4 +188,403 @@ lapsSnapshot = laps:snapshot()
 assert(#lapsSnapshot.history == 0 and lapsSnapshot.current.number == 1)
 assert(lapsSnapshot.personalBest == 95000 and lapsSnapshot.sessionBest == 94000)
 
-print('Timing apps: sector/lap transitions, records, audio events, invalidation, pits, freeze, final lap and resets passed')
+resetWorld(92000, 90000, nil, nil)
+sim.isLive = false
+player.lapCount = 11
+player.lapTimeMs = 50559
+timer = TimerState.new({ freezeDuration = 3 })
+laps = LapsState.new()
+assert(timer:update() and laps:update())
+assert(timer:snapshot().currentLapTime == laps:snapshot().current.time,
+  'Timer must publish the same current time as Laps while the simulation is not live')
+assert(timer:snapshot().lapNumber == 12)
+sim.isReplayActive = true
+player.currentSector = 1
+player.previousSectorTime = 10000
+player.lapTimeMs = 52000
+assert(timer:update())
+assert(timer:snapshot().currentLapTime == 52000 and timer:snapshot().audioEventId == 0)
+player.lapCount = 12
+player.previousLapTimeMs = 50000
+player.lapTimeMs = 500
+player.currentSector = 0
+assert(timer:update())
+assert(timer:snapshot().currentLapTime == 500 and timer:snapshot().audioEventId == 0,
+  'replay lap transitions must update the time without announcing records')
+assert(timer.personalBestLap == 92000 and timer.sessionBestLap == 90000)
+sim.isReplayActive = false
+sim.isLive = true
+assert(timer:update())
+assert(timer:snapshot().audioEventId == 0, 'leaving replay must not announce a stale lap result')
+
+resetWorld(92000, 90000, nil, nil)
+player.splinePosition = 0.25
+player.lapTimeMs = 23000
+player.estimatedLapTimeMs = 89000
+laps = LapsState.new()
+assert(laps:update())
+assert(laps:snapshot().current.progress == 0.25 and laps:snapshot().current.status == 'session_best')
+player.estimatedLapTimeMs = 91000
+assert(laps:update())
+assert(laps:snapshot().current.status == 'personal_best')
+player.estimatedLapTimeMs = 95000
+assert(laps:update())
+assert(laps:snapshot().current.status == 'slower')
+player.estimatedLapTimeMs = nil
+assert(laps:update())
+assert(laps:snapshot().current.status == 'current', 'missing pace telemetry must not invent a record')
+player.isLapValid = false
+player.estimatedLapTimeMs = 80000
+assert(laps:update())
+assert(laps:snapshot().current.status == 'invalid', 'invalidity must override projected record pace')
+player.splinePosition = 0.98
+assert(laps:update())
+player.lapCount = 1
+player.previousLapTimeMs = 93000
+player.splinePosition = 0.01
+player.isLapValid = true
+assert(laps:update())
+assert(laps:snapshot().current.progress == 0.01 and laps:snapshot().current.number == 2,
+  'crossing the line must restart progress on the next current row')
+assert(laps:snapshot().transitionStartedAt ~= nil, 'a live lap completion must start the row transition')
+sim.currentSessionIndex = 1
+assert(laps:update())
+assert(laps:snapshot().transitionStartedAt == nil, 'session resets must not animate a lap completion')
+sim.isReplayActive = true
+player.lapCount = 2
+assert(laps:update())
+assert(laps:snapshot().transitionStartedAt == nil, 'replay seeks must not start live lap transitions')
+
+for _, replay in ipairs({ false, true }) do
+  for _, splineFirst in ipairs({ false, true }) do
+    resetWorld(92000, 90000, nil, nil)
+    sim.isReplayActive = replay
+    sim.isLive = not replay
+    player.lapCount = 1
+    player.previousLapTimeMs = 96010
+    player.splinePosition = 0.98
+    player.lapTimeMs = 141656
+    laps = LapsState.new()
+    assert(laps:update())
+    if splineFirst then
+      player.splinePosition = 0.01
+      player.lapTimeMs = 200
+      assert(laps:update())
+      assert(#laps:snapshot().history == 0,
+        'a spline wrap before the counter must not commit the stale previous lap')
+    end
+    player.lapCount = 2
+    player.previousLapTimeMs = 141656
+    assert(laps:update())
+    player.splinePosition = 0.02
+    player.lapTimeMs = 500
+    assert(laps:update())
+    assert(laps:update())
+    lapsSnapshot = laps:snapshot()
+    assert(#lapsSnapshot.history == 1 and lapsSnapshot.history[1].number == 2
+      and lapsSnapshot.history[1].time == 141656 and lapsSnapshot.current.number == 3,
+      'staggered counter/spline updates and repeated frames must record a lap exactly once')
+    assert(lapsSnapshot.transitionStartedAt ~= nil, 'continuous playback must animate a real lap completion')
+    player.splinePosition = 0.98
+    assert(laps:update())
+    player.lapCount = 3
+    player.splinePosition = 0.01
+    assert(laps:update())
+    lapsSnapshot = laps:snapshot()
+    assert(#lapsSnapshot.history == 2 and lapsSnapshot.history[1].number == 3
+      and lapsSnapshot.history[2].number == 2 and lapsSnapshot.history[1].time == 141656,
+      'different laps with identical times must both be retained')
+  end
+end
+
+resetWorld(92000, 90000, nil, nil)
+sim.isReplayActive = true
+sim.isLive = false
+sim.replayCurrentFrame = 100
+sim.replayFrameMs = 100
+sim.replayPlaybackRate = 1
+laps = LapsState.new()
+assert(laps:update())
+now = 0.1
+sim.replayCurrentFrame = 101
+player.lapCount = 1
+player.previousLapTimeMs = 93000
+assert(laps:update())
+assert(#laps:snapshot().history == 1)
+now = 1.1
+sim.replayPlaybackRate = 4
+sim.replayCurrentFrame = 131
+assert(laps:update())
+assert(#laps:snapshot().history == 1, 'continuous accelerated replay must not be mistaken for a seek')
+sim.replayPlaybackRate = 0
+now = 2.1
+assert(laps:update())
+assert(#laps:snapshot().history == 1, 'pausing a replay must retain its lap history')
+sim.replayPlaybackRate = 1
+sim.replayCurrentFrame = 90
+assert(laps:update())
+assert(#laps:snapshot().history == 0 and laps:snapshot().current.number == 2
+  and laps:snapshot().transitionStartedAt == nil, 'rewinding within a replay lap must discard future history')
+sim.replayCurrentFrame = 300
+player.lapCount = 2
+assert(laps:update())
+assert(#laps:snapshot().history == 0 and laps:snapshot().current.number == 3,
+  'a replay seek must not label stale telemetry as a completed lap')
+sim.replayCurrentFrame = 301
+player.lapCount = 5
+assert(laps:update())
+assert(#laps:snapshot().history == 0 and laps:snapshot().current.number == 6,
+  'skipping lap counters must reset rather than invent missing laps')
+
+local Vector = {}
+Vector.__index = Vector
+function vec2(horizontal, vertical)
+  return setmetatable({ x = horizontal or 0, y = vertical or 0 }, Vector)
+end
+function Vector.__add(first, second) return vec2(first.x + second.x, first.y + second.y) end
+function Vector.__sub(first, second) return vec2(first.x - second.x, first.y - second.y) end
+function Vector.__div(vector, divisor) return vec2(vector.x / divisor, vector.y / divisor) end
+function rgbm(red, green, blue, alpha) return { r = red, g = green, b = blue, mult = alpha } end
+ac.storage = function(defaults) return defaults end
+
+local drawnText, drawnPanels, drawnMarkers, currentPath = {}, {}, {}, {}
+local drawAlpha, alphaStack = 1, {}
+local windowWidth, windowHeight = 220, 379
+ui.windowWidth = function() return windowWidth end
+ui.windowHeight = function() return windowHeight end
+ui.pushStyleVarAlpha = function(alpha)
+  alphaStack[#alphaStack + 1] = drawAlpha
+  drawAlpha = drawAlpha * alpha
+end
+ui.popStyleVar = function(count)
+  for index = 1, count or 1 do drawAlpha = table.remove(alphaStack) end
+end
+ui.pushDWriteFont = function() end
+ui.popDWriteFont = function() end
+ui.measureDWriteText = function(value, size) return vec2(#value * size * 0.6, size * 1.35) end
+ui.dwriteDrawText = function(value, size, position, color)
+  drawnText[#drawnText + 1] = { value = value, size = size, position = position, color = color, alpha = drawAlpha }
+end
+ui.pathClear = function() currentPath = {} end
+ui.pathLineTo = function(point) currentPath[#currentPath + 1] = point end
+ui.pathFillConvex = function(color)
+  local minimum, maximum = vec2(math.huge, math.huge), vec2(-math.huge, -math.huge)
+  for _, point in ipairs(currentPath) do
+    minimum.x, minimum.y = math.min(minimum.x, point.x), math.min(minimum.y, point.y)
+    maximum.x, maximum.y = math.max(maximum.x, point.x), math.max(maximum.y, point.y)
+  end
+  drawnPanels[#drawnPanels + 1] = { minimum = minimum, maximum = maximum, color = color }
+end
+ui.pathStroke = function() end
+ui.drawRectFilled = function(minimum, maximum, color)
+  drawnMarkers[#drawnMarkers + 1] = { minimum = minimum, maximum = maximum, color = color }
+end
+
+local LapsDisplay = require('modules/laps/src/display')
+local Theme = require('modules/timing/src/theme')
+local renderSnapshot = {
+  current = { number = 123, time = 21293, progress = 0.42, status = 'personal_best', inPits = true, invalid = false },
+  history = {}
+}
+local statuses = { 'session_best', 'personal_best', 'slower', 'invalid' }
+for index = 1, 9 do
+  local status = statuses[(index - 1) % #statuses + 1]
+  renderSnapshot.history[index] = {
+    number = 123 - index, time = 120000 + index * 1234,
+    inPits = true, status = status, invalid = status == 'invalid'
+  }
+end
+
+local drawingCases = 0
+for _, themeName in ipairs({ 'dark', 'light' }) do
+  local colors = Theme.get(themeName)
+  for _, rows in ipairs({ 5, 10 }) do
+    for _, scale in ipairs({ 0.65, 1, 1.5 }) do
+      for _, narrow in ipairs({ false, true }) do
+        local settings = { rows = rows, scale = scale }
+        local authored = LapsDisplay.size(settings)
+        windowWidth = narrow and 143 or authored.x * scale
+        windowHeight = authored.y * scale
+        drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+        LapsDisplay.draw(renderSnapshot, settings, { palette = colors, instrumentOpacity = 1 })
+        assert(#drawnPanels == rows * 2 and #drawnMarkers == rows - 1 + 16)
+        local rowIndex = 0
+        for _, text in ipairs(drawnText) do
+          local measured = ui.measureDWriteText(text.value, text.size)
+          assert(text.value ~= '21.293', 'the current row must show progress instead of elapsed time')
+          assert(text.value ~= 'LAPS' and text.value ~= 'LIVE', 'lap list must not have a redundant heading')
+          assert(text.position.x >= 0 and text.position.y >= 0
+            and text.position.x + measured.x <= windowWidth + 0.001
+            and text.position.y + measured.y <= windowHeight + 0.001,
+            'all Laps labels must fit the app window: ' .. text.value)
+          if text.value:match('^%d+$') then rowIndex = rowIndex + 1 end
+          if rowIndex > 0 then
+            local panel = drawnPanels[rowIndex * 2 - 1]
+            local center = (panel.minimum.y + panel.maximum.y) / 2
+            assert(math.abs(text.position.y + measured.y / 2 - center) < 0.001,
+              'lap number, time and pit marker must share the row center')
+          end
+        end
+        for panelIndex, panel in ipairs(drawnPanels) do
+          if panelIndex == 1 then
+            assert(panel.color == colors.panelRaised, 'the unfilled progress track must remain neutral')
+          elseif panelIndex % 2 == 0 then
+            assert(panel.color == colors.surface, 'lap number cells must retain their neutral background')
+          else
+            local base = panelIndex == 1 and colors.panelRaised or colors.panel
+            assert(panel.color.mult == base.mult, 'band tint must preserve background opacity')
+            assert(panel.color.r ~= base.r or panel.color.g ~= base.g or panel.color.b ~= base.b,
+              'the time band must be tinted with its semantic color')
+          end
+        end
+        for markerIndex, marker in ipairs(drawnMarkers) do
+          if markerIndex <= 16 then
+            local band = drawnPanels[1]
+            assert(marker.minimum.x > band.minimum.x and marker.maximum.x < band.maximum.x,
+              'progress segments must fit inside the current band')
+            if markerIndex > 1 then
+              assert(marker.minimum.x > drawnMarkers[markerIndex - 1].maximum.x,
+                'progress segments must remain visually separated')
+            end
+          else
+            assert(marker.maximum.x - marker.minimum.x <= windowWidth * 0.02,
+              'historical markers must retain their narrow accent')
+          end
+        end
+        local activeCount = 0
+        for segmentIndex = 1, 16 do
+          if drawnMarkers[segmentIndex].color == drawnMarkers[1].color then activeCount = activeCount + 1 end
+        end
+        assert(activeCount == 7, '42 percent progress must light seven of sixteen segments')
+        assert(drawAlpha == 1 and #alphaStack == 0, 'Laps must balance nested row opacity')
+        drawingCases = drawingCases + 1
+      end
+    end
+  end
+end
+
+windowWidth, windowHeight = 220, 379
+renderSnapshot.history = {}
+local inactiveColor
+for _, progress in ipairs({ 0, 0.5, 1 }) do
+  renderSnapshot.current.progress = progress
+  drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+  LapsDisplay.draw(renderSnapshot, { rows = 10, scale = 1 }, { palette = Theme.get('dark'), instrumentOpacity = 1 })
+  assert(#drawnMarkers == 16, 'the segmented track must remain visible at every progress value')
+  if progress == 0 then inactiveColor = drawnMarkers[1].color end
+  local activeCount = 0
+  for _, segment in ipairs(drawnMarkers) do
+    if segment.color.r ~= inactiveColor.r or segment.color.g ~= inactiveColor.g or segment.color.b ~= inactiveColor.b then
+      activeCount = activeCount + 1
+    end
+  end
+  assert(activeCount == progress * 16, 'empty, half and full tracks must light zero, eight and sixteen segments')
+end
+
+local Edition = require('src/edition')
+renderSnapshot.history = { { number = 122, time = 120000, status = 'slower' } }
+local function drawTransition(atTime, enabled)
+  now = atTime
+  drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+  LapsDisplay.draw(renderSnapshot, { rows = 10, scale = 1 },
+    { palette = Theme.get('dark'), instrumentOpacity = 1, animateLapChanges = enabled })
+  assert(drawAlpha == 1 and #alphaStack == 0)
+  local current, completed
+  for _, text in ipairs(drawnText) do
+    if text.value == '123' then current = text end
+    if text.value == '122' then completed = text end
+  end
+  assert(current and completed, 'Missing transition lap numbers')
+  return current, completed
+end
+renderSnapshot.transitionStartedAt = nil
+local restingRow, restingHistory = drawTransition(10, true)
+renderSnapshot.transitionStartedAt = 10
+local enteringRow, enteringHistory = drawTransition(10, true)
+local halfwayRow, halfwayHistory = drawTransition(10.24, true)
+local arrivingRow = drawTransition(10.39, true)
+local settledRow, settledHistory = drawTransition(10.50, true)
+assert(settledRow.position.y == restingRow.position.y and settledRow.alpha == restingRow.alpha,
+  'the completed transition must restore exact resting geometry and opacity')
+assert(settledHistory.position.y == restingHistory.position.y)
+if Edition.premium then
+  assert(enteringHistory.position.y == restingRow.position.y,
+    'the completed lap must start at its previous current-row position instead of jumping')
+  assert(enteringHistory.position.y < halfwayHistory.position.y
+    and halfwayHistory.position.y < settledHistory.position.y)
+  assert(enteringRow.alpha == 0 and halfwayRow.alpha == 0
+    and arrivingRow.alpha > 0 and arrivingRow.alpha < settledRow.alpha,
+    'the new progress row must fade in only after the completed row clears it')
+else
+  assert(enteringRow.position.y == restingRow.position.y and enteringRow.alpha == restingRow.alpha,
+    'Free must update the lap rows immediately without Premium motion')
+  assert(enteringHistory.position.y == restingHistory.position.y)
+end
+local disabledRow = drawTransition(10, false)
+assert(disabledRow.position.y == restingRow.position.y and disabledRow.alpha == restingRow.alpha,
+  'disabling lap motion must display final geometry immediately')
+if Edition.premium then
+  for _, frameRate in ipairs({ 30, 60, 144 }) do
+    local previousY = enteringHistory.position.y
+    for frame = 1, math.ceil(0.48 * frameRate) do
+      local _, historicalRow = drawTransition(10 + frame / frameRate, true)
+      assert(historicalRow.position.y >= previousY and historicalRow.position.y <= restingHistory.position.y,
+        'row motion must remain monotonic and settle without overshoot at different frame rates')
+      previousY = historicalRow.position.y
+    end
+    assert(previousY == restingHistory.position.y)
+  end
+end
+
+local TimerDisplay = require('modules/timer/src/display')
+local timerDrawingCases = 0
+for _, scale in ipairs({ 0.65, 1, 1.5 }) do
+  windowWidth, windowHeight = 320 * scale, 94 * scale
+  for _, finalLap in ipairs({ false, true }) do
+    for _, resultActive in ipairs({ false, true }) do
+      for _, inPits in ipairs({ false, true }) do
+        drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+        local snapshot = { currentLapTime = 139000, finalLap = finalLap, inPits = inPits }
+        if resultActive then snapshot.result = { time = 139000, status = 'personal_best', delta = -1234 } end
+        TimerDisplay.draw(snapshot, { scale = scale, backgroundOpacity = 0.7 },
+          { palette = Theme.get('dark'), instrumentOpacity = 1 })
+        local panel = drawnPanels[finalLap and 2 or 1]
+        local foundTime = false
+        for _, text in ipairs(drawnText) do
+          if text.value == '2:19.000' then
+            foundTime = true
+            local measured = ui.measureDWriteText(text.value, text.size)
+            assert(text.size > (resultActive and 28 or 33) * scale, 'Timer digits must grow to use available space')
+            assert(text.position.x >= panel.minimum.x and text.position.x + measured.x <= panel.maximum.x
+              and text.position.y >= panel.minimum.y and text.position.y + measured.y <= panel.maximum.y,
+              'large Timer digits must fit the plate, including pits and FINAL LAP')
+          end
+        end
+        assert(foundTime)
+        timerDrawingCases = timerDrawingCases + 1
+      end
+    end
+  end
+end
+
+local visibleCheckboxes = {}
+ui.header = function() end
+ui.separator = function() end
+ui.availableSpaceX = function() return windowWidth end
+ui.button = function(label) return label == '>  Personalization##laps.personalization' end
+ui.slider = function(_, value) return value, false end
+ui.checkbox = function(label)
+  visibleCheckboxes[label] = true
+  return label == 'Animate lap changes'
+end
+local LapsSettings = require('modules/laps/src/settings')
+LapsSettings.draw()
+assert((visibleCheckboxes['Animate lap changes'] == true) == Edition.premium,
+  'the lap transition switch must be offered only in Premium')
+if Edition.premium then
+  assert(LapsSettings.values.animateLapChanges == false, 'the Premium switch must persist disabled motion')
+end
+
+print('Timing apps: transitions, records, audio, validity, pits, freeze, final lap, resets and '
+  .. drawingCases .. ' segmented Laps and ' .. timerDrawingCases .. ' Timer drawings; '
+  .. (Edition.premium and 'Premium motion' or 'Free immediate updates') .. ' passed')
