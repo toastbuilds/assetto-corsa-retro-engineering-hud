@@ -61,6 +61,10 @@ local function blankState()
     fuel = nil,
     maxFuel = nil,
     fuelNormalized = 0,
+    fuelNeedleNormalized = 0,
+    fuelNeedleVelocity = 0,
+    fuelSloshG = 0,
+    fuelNeedleReady = false,
     turboAvailable = false,
     turboBoost = 0,
     turboDisplayMax = 1,
@@ -259,6 +263,47 @@ local function finiteNumber(value, fallback)
     return fallback
   end
   return value
+end
+
+local function updateFuelNeedle(state, car, dt)
+  if state.fuel == nil or state.maxFuel == nil or state.maxFuel <= 0.1 then
+    state.fuelNeedleNormalized = 0
+    state.fuelNeedleVelocity = 0
+    state.fuelSloshG = 0
+    state.fuelNeedleReady = false
+    return
+  end
+
+  -- CSP exposes acceleration directly in G, in car-local axes. Treat the
+  -- sender as a generic float inside the tank: longitudinal slosh dominates,
+  -- while lateral G adds a smaller signed displacement. The extra filter is
+  -- the fuel mass moving before the deliberately under-damped gauge reacts.
+  local acceleration = U.read(car, 'acceleration', nil)
+  local lateralG = U.number(U.read(acceleration, 'x', 0), 0)
+  local longitudinalG = U.number(U.read(acceleration, 'z', 0), 0)
+  local sloshTarget = U.clamp(-longitudinalG + lateralG * Gt7Layout.fuelSloshLateralWeight,
+    -Gt7Layout.fuelSloshMaxG, Gt7Layout.fuelSloshMaxG)
+  local step = U.clamp(dt or 0, 0, 0.05)
+  state.fuelSloshG = state.fuelSloshG
+    + (sloshTarget - state.fuelSloshG) * U.clamp(step * Gt7Layout.fuelSloshFilterRate, 0, 1)
+
+  local fuel = state.fuelNormalized
+  -- A nearly full or empty tank has less room for the float to wander. Keep a
+  -- little movement at the ends, but make the effect strongest around half a tank.
+  local room = 0.25 + 0.75 * U.clamp(4 * fuel * (1 - fuel), 0, 1)
+  local target = U.clamp(fuel + state.fuelSloshG * Gt7Layout.fuelNeedleGResponse * room, 0, 1)
+
+  if not state.fuelNeedleReady then
+    state.fuelNeedleNormalized = fuel
+    state.fuelNeedleVelocity = 0
+    state.fuelNeedleReady = true
+    return
+  end
+
+  state.fuelNeedleNormalized, state.fuelNeedleVelocity = springNeedle(
+    state.fuelNeedleNormalized, state.fuelNeedleVelocity, target, dt,
+    Gt7Layout.fuelNeedleSpring, Gt7Layout.fuelNeedleDamping,
+    Gt7Layout.fuelNeedleMaxVelocity)
 end
 
 local function resetCondition(state)
@@ -735,6 +780,7 @@ function M.update(state, dt, settings, sampleCar)
   state.maxFuel = U.number(U.read(car, 'maxFuel', nil), nil)
   state.fuelNormalized = state.fuel and state.maxFuel and state.maxFuel > 0.1
     and U.clamp(state.fuel / state.maxFuel, 0, 1) or 0
+  updateFuelNeedle(state, car, dt)
   local turboCount = U.number(U.read(car, 'turboCount', 0), 0)
   state.turboAvailable = turboCount > 0
   state.turboBoost = math.max(0, U.number(U.read(car, 'turboBoost', 0), 0))

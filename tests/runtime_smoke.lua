@@ -266,6 +266,7 @@ local function makeCar(overrides)
     brake = 0.15,
     clutch = 1,
     handbrake = 0,
+    acceleration = { x = 0, y = 0, z = 0 },
     fuel = 18,
     maxFuel = 60,
     turboCount = 0,
@@ -323,6 +324,21 @@ assert(telemetry.condition.available and telemetry.condition.wheels[1].temperatu
 assert(telemetry.condition.wheels[4].isBlown
   and telemetry.condition.wheels[4].conditionSeverity == 1,
   'punctures must take priority over other tyre-condition signals')
+assert(math.abs(telemetry.fuelNeedleNormalized - telemetry.fuelNormalized) < 0.00001,
+  'fuel needle must initialize at the true fuel level without sweeping in')
+
+car.acceleration = { x = 0, y = 0, z = 1.2 }
+for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+assert(telemetry.fuelNeedleNormalized < telemetry.fuelNormalized - 0.015,
+  'forward G must produce visible fuel-sender slosh')
+car.acceleration = { x = 1.5, y = 0, z = 0 }
+for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+assert(telemetry.fuelNeedleNormalized > telemetry.fuelNormalized + 0.01,
+  'lateral G must also move the fuel sender')
+car.acceleration = { x = 0, y = 0, z = 0 }
+for _ = 1, 240 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+assert(math.abs(telemetry.fuelNeedleNormalized - telemetry.fuelNormalized) < 0.002,
+  'fuel sender must settle back to the true level after G is released')
 
 GeneralSettings.values.speedUnit = 'mph'
 Telemetry.update(telemetry, 1 / 60, Settings.current())

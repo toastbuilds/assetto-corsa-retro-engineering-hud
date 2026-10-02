@@ -182,7 +182,8 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
       else active = available and i <= math.ceil(fraction * S.segmentCount) end
       Light.segment(subCenter, scale, block, zone(f, active), active and L.subSegment or nil)
     end
-    local needleFraction = fraction
+    local needleFraction = rpm and fraction
+      or U.clamp(state.fuelNeedleNormalized or state.fuelNormalized or 0, 0, 1)
     if rpm then
       local value = visual and visual.boostNeedleValue or (state.boostNeedleNormalized or 0) * maximum
       needleFraction = U.clamp((value - minimum) / (maximum - minimum), 0, 1)
