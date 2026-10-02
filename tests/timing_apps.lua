@@ -85,6 +85,7 @@ assert(timer:update())
 local timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result and timerSnapshot.result.kind == 'sector')
 assert(timerSnapshot.result.status == 'session_best')
+assert(timerSnapshot.result.delta == -1000, 'sector delta must use the old session record, not the personal best')
 assert(timerSnapshot.sectorRecordEventId == 1 and timerSnapshot.lapRecordEventId == 0,
   'session-best sector must trigger only the sector record sound')
 assert(timer:update())
@@ -96,6 +97,8 @@ player.lapTimeMs = 63000
 assert(timer:update())
 timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result.status == 'personal_best')
+assert(timerSnapshot.result.delta == 2000,
+  'a personal improvement can still have a positive gap to the session sector record')
 assert(timerSnapshot.sectorRecordEventId == 1, 'personal best below the session record must stay silent')
 
 player.isLapValid = false
@@ -138,6 +141,7 @@ timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result and timerSnapshot.result.kind == 'lap')
 assert(timerSnapshot.result.status == 'personal_best')
 assert(timerSnapshot.result.time == 91000)
+assert(timerSnapshot.result.delta == 1000, 'lap delta must compare with the session lap record')
 
 -- A new session lap record triggers the distinct lap record sound only once.
 resetWorld(94000, 93000,
@@ -526,9 +530,14 @@ end
 
 local Edition = require('src/edition')
 local playedSounds = {}
+local playedVolumes = {}
+local playbackPositions = {}
+ac.AudioChannel = { Main = 1 }
+ac.getAudioVolume = function() return 0.25 end
 ui.MediaPlayer = function(path)
   return {
-    setVolume = function() end,
+    setVolume = function(_, volume) playedVolumes[#playedVolumes + 1] = volume end,
+    setCurrentTime = function(_, position) playbackPositions[#playbackPositions + 1] = position end,
     play = function() playedSounds[#playedSounds + 1] = path end
   }
 end
@@ -537,6 +546,8 @@ assert(RecordAudio.playLapRecord() and RecordAudio.playSectorRecord())
 assert(#playedSounds == 2 and playedSounds[1] == 'assets/experimental-5btgm.wav'
   and playedSounds[2] == 'assets/notification-qqv87.wav',
   'lap and sector records must use their distinct audio files')
+assert(playedVolumes[1] == 1 and playedVolumes[2] == 1,
+  'record playback must not apply an extra reduction on top of the game audio mix')
 renderSnapshot.history = { { number = 122, time = 120000, status = 'slower' } }
 local function drawTransition(atTime, enabled)
   now = atTime
@@ -622,6 +633,62 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   end
 end
 
+for _, scale in ipairs({ 0.65, 1, 1.5 }) do
+  windowWidth, windowHeight = 320 * scale, 94 * scale
+  for _, finalLap in ipairs({ false, true }) do
+    for _, outcome in ipairs({
+      { status = 'session_best', delta = -1000, valid = true },
+      { status = 'personal_best', delta = 2000, valid = true },
+      { status = 'slower', delta = 99990, valid = true },
+      { status = 'invalid', delta = -1000, valid = false },
+      { status = 'slower', valid = true }
+    }) do
+      for _, opacity in ipairs({ 0, 0.7 }) do
+        drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+        local colors = Theme.get('dark')
+        local result = { kind = 'sector', time = 31000, status = outcome.status,
+          delta = outcome.delta, valid = outcome.valid }
+        TimerDisplay.draw({ result = result, finalLap = finalLap },
+          { scale = scale, backgroundOpacity = opacity }, { palette = colors, instrumentOpacity = 1 })
+        local bestCount, deltaCount = 0, 0
+        local deltaText = require('modules/timing/src/ui').formatDelta(outcome.delta)
+        for _, text in ipairs(drawnText) do
+          local measured = ui.measureDWriteText(text.value, text.size)
+          local contained = false
+          for _, panel in ipairs(drawnPanels) do
+            if text.position.x >= panel.minimum.x - 0.001
+                and text.position.x + measured.x <= panel.maximum.x + 0.001
+                and text.position.y >= panel.minimum.y - 0.001
+                and text.position.y + measured.y <= panel.maximum.y + 0.001 then
+              contained = true
+            end
+          end
+          assert(contained, 'sector result labels must fit their panels at every supported scale')
+          assert(text.value ~= 'PB' and text.value ~= 'VALID' and text.value ~= 'INVALID',
+            'the left context must be reserved for a valid session record')
+          if text.value == 'BEST' then
+            bestCount = bestCount + 1
+            assert(text.size >= 19 * scale and text.color == colors.purple)
+          elseif text.value == deltaText then
+            deltaCount = deltaCount + 1
+            local expectedColor = not outcome.valid and colors.red or outcome.delta == nil and colors.secondary
+              or outcome.delta < 0 and colors.purple or colors.amber
+            assert(text.size >= 19 * scale and text.color == expectedColor,
+              'large relative text must reflect the gap to the session record, including invalid laps')
+          end
+        end
+        assert(bestCount == (outcome.valid and outcome.status == 'session_best' and 1 or 0))
+        assert(deltaCount == 1)
+        if opacity == 0 then
+          for _, panel in ipairs(drawnPanels) do
+            assert(panel.color.mult == 0, 'text-only mode must also hide result panel backgrounds')
+          end
+        end
+      end
+    end
+  end
+end
+
 local visibleCheckboxes = {}
 ui.header = function() end
 ui.separator = function() end
@@ -638,6 +705,26 @@ assert((visibleCheckboxes['Animate lap changes'] == true) == Edition.premium,
   'the lap transition switch must be offered only in Premium')
 if Edition.premium then
   assert(LapsSettings.values.animateLapChanges == false, 'the Premium switch must persist disabled motion')
+end
+
+local TimerSettings = require('modules/timer/src/settings')
+TimerSettings.values.audioEnabled = false
+ui.checkbox = function() return false end
+ui.textWrapped = function() end
+for _, preview in ipairs({
+  { label = 'Test sector sound##timer.test-sector-sound', path = 'assets/notification-qqv87.wav' },
+  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/experimental-5btgm.wav' },
+  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/experimental-5btgm.wav' }
+}) do
+  ui.button = function(label) return label == preview.label end
+  local playedBefore = #playedSounds
+  local rewoundBefore = #playbackPositions
+  TimerSettings.draw()
+  assert(#playedSounds == playedBefore + 1 and playedSounds[#playedSounds] == preview.path,
+    'each preview button must play exactly its own sound, even with automatic alerts disabled')
+  assert(#playbackPositions == rewoundBefore + 1 and playbackPositions[#playbackPositions] == 0,
+    'a preview must restart the sound so repeated clicks remain audible')
+  assert(TimerSettings.values.audioEnabled == false, 'previewing must not enable automatic record alerts')
 end
 
 print('Timing apps: transitions, records, audio, validity, pits, freeze, final lap, resets and '

@@ -47,9 +47,9 @@ local function newLap(lapCount, sectorCount)
 end
 
 local function classify(time, valid, personalBest, sessionBest)
-  if not valid then return 'invalid', personalBest or sessionBest, nil end
-  local reference = personalBest or sessionBest
+  local reference = sessionBest
   local delta = reference and time - reference or nil
+  if not valid then return 'invalid', reference, delta end
   if sessionBest == nil or time < sessionBest then return 'session_best', reference, delta end
   if personalBest == nil or time < personalBest then return 'personal_best', reference, delta end
   return 'slower', reference, delta

@@ -22,12 +22,8 @@ end
 local function play(sound)
   local player = ensurePlayer(sound)
   if not player then return false end
-  local volume = 1
-  if type(ac.getAudioVolume) == 'function' and ac.AudioChannel and ac.AudioChannel.Main ~= nil then
-    local ok, value = pcall(ac.getAudioVolume, ac.AudioChannel.Main)
-    if ok and tonumber(value) then volume = math.max(0, math.min(1, tonumber(value))) end
-  end
-  pcall(function() player:setVolume(volume) end)
+  pcall(function() player:setVolume(1) end)
+  pcall(function() player:setCurrentTime(0) end)
   local ok = pcall(function() player:play() end)
   return ok
 end

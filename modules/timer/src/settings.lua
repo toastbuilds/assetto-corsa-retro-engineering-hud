@@ -1,4 +1,5 @@
 local SettingsUI = require('src/settings_ui')
+local Audio = require('modules/timer/src/audio')
 
 local Settings = {}
 
@@ -61,6 +62,8 @@ function Settings.draw()
     percentSlider('Background opacity', 'backgroundOpacity')
     slider('Result hold', 'freezeDuration', 1.0, 8.0, '%.1f s')
     checkbox('Record sound', 'audioEnabled')
+    if ui.button('Test sector sound##timer.test-sector-sound') then Audio.playSectorRecord() end
+    if ui.button('Test lap sound##timer.test-lap-sound') then Audio.playLapRecord() end
   end)
   SettingsUI.section('timer', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
@@ -68,6 +71,7 @@ function Settings.draw()
   end)
   SettingsUI.section('timer', 'advanced', 'Advanced', false, function()
     ui.textWrapped('A unique sound plays for each new absolute sector or lap record in the current session.')
+    ui.textWrapped('Result deltas compare with the session record before the crossing. BEST appears only for a valid session record.')
   end)
   ui.separator()
   SettingsUI.resetAppearance('timer', function()

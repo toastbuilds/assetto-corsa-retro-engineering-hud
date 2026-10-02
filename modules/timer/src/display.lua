@@ -8,9 +8,13 @@ local function inside(mouse, tl, br)
   return mouse.x >= tl.x and mouse.x <= br.x and mouse.y >= tl.y and mouse.y <= br.y
 end
 
-local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale)
+local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize)
   TimingUI.chamferRect(tl, tl + vec2(width, height), 7 * scale, fill, stroke, 1.3 * scale)
-  TimingUI.centeredText(label, 10 * scale, tl + vec2(width / 2, height / 2), textColor)
+  local size = (textSize or 10) * scale
+  local measured = ui.measureDWriteText(label, size)
+  size = size * math.min(1, (width - 10 * scale) / math.max(1, measured.x),
+    (height - 8 * scale) / math.max(1, measured.y))
+  TimingUI.centeredText(label, size, tl + vec2(width / 2, height / 2), textColor)
 end
 
 local function withBackgroundOpacity(color, opacity)
@@ -27,14 +31,15 @@ function Display.draw(snapshot, settings, visual)
   local contentTop = 5 * scale
   local finalHeight = snapshot.finalLap and 25 * scale or 0
   local result = snapshot.result
-  local badgeWidth = 56 * scale
+  local showBest = result and result.valid ~= false and result.status == 'session_best'
+  local bestWidth = 64 * scale
+  local deltaWidth = 88 * scale
   local gap = 5 * scale
-  local timerWidth = result and math.max(120 * scale, width - 2 * (badgeWidth + gap) - 12 * scale)
-    or width - 12 * scale
   local timerTop = contentTop + finalHeight + 6 * scale
   local timerHeight = height - timerTop - 2 * scale
-  local timerTL = vec2((width - timerWidth) / 2, timerTop)
-  local timerBR = timerTL + vec2(timerWidth, timerHeight)
+  local timerTL = vec2(6 * scale + (showBest and bestWidth + gap or 0), timerTop)
+  local timerBR = vec2(width - 6 * scale - (result and deltaWidth + gap or 0), timerTop + timerHeight)
+  local timerWidth = timerBR.x - timerTL.x
 
   ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
   ui.pushDWriteFont(FONT)
@@ -61,22 +66,23 @@ function Display.draw(snapshot, settings, visual)
   timeSize = timeSize * math.min(1, (timerWidth - 16 * scale - pitPadding) / math.max(1, measured.x),
     (timerHeight - 8 * scale) / math.max(1, measured.y))
   TimingUI.centeredText(timeText, timeSize,
-    vec2(width / 2 + pitPadding / 2, timerTop + timerHeight / 2), timeColor)
+    vec2((timerTL.x + timerBR.x + pitPadding) / 2, timerTop + timerHeight / 2), timeColor)
 
   if result then
-    local resultBadgeHeight = 22 * scale
-    local resultBadgeWidth = badgeWidth
+    local resultBadgeHeight = math.min(40 * scale, timerHeight)
     local badgeTop = timerTop + (timerHeight - resultBadgeHeight) / 2
-    local statusColor = TimingUI.statusColor(colors, result.status)
-    local statusFill = withBackgroundOpacity(TimingUI.statusDimColor(colors, result.status), backgroundOpacity)
-    local shortStatus = result.status == 'session_best' and 'BEST'
-      or result.status == 'personal_best' and 'PB'
-      or result.status == 'invalid' and 'INVALID' or 'VALID'
-    drawBadge(vec2(timerTL.x - gap - resultBadgeWidth, badgeTop), resultBadgeWidth, resultBadgeHeight, shortStatus,
-      statusFill, withBackgroundOpacity(statusColor, backgroundOpacity), statusColor, scale)
-    drawBadge(vec2(timerBR.x + gap, badgeTop), resultBadgeWidth, resultBadgeHeight,
+    if showBest then
+      drawBadge(vec2(6 * scale, badgeTop), bestWidth, resultBadgeHeight, 'BEST',
+        withBackgroundOpacity(colors.purpleDim, backgroundOpacity),
+        withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 20)
+    end
+    local deltaStatus = (result.valid == false or result.status == 'invalid') and 'invalid'
+      or (result.delta ~= nil and result.delta < 0 and 'session_best') or 'slower'
+    local deltaColor = deltaStatus == 'invalid' and colors.red
+      or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
+    drawBadge(vec2(timerBR.x + gap, badgeTop), deltaWidth, resultBadgeHeight,
       TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
-      withBackgroundOpacity(statusColor, backgroundOpacity), statusColor, scale)
+      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 20)
   end
 
   if snapshot.inPits then
