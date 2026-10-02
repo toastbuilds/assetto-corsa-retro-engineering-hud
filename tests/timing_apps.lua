@@ -85,9 +85,10 @@ assert(timer:update())
 local timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result and timerSnapshot.result.kind == 'sector')
 assert(timerSnapshot.result.status == 'session_best')
-assert(timerSnapshot.audioEventId == 1, 'session-best sector must create one audio event')
+assert(timerSnapshot.sectorRecordEventId == 1 and timerSnapshot.lapRecordEventId == 0,
+  'session-best sector must trigger only the sector record sound')
 assert(timer:update())
-assert(timer:snapshot().audioEventId == 1, 'same sector result must not replay audio')
+assert(timer:snapshot().sectorRecordEventId == 1, 'same sector result must not replay audio')
 
 player.currentSector = 2
 player.previousSectorTime = 32000
@@ -95,7 +96,7 @@ player.lapTimeMs = 63000
 assert(timer:update())
 timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result.status == 'personal_best')
-assert(timerSnapshot.audioEventId == 1, 'personal best below the session record must stay silent')
+assert(timerSnapshot.sectorRecordEventId == 1, 'personal best below the session record must stay silent')
 
 player.isLapValid = false
 assert(timer:update())
@@ -121,6 +122,29 @@ timerSnapshot = timer:snapshot()
 assert(timerSnapshot.result and timerSnapshot.result.kind == 'lap')
 assert(timerSnapshot.result.status == 'personal_best')
 assert(timerSnapshot.result.time == 91000)
+
+-- A new session lap record triggers the distinct lap record sound only once.
+resetWorld(94000, 93000,
+  { [0] = 30000, [1] = 31000, [2] = 30000 },
+  { [0] = 31000, [1] = 32000, [2] = 28000 })
+player.currentSector = 2
+player.splinePosition = 0.90
+timer = TimerState.new({ freezeDuration = 3 })
+assert(timer:update())
+player.lapCount = 1
+player.previousLapTimeMs = 91000
+player.lastSplits = { [2] = 30000 }
+player.splinePosition = 0.02
+player.lapTimeMs = 500
+assert(timer:update())
+timerSnapshot = timer:snapshot()
+assert(timerSnapshot.result.status == 'session_best')
+assert(timerSnapshot.lapRecordEventId == 1 and timerSnapshot.sectorRecordEventId == 0,
+  'session lap record event counters differ: lap=' .. tostring(timerSnapshot.lapRecordEventId)
+    .. ', sector=' .. tostring(timerSnapshot.sectorRecordEventId)
+    .. ', status=' .. tostring(timerSnapshot.result and timerSnapshot.result.status))
+assert(timer:update())
+assert(timer:snapshot().lapRecordEventId == 1, 'same lap record must not replay its sound')
 
 -- Fixed-lap races show FINAL LAP for the whole last lap without relying on a flag.
 resetWorld(92000, 90000,
@@ -203,19 +227,22 @@ player.currentSector = 1
 player.previousSectorTime = 10000
 player.lapTimeMs = 52000
 assert(timer:update())
-assert(timer:snapshot().currentLapTime == 52000 and timer:snapshot().audioEventId == 0)
+assert(timer:snapshot().currentLapTime == 52000 and timer:snapshot().sectorRecordEventId == 0
+  and timer:snapshot().lapRecordEventId == 0)
 player.lapCount = 12
 player.previousLapTimeMs = 50000
 player.lapTimeMs = 500
 player.currentSector = 0
 assert(timer:update())
-assert(timer:snapshot().currentLapTime == 500 and timer:snapshot().audioEventId == 0,
+assert(timer:snapshot().currentLapTime == 500 and timer:snapshot().sectorRecordEventId == 0
+  and timer:snapshot().lapRecordEventId == 0,
   'replay lap transitions must update the time without announcing records')
 assert(timer.personalBestLap == 92000 and timer.sessionBestLap == 90000)
 sim.isReplayActive = false
 sim.isLive = true
 assert(timer:update())
-assert(timer:snapshot().audioEventId == 0, 'leaving replay must not announce a stale lap result')
+assert(timer:snapshot().sectorRecordEventId == 0 and timer:snapshot().lapRecordEventId == 0,
+  'leaving replay must not announce a stale lap result')
 
 resetWorld(92000, 90000, nil, nil)
 player.splinePosition = 0.25
@@ -482,6 +509,18 @@ for _, progress in ipairs({ 0, 0.5, 1 }) do
 end
 
 local Edition = require('src/edition')
+local playedSounds = {}
+ui.MediaPlayer = function(path)
+  return {
+    setVolume = function() end,
+    play = function() playedSounds[#playedSounds + 1] = path end
+  }
+end
+local RecordAudio = require('modules/timer/src/audio')
+assert(RecordAudio.playLapRecord() and RecordAudio.playSectorRecord())
+assert(#playedSounds == 2 and playedSounds[1] == 'assets/experimental-5btgm.wav'
+  and playedSounds[2] == 'assets/notification-qqv87.wav',
+  'lap and sector records must use their distinct audio files')
 renderSnapshot.history = { { number = 122, time = 120000, status = 'slower' } }
 local function drawTransition(atTime, enabled)
   now = atTime

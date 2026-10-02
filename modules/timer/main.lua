@@ -11,7 +11,8 @@ local APP_TITLE = 'Retro UI Timer'
 local state = State.new(Settings.values)
 local controller = Window.new(APP_TITLE, function() return vec2(320, 94) end, 'top-center')
 local lastError
-local lastAudioEvent = 0
+local lastSectorRecordEvent = 0
+local lastLapRecordEvent = 0
 
 local function report(stage, err)
   local message = '[' .. APP_TITLE .. '] ' .. stage .. ': ' .. tostring(err)
@@ -25,9 +26,13 @@ function M.update()
   local ok, err = pcall(function() state:update() end)
   if not ok then report('update', err) end
   local snapshot = state:snapshot()
-  if snapshot.audioEventId ~= lastAudioEvent then
-    lastAudioEvent = snapshot.audioEventId
-    if Settings.values.audioEnabled then Audio.play() end
+  if snapshot.sectorRecordEventId ~= lastSectorRecordEvent then
+    lastSectorRecordEvent = snapshot.sectorRecordEventId
+    if Settings.values.audioEnabled then Audio.playSectorRecord() end
+  end
+  if snapshot.lapRecordEventId ~= lastLapRecordEvent then
+    lastLapRecordEvent = snapshot.lapRecordEventId
+    if Settings.values.audioEnabled then Audio.playLapRecord() end
   end
   controller:update(Settings.values)
 end

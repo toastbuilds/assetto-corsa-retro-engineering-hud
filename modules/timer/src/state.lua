@@ -70,7 +70,8 @@ function State.new(settings)
     personalBestSectors = {},
     sessionBestSectors = {},
     result = nil,
-    audioEventId = 0,
+    sectorRecordEventId = 0,
+    lapRecordEventId = 0,
     lastPlayerLapCount = nil,
     data = {
       currentLapTime = 0,
@@ -166,7 +167,7 @@ function State:finishSector(carState, car, newSector)
     local status, _, delta = classify(time, valid, oldPersonal, oldSession)
     self:showResult('sector', sector, time, status, delta, valid)
     if valid and (oldPersonal == nil or time < oldPersonal) then self.personalBestSectors[sector] = time end
-    if status == 'session_best' then self.audioEventId = self.audioEventId + 1 end
+    if status == 'session_best' then self.sectorRecordEventId = self.sectorRecordEventId + 1 end
   end
   if valid and (oldSession == nil or time < oldSession) then self.sessionBestSectors[sector] = time end
 end
@@ -188,7 +189,7 @@ function State:completeLap(carState, car)
     local status, _, delta = classify(time, valid, oldPersonal, oldSession)
     self:showResult('lap', lap.number, time, status, delta, valid)
     if valid and (oldPersonal == nil or time < oldPersonal) then self.personalBestLap = time end
-    if status == 'session_best' then self.audioEventId = self.audioEventId + 1 end
+    if status == 'session_best' then self.lapRecordEventId = self.lapRecordEventId + 1 end
   end
   if valid and (oldSession == nil or time < oldSession) then self.sessionBestLap = time end
 end
@@ -313,7 +314,8 @@ function State:snapshot()
   local now = type(ui.time) == 'function' and ui.time() or 0
   if self.result and now > self.result.expiresAt then self.result = nil end
   self.data.result = self.result
-  self.data.audioEventId = self.audioEventId
+  self.data.sectorRecordEventId = self.sectorRecordEventId
+  self.data.lapRecordEventId = self.lapRecordEventId
   return self.data
 end
 
