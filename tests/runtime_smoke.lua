@@ -329,16 +329,32 @@ assert(math.abs(telemetry.fuelNeedleNormalized - telemetry.fuelNormalized) < 0.0
 
 car.acceleration = { x = 0, y = 0, z = 1.2 }
 for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
-assert(telemetry.fuelNeedleNormalized < telemetry.fuelNormalized - 0.015,
-  'forward G must produce visible fuel-sender slosh')
+assert(telemetry.fuelNeedleNormalized < telemetry.fuelNormalized - 0.03,
+  'road cars must get the stronger fuel-sender slosh')
 car.acceleration = { x = 1.5, y = 0, z = 0 }
 for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
-assert(telemetry.fuelNeedleNormalized > telemetry.fuelNormalized + 0.01,
+assert(telemetry.fuelNeedleNormalized > telemetry.fuelNormalized + 0.02,
   'lateral G must also move the fuel sender')
 car.acceleration = { x = 0, y = 0, z = 0 }
 for _ = 1, 240 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
 assert(math.abs(telemetry.fuelNeedleNormalized - telemetry.fuelNormalized) < 0.002,
   'fuel sender must settle back to the true level after G is released')
+
+local roadSlosh = telemetry.fuelNormalized
+  - (function()
+    car.acceleration = { x = 0, y = 0, z = 1.2 }
+    for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+    return telemetry.fuelNeedleNormalized
+  end)()
+carId = 'test_gt3'
+local gt3Telemetry = Telemetry.new()
+car = makeCar({ acceleration = { x = 0, y = 0, z = 1.2 } })
+for _ = 1, 76 do Telemetry.update(gt3Telemetry, 1 / 60, Settings.current()) end
+local gt3Slosh = gt3Telemetry.fuelNormalized - gt3Telemetry.fuelNeedleNormalized
+assert(gt3Slosh > 0.015 and roadSlosh > gt3Slosh * 1.8,
+  'GT3 fuel slosh must retain the previous restrained response')
+carId = 'test_car'
+car = makeCar({ acceleration = { x = 0, y = 0, z = 0 } })
 
 GeneralSettings.values.speedUnit = 'mph'
 Telemetry.update(telemetry, 1 / 60, Settings.current())

@@ -30,6 +30,15 @@ local function isGT3(carId)
   return profileIsGT3
 end
 
+function M.isGT3(car)
+  local carId = car
+  if type(car) ~= 'string' then
+    local index = U.read(car, 'index', 0)
+    carId = ac.getCarID and ac.getCarID(index) or tostring(index)
+  end
+  return isGT3(tostring(carId))
+end
+
 local function finite(value)
   return type(value) == 'number' and value == value
     and value ~= math.huge and value ~= -math.huge
@@ -100,7 +109,7 @@ function M.windows(car)
   local key = tostring(carId) .. ':' .. tostring(compound)
   if cacheKey == key then return cachedWindows end
   cacheKey, cachedWindows = key, nil
-  if isGT3(carId) then
+  if M.isGT3(carId) then
     cachedWindows = {
       front = { minimum = Layout.gt3TyreOptimumMin, maximum = Layout.gt3TyreOptimumMax },
       rear = { minimum = Layout.gt3TyreOptimumMin, maximum = Layout.gt3TyreOptimumMax }

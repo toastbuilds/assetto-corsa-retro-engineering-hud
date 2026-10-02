@@ -80,6 +80,7 @@ local Classic = {
   fuelNeedleDamping = 5.4,
   fuelNeedleMaxVelocity = 0.55,
   fuelNeedleGResponse = 0.032,
+  fuelNeedleRoadSloshMultiplier = 2.0,
   fuelSloshFilterRate = 5.5,
   fuelSloshLateralWeight = 0.45,
   fuelSloshMaxG = 2.2,

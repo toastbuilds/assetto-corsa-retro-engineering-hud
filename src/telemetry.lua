@@ -291,7 +291,9 @@ local function updateFuelNeedle(state, car, dt)
   -- A nearly full or empty tank has less room for the float to wander. Keep a
   -- little movement at the ends, but make the effect strongest around half a tank.
   local room = 0.25 + 0.75 * U.clamp(4 * fuel * (1 - fuel), 0, 1)
-  local target = U.clamp(fuel + state.fuelSloshG * Gt7Layout.fuelNeedleGResponse * room, 0, 1)
+  local sloshMultiplier = TyreTemperature.isGT3(car) and 1 or Gt7Layout.fuelNeedleRoadSloshMultiplier
+  local target = U.clamp(
+    fuel + state.fuelSloshG * Gt7Layout.fuelNeedleGResponse * sloshMultiplier * room, 0, 1)
 
   if not state.fuelNeedleReady then
     state.fuelNeedleNormalized = fuel
