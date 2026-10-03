@@ -157,14 +157,16 @@ for _, x in ipairs({175, 1265}) do
   assert(rimCount == 3, 'new instrument layers must not add rings to the original bezel')
   assert(ledCount == Config.sub.segmentCount, 'fuel/boost fill must cover the printed scale at the same radius')
 end
--- Analog redline is carried by the internal divisions, not outer LED blocks.
+-- Analog redline uses digital blocks while numbered labels remain in front.
 local oldFraction = state.rpmGaugeNormalized
 local colors = Theme.get('dark')
 for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
   state.rpmGaugeNormalized = sample[1]
   local count = 0
+  local lastRedlineBlock = 0
+  local numberOnTop = 0
   local calls = harness.draw('classic', {gt7RpmNeedleMode='analog'})
-  for _, call in ipairs(calls) do
+  for index, call in ipairs(calls) do
     if call.kind == 'polygon' and #call.points == 4 then
       local segment = true
       for _, p in ipairs(call.points) do
@@ -174,11 +176,14 @@ for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
       end
       if segment then
         count = count + 1
+        lastRedlineBlock = index
         assert(call.color.r == sample[2].r and call.color.g == sample[2].g and call.color.b == sample[2].b)
       end
     end
+    if call.kind == 'text' and (call.text == '7' or call.text == '8') then numberOnTop = index end
   end
-  assert(count == 0, 'analog redline must not replace the numbered scale with LED blocks')
+  assert(count >= 2, 'analog redline requires digital blocks')
+  assert(numberOnTop > lastRedlineBlock, 'analog redline must keep scale numbers in front of its blocks')
 end
 state.rpmGaugeNormalized = oldFraction
 for _, x in ipairs({175,1265}) do

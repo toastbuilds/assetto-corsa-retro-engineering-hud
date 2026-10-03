@@ -149,7 +149,7 @@ local function rpmScaleColor(fraction, state, settings)
 end
 
 local function drawRpmScale(center, scale, state, settings, radius, tickInnerOffset,
-    tickOuterOffset, labelOffset, fontSize, tickWidth, backlit, neutral)
+    tickOuterOffset, labelOffset, fontSize, tickWidth, backlit, neutral, drawTicks, drawLabels)
   local maxRpm = rpmGaugeLimiter(state)
   local maxThousands = maxRpm / 1000
   local step = rpmScaleStep(maxRpm)
@@ -161,10 +161,14 @@ local function drawRpmScale(center, scale, state, settings, radius, tickInnerOff
     local tickInner = U.polar(center, radius * scale - tickInnerOffset * scale, angle)
     local tickOuter = U.polar(center, radius * scale - tickOuterOffset * scale, angle)
     local color = neutral and C.primary or rpmScaleColor(fraction, state, settings)
-    drawLine(tickInner, tickOuter, color, tickWidth * scale)
+    if drawTicks ~= false then
+      drawLine(tickInner, tickOuter, color, tickWidth * scale)
+    end
     local labelPosition = U.polar(center, radius * scale - labelOffset * scale, angle)
-    centeredBacklitText(string.format('%.0f', value), fontSize * scale, labelPosition,
-      color, scale, backlit)
+    if drawLabels ~= false then
+      centeredBacklitText(string.format('%.0f', value), fontSize * scale, labelPosition,
+        color, scale, backlit)
+    end
     value = value + step
   end
 end
@@ -179,6 +183,30 @@ local function drawRedlinePulse(center, radius, scale, state, settings)
     Layout.rpmStart + span * startFraction,
     Layout.rpmStart + span * endFraction,
     redlineColor(state, settings), 3 * scale, 24)
+end
+
+local function drawAnalogRedlineSegments(center, scale, state, settings)
+  local redlineFraction = rpmArcFraction(state, state.rpmRedlineFraction)
+  local segmentCount = math.max(2, math.ceil((1 - redlineFraction) * Layout.rpmSegments))
+  local firstAngle = Layout.rpmStart + (Layout.rpmEnd - Layout.rpmStart) * redlineFraction
+  local segmentSpan = (Layout.rpmEnd - firstAngle) / segmentCount
+  local active = U.clamp(state.rpmGaugeNormalized or state.rpmNormalized or 0, 0, 1)
+    >= redlineFraction
+  local color = active and (state.rpmRedline and redlineColor(state, settings) or C.red) or C.redDim
+  local radius = Layout.analogTickRadius * scale
+  local innerRadius = radius - InstrumentConfig.dial.segmentDepth * scale
+  local gap = InstrumentConfig.dial.segmentGap
+
+  for i = 1, segmentCount do
+    local startAngle = firstAngle + (i - 1) * segmentSpan + segmentSpan * gap / 2
+    local endAngle = firstAngle + i * segmentSpan - segmentSpan * gap / 2
+    ui.pathClear()
+    ui.pathLineTo(U.polar(center, radius, startAngle))
+    ui.pathLineTo(U.polar(center, radius, endAngle))
+    ui.pathLineTo(U.polar(center, innerRadius, endAngle))
+    ui.pathLineTo(U.polar(center, innerRadius, startAngle))
+    ui.pathFillConvex(color)
+  end
 end
 
 local function drawRpmArc(center, scale, state, settings)
@@ -236,26 +264,28 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   ui.drawCircle(dialCenter, dialRadius, C.outlineSoft, 96, 1.7 * scale)
   drawArc(dialCenter, tickRadius, Layout.rpmStart, Layout.rpmEnd, C.outlineDim, 2 * scale, 72)
   drawAnalogElectronics(origin, scale, state, settings, surface)
+  drawAnalogRedlineSegments(dialCenter, scale, state, settings)
 
   for i = 0, tickCount do
     local fraction = i / tickCount
     local angle = Layout.rpmStart + span * fraction
     local inShiftZone = fraction >= shiftZoneStart and fraction < redlineFraction
-    local color = C.secondary
-    if fraction >= redlineFraction then
-      color = state.rpmRedline and redlineColor(state, settings) or C.red
-    elseif inShiftZone then
-      color = state.rpmWarning and shiftLit and C.shiftBlue or C.shiftBlueDim
+    if fraction < redlineFraction then
+      local color = C.secondary
+      if inShiftZone then
+        color = state.rpmWarning and shiftLit and C.shiftBlue or C.shiftBlueDim
+      end
+      local length = 7 * scale
+      local outer = U.polar(dialCenter, tickRadius, angle)
+      local inner = U.polar(dialCenter, tickRadius - length, angle)
+      drawLine(inner, outer, color, 1.4 * scale)
     end
-    local length = 7 * scale
-    local outer = U.polar(dialCenter, tickRadius, angle)
-    local inner = U.polar(dialCenter, tickRadius - length, angle)
-    drawLine(inner, outer, color, (major and 2.6 or 1.4) * scale)
   end
 
   local backlit = state.headlights == true
+  -- Draw marks above the blocks; redraw the numbers after the needle so values like 7 stay legible.
   drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
-    backlit, true)
+    backlit, true, true, false)
 
   local gearCenter = dialCenter + vec2(0, Layout.analogGearOffsetY * scale)
   local gearColor = state.rpmWarning and C.amber or C.primary
@@ -271,6 +301,8 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   local preset = InstrumentConfig.needlePreset(style)
   Needle.draw(dialCenter, scale * Layout.analogNeedleLength / preset.length,
     needleAngle, preset, C, backlit and 1 or 0, needleColor)
+  drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
+    backlit, true, false, true)
 
   centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
     gearColor, scale, backlit)
