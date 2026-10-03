@@ -10,9 +10,6 @@ local OUTLINE_OFFSETS = {
   vec2(-1, 0), vec2(1, 0), vec2(0, -1), vec2(0, 1),
   vec2(-0.7, -0.7), vec2(0.7, -0.7), vec2(-0.7, 0.7), vec2(0.7, 0.7)
 }
-local WHEEL = { slots = {}, lastTime = nil, lastText = nil, lastFrame = nil }
-local WHEEL_STIFFNESS = 180
-local WHEEL_DAMPING = 27
 
 local function linearChannel(value)
   if value <= 0.04045 then return value / 12.92 end
@@ -35,94 +32,6 @@ local function drawOutlinedText(text, size, center, color, scale)
     ui.dwriteDrawText(text, size, position + offset * spread, outline)
   end
   ui.dwriteDrawText(text, size, position, color)
-end
-
-local function wheelFrame(timeMs, text)
-  local now = type(ui.time) == 'function' and tonumber(ui.time()) or nil
-  local dt = now and WHEEL.lastFrame and now - WHEEL.lastFrame or 1 / 60
-  if dt <= 0 then dt = 1 / 60 end
-
-  local reset = WHEEL.lastTime == nil or #text ~= #(WHEEL.lastText or '')
-    or dt > 0.20 or timeMs < WHEEL.lastTime - 500 or timeMs > WHEEL.lastTime + 500
-  if reset then WHEEL.slots = {} end
-
-  WHEEL.lastFrame = now
-  WHEEL.lastTime = timeMs
-  WHEEL.lastText = text
-  return math.min(dt, 0.10), reset
-end
-
-local function wheelTarget(timeMs, text, index)
-  local decimal = text:find('.', 1, true)
-  local colon = text:find(':', 1, true)
-  if not decimal then return nil end
-
-  local unit
-  if colon and index < colon then
-    unit = 60000 * 10 ^ (colon - index - 1)
-  elseif index < decimal then
-    unit = 1000 * 10 ^ (decimal - index - 1)
-  else
-    unit = 100 * 10 ^ (-(index - decimal - 1))
-  end
-  return timeMs / unit
-end
-
-local function springWheel(index, target, dt, reset)
-  local slot = WHEEL.slots[index]
-  if reset or not slot then
-    slot = { value = target, velocity = 0 }
-    WHEEL.slots[index] = slot
-    return target
-  end
-
-  local steps = math.max(1, math.ceil(dt * 120))
-  local step = dt / steps
-  for _ = 1, steps do
-    local acceleration = (target - slot.value) * WHEEL_STIFFNESS - slot.velocity * WHEEL_DAMPING
-    slot.velocity = slot.velocity + acceleration * step
-    slot.value = slot.value + slot.velocity * step
-  end
-  if math.abs(target - slot.value) < 0.0005 and math.abs(slot.velocity) < 0.01 then
-    slot.value, slot.velocity = target, 0
-  end
-  return slot.value
-end
-
-local function drawWheelTime(text, timeMs, size, center, color, scale)
-  local total = ui.measureDWriteText(text, size)
-  local origin = center - total / 2
-  local digitHeight = ui.measureDWriteText('0', size).y
-  local dt, reset = wheelFrame(timeMs, text)
-
-  for index = 1, #text do
-    local character = text:sub(index, index)
-    local prefix = text:sub(1, index - 1)
-    local prefixWidth = #prefix > 0 and ui.measureDWriteText(prefix, size).x or 0
-    local characterSize = ui.measureDWriteText(character, size)
-    local characterCenter = vec2(origin.x + prefixWidth + characterSize.x / 2, center.y)
-    local target = character:match('%d') and wheelTarget(timeMs, text, index) or nil
-
-    if target then
-      local left = origin.x + prefixWidth
-      local top = center.y - digitHeight / 2
-      local wheelValue = springWheel(index, target, dt, reset)
-      local wrappedValue = wheelValue - math.floor(wheelValue / 10) * 10
-      local lowerDigit = math.floor(wrappedValue)
-      local fraction = wrappedValue - lowerDigit
-
-      ui.pushClipRect(vec2(left, top), vec2(left + characterSize.x, top + digitHeight))
-      for row = lowerDigit, lowerDigit + 1 do
-        local digit = tostring(row % 10)
-        local digitCenter = vec2(characterCenter.x,
-          center.y + (row - wrappedValue) * digitHeight)
-        drawOutlinedText(digit, size, digitCenter, color, scale)
-      end
-      ui.popClipRect()
-    else
-      drawOutlinedText(character, size, characterCenter, color, scale)
-    end
-  end
 end
 
 local function inside(mouse, tl, br)
@@ -196,11 +105,7 @@ function Display.draw(snapshot, settings, visual)
     and (ui.measureDWriteText('*', timeSize * 0.34).x + 3 * scale) or 0
   local timeCenter = vec2((timerTL.x + timerBR.x + pitPadding) / 2 - actualMarkerReserve / 2,
     timerTop + timerHeight / 2)
-  if not result and tonumber(time) and tonumber(time) > 0 and timeText:find('%d') then
-    drawWheelTime(timeText, tonumber(time), timeSize, timeCenter, timeColor, scale)
-  else
-    drawOutlinedText(timeText, timeSize, timeCenter, timeColor, scale)
-  end
+  drawOutlinedText(timeText, timeSize, timeCenter, timeColor, scale)
   if hasInvalidMarker then
     local markerSize = timeSize * 0.34
     local markerMeasured = ui.measureDWriteText('*', markerSize)
