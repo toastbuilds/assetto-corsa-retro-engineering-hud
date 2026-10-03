@@ -545,9 +545,9 @@ ui.MediaPlayer = setmetatable({ supported = function() return true end }, {
 })
 local RecordAudio = require('modules/timer/src/audio')
 assert(RecordAudio.playLapRecord() and RecordAudio.playSectorRecord())
-assert(#playedSounds == 2 and playedSounds[1] == 'assets/experimental-5btgm.wav'
+assert(#playedSounds == 2 and playedSounds[1] == 'assets/notification-d4s3s.wav'
   and playedSounds[2] == 'assets/notification-qqv87.wav',
-  'lap and sector records must use their distinct audio files')
+  'completed laps and sector records must use their distinct audio files')
 assert(playedVolumes[1] == 1 and playedVolumes[2] == 1,
   'record playback must not apply an extra reduction on top of the game audio mix')
 local workingMediaPlayer = ui.MediaPlayer
@@ -730,8 +730,8 @@ ui.checkbox = function() return false end
 ui.textWrapped = function() end
 for _, preview in ipairs({
   { label = 'Test sector sound##timer.test-sector-sound', path = 'assets/notification-qqv87.wav' },
-  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/experimental-5btgm.wav' },
-  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/experimental-5btgm.wav' }
+  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/notification-d4s3s.wav' },
+  { label = 'Test lap sound##timer.test-lap-sound', path = 'assets/notification-d4s3s.wav' }
 }) do
   ui.button = function(label) return label == preview.label end
   local playedBefore = #playedSounds

@@ -1,7 +1,7 @@
 local Audio = {}
 local sounds = {
   sectorRecord = { path = 'assets/notification-qqv87.wav' },
-  lapRecord = { path = 'assets/experimental-5btgm.wav' }
+  lapCompleted = { path = 'assets/notification-d4s3s.wav' }
 }
 
 local function ensurePlayer(sound)
@@ -39,8 +39,13 @@ function Audio.playSectorRecord()
   return play(sounds.sectorRecord)
 end
 
+function Audio.playLapCompleted()
+  return play(sounds.lapCompleted)
+end
+
+-- Keep the previous helper name for compatibility with existing callers.
 function Audio.playLapRecord()
-  return play(sounds.lapRecord)
+  return Audio.playLapCompleted()
 end
 
 return Audio

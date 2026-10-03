@@ -62,9 +62,9 @@ function Settings.draw()
     slider('HUD scale', 'scale', 0.65, 1.50, '%.2fx')
     percentSlider('Background opacity', 'backgroundOpacity')
     slider('Result hold', 'freezeDuration', 1.0, 8.0, '%.1f s')
-    checkbox('Record sound', 'audioEnabled')
+    checkbox('Lap and sector sounds', 'audioEnabled')
     if ui.button('Test sector sound##timer.test-sector-sound') then previewFailed = not Audio.playSectorRecord() end
-    if ui.button('Test lap sound##timer.test-lap-sound') then previewFailed = not Audio.playLapRecord() end
+    if ui.button('Test lap sound##timer.test-lap-sound') then previewFailed = not Audio.playLapCompleted() end
     if previewFailed then ui.textWrapped('Could not play the record sound. Reload Retro UI and try again.') end
   end)
   SettingsUI.section('timer', 'personalization', 'Personalization', false, function()
@@ -72,7 +72,7 @@ function Settings.draw()
     checkbox('Pin / lock window', 'locked')
   end)
   SettingsUI.section('timer', 'advanced', 'Advanced', false, function()
-    ui.textWrapped('A unique sound plays for each new absolute sector or lap record in the current session.')
+    ui.textWrapped('The lap sound plays on every completed lap. The sector sound plays for each new absolute sector record in the current session.')
     ui.textWrapped('Result deltas compare with the session record before the crossing. BEST appears only for a valid session record.')
   end)
   ui.separator()

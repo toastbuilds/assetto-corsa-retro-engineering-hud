@@ -12,7 +12,7 @@ local state = State.new(Settings.values)
 local controller = Window.new(APP_TITLE, function() return vec2(320, 94) end, 'top-center')
 local lastError
 local lastSectorRecordEvent = 0
-local lastLapRecordEvent = 0
+local lastLapCompletedEvent = 0
 
 local function report(stage, err)
   local message = '[' .. APP_TITLE .. '] ' .. stage .. ': ' .. tostring(err)
@@ -30,9 +30,9 @@ function M.update(dt)
     lastSectorRecordEvent = snapshot.sectorRecordEventId
     if Settings.values.audioEnabled then Audio.playSectorRecord() end
   end
-  if snapshot.lapRecordEventId ~= lastLapRecordEvent then
-    lastLapRecordEvent = snapshot.lapRecordEventId
-    if Settings.values.audioEnabled then Audio.playLapRecord() end
+  if snapshot.lapCompletedEventId ~= lastLapCompletedEvent then
+    lastLapCompletedEvent = snapshot.lapCompletedEventId
+    if Settings.values.audioEnabled then Audio.playLapCompleted() end
   end
   controller:update(Settings.values)
 end

@@ -26,10 +26,21 @@ def font(size):
     return fonts[pixels]
 
 
-def raster(calls, width=1440, height=500):
-    canvas = Image.new("RGB", (width * FACTOR, height * FACTOR), "#121416")
+def raster(calls, width=1440, height=500, background="#121416"):
+    canvas = Image.new("RGB", (width * FACTOR, height * FACTOR), background)
     draw = ImageDraw.Draw(canvas, "RGBA")
+    clips = []
     for _, call in calls.items():
+        if call["kind"] == "clip_push":
+            bounds = tuple(round(call[key][axis] * FACTOR) for key in ("a", "b") for axis in ("x", "y"))
+            clips.append((canvas.copy(), bounds))
+            continue
+        if call["kind"] == "clip_pop":
+            base, bounds = clips.pop()
+            base.paste(canvas.crop(bounds), bounds[:2])
+            canvas = base
+            draw = ImageDraw.Draw(canvas, "RGBA")
+            continue
         color = call["color"]
         rgba = tuple(max(0, min(255, round(color[k] * 255))) for k in ("r", "g", "b")) + (
             max(0, min(255, round((color["mult"] or 1) * 255))),
@@ -100,8 +111,7 @@ def without_outer_ring(calls, layout):
     return keep
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def create_harness():
     lua = LuaRuntime(unpack_returned_tuples=True)
     harness = lua.execute((ROOT / "tests/gt7_layouts.lua").read_text(encoding="utf-8"))
     # Record nested alpha and use real Consolas metrics instead of mock metrics.
@@ -129,6 +139,12 @@ def main():
         return lua.globals().vec2(face.getlength(str(value)) / FACTOR, size)
 
     lua.globals().ui.measureDWriteText = measure
+    return lua, harness
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    lua, harness = create_harness()
     state = harness["state"]
     state["available"], state["maxFuel"], state["rpmText"] = True, 50, "5200"
     state["lightsAvailable"], state["fuelNormalized"] = True, 0.6

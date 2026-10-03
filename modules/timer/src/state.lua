@@ -74,6 +74,7 @@ function State.new(settings)
     lastUiTime = nil,
     sectorRecordEventId = 0,
     lapRecordEventId = 0,
+    lapCompletedEventId = 0,
     lastPlayerLapCount = nil,
     data = {
       currentLapTime = 0,
@@ -189,6 +190,7 @@ end
 function State:completeLap(carState, car)
   local lap = carState.lap
   if not lap then return end
+  if carState.index == 0 then self.lapCompletedEventId = self.lapCompletedEventId + 1 end
   local time = positive(Timing.previousLapTime(car))
   if not time then
     time = 0
@@ -331,6 +333,7 @@ function State:snapshot()
   self.data.result = self.result
   self.data.sectorRecordEventId = self.sectorRecordEventId
   self.data.lapRecordEventId = self.lapRecordEventId
+  self.data.lapCompletedEventId = self.lapCompletedEventId
   return self.data
 end
 

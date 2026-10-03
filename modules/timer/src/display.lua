@@ -3,18 +3,50 @@ local TimingUI = require('modules/timing/src/ui')
 
 local Display = {}
 local FONT = Theme.fonts.utility
+local CARBON_OUTLINE = rgbm(0x13 / 255, 0x10 / 255, 0x0D / 255, 1)
+local CREAM_OUTLINE = rgbm(0xF2 / 255, 0xDB / 255, 0xAE / 255, 1)
+
+local OUTLINE_OFFSETS = {
+  vec2(-1, 0), vec2(1, 0), vec2(0, -1), vec2(0, 1),
+  vec2(-0.7, -0.7), vec2(0.7, -0.7), vec2(-0.7, 0.7), vec2(0.7, 0.7)
+}
+
+local function linearChannel(value)
+  if value <= 0.04045 then return value / 12.92 end
+  return ((value + 0.055) / 1.055) ^ 2.4
+end
+
+local function outlineFor(color)
+  local luminance = linearChannel(color.r) * 0.2126
+    + linearChannel(color.g) * 0.7152 + linearChannel(color.b) * 0.0722
+  return luminance < 0.36 and CREAM_OUTLINE or CARBON_OUTLINE
+end
+
+local function drawOutlinedText(text, size, center, color, scale)
+  text = tostring(text)
+  local measured = ui.measureDWriteText(text, size)
+  local position = center - measured / 2
+  local spread = math.max(0.75, scale)
+  local outline = outlineFor(color)
+  for _, offset in ipairs(OUTLINE_OFFSETS) do
+    ui.dwriteDrawText(text, size, position + offset * spread, outline)
+  end
+  ui.dwriteDrawText(text, size, position, color)
+end
 
 local function inside(mouse, tl, br)
   return mouse.x >= tl.x and mouse.x <= br.x and mouse.y >= tl.y and mouse.y <= br.y
 end
 
-local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize)
+local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize, outlineValue)
   TimingUI.chamferRect(tl, tl + vec2(width, height), 8 * scale, fill, stroke, 1.1 * scale)
   local size = (textSize or 10) * scale
   local measured = ui.measureDWriteText(label, size)
   size = size * math.min(1, (width - 10 * scale) / math.max(1, measured.x),
     (height - 8 * scale) / math.max(1, measured.y))
-  TimingUI.centeredText(label, size, tl + vec2(width / 2, height / 2), textColor)
+  local center = tl + vec2(width / 2, height / 2)
+  if outlineValue then drawOutlinedText(label, size, center, textColor, scale)
+  else TimingUI.centeredText(label, size, center, textColor) end
 end
 
 local function withBackgroundOpacity(color, opacity)
@@ -65,8 +97,8 @@ function Display.draw(snapshot, settings, visual)
   local measured = ui.measureDWriteText(timeText, timeSize)
   timeSize = timeSize * math.min(1, (timerWidth - 16 * scale - pitPadding) / math.max(1, measured.x),
     (timerHeight - 8 * scale) / math.max(1, measured.y))
-  TimingUI.centeredText(timeText, timeSize,
-    vec2((timerTL.x + timerBR.x + pitPadding) / 2, timerTop + timerHeight / 2), timeColor)
+  drawOutlinedText(timeText, timeSize,
+    vec2((timerTL.x + timerBR.x + pitPadding) / 2, timerTop + timerHeight / 2), timeColor, scale)
 
   if result then
     local resultBadgeHeight = timerHeight
@@ -82,7 +114,7 @@ function Display.draw(snapshot, settings, visual)
       or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
     drawBadge(vec2(timerBR.x + gap, badgeTop), deltaWidth, resultBadgeHeight,
       TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
-      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 20)
+      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 20, true)
   end
 
   if snapshot.inPits then

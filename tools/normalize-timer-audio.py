@@ -8,7 +8,7 @@ import wave
 def main():
     assets = Path(__file__).resolve().parent.parent / 'assets'
     target_peak = int(32767 * 10 ** (-1 / 20))
-    for filename in ('notification-qqv87.wav', 'experimental-5btgm.wav'):
+    for filename in ('notification-qqv87.wav', 'experimental-5btgm.wav', 'notification-d4s3s.wav'):
         path = assets / filename
         with wave.open(str(path), 'rb') as source:
             parameters = source.getparams()
