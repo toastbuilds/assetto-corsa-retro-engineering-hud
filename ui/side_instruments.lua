@@ -269,7 +269,9 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
       end
     end
     for _, tick in ipairs(geometry.ticks) do
-      if not rpm or tick.f < redline then
+      -- Major marks align with printed values (7, 8, etc.) and must cut
+      -- through the analog redline blocks so those numbered positions remain clear.
+      if not rpm or tick.f < redline or tick.major then
         Light.line(center + vec2(tick.x1 * scale, tick.y1 * scale), center + vec2(tick.x2 * scale, tick.y2 * scale),
           C.primary, (tick.major and D.tickWidth or D.minorWidth) * scale,
           tick.major and L.major or (tick.medium and L.medium or L.minor), scale)
