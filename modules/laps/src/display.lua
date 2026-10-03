@@ -15,10 +15,6 @@ function Display.size(settings)
   return vec2(220, 9 + (settings.rows or 10) * 37)
 end
 
-local function inside(mouse, tl, br)
-  return mouse.x >= tl.x and mouse.x <= br.x and mouse.y >= tl.y and mouse.y <= br.y
-end
-
 local function drawRow(row, y, width, height, colors, scale, current)
   local tl = vec2(6 * scale, y)
   local br = vec2(width - 6 * scale, y + height)
@@ -79,8 +75,6 @@ function Display.draw(snapshot, settings, visual)
   local width, height = ui.windowWidth(), ui.windowHeight()
   local authored = Display.size(settings)
   local scale = math.max(0.35, math.min(settings.scale or 1, width / authored.x, height / authored.y))
-  local events = { toggleLock = false }
-  local mouse = type(ui.mouseLocalPos) == 'function' and ui.mouseLocalPos() or vec2(-1, -1)
   local rowHeight = 34 * scale
   local rowGap = 3 * scale
   local remaining = 0
@@ -108,13 +102,8 @@ function Display.draw(snapshot, settings, visual)
     y = y + rowHeight + rowGap
   end
 
-  if type(ui.mouseClicked) == 'function' and ui.MouseButton
-      and ui.mouseClicked(ui.MouseButton.Right) and inside(mouse, vec2(0, 0), vec2(width, height)) then
-    events.toggleLock = true
-  end
   ui.popDWriteFont()
   ui.popStyleVar(1)
-  return events
 end
 
 return Display

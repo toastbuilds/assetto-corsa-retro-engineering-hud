@@ -32,13 +32,11 @@ function M.windowMain(_)
     instrumentOpacity = GeneralSettings.values.opacity,
     animateLapChanges = Settings.values.animateLapChanges
   }
-  local ok, events = pcall(Display.draw, state:snapshot(), Settings.values, visual)
+  local ok, drawError = pcall(Display.draw, state:snapshot(), Settings.values, visual)
   if not ok then
-    report('draw', events)
-    ui.text('Laps: ' .. tostring(events))
-    return
+    report('draw', drawError)
+    ui.text('Laps: ' .. tostring(drawError))
   end
-  if events and events.toggleLock then controller:toggleLock(Settings.values) end
 end
 
 function M.windowSettings(_)

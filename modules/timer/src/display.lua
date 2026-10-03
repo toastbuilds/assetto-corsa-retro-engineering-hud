@@ -34,10 +34,6 @@ local function drawOutlinedText(text, size, center, color, scale)
   ui.dwriteDrawText(text, size, position, color)
 end
 
-local function inside(mouse, tl, br)
-  return mouse.x >= tl.x and mouse.x <= br.x and mouse.y >= tl.y and mouse.y <= br.y
-end
-
 local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize, outlineValue)
   TimingUI.chamferRect(tl, tl + vec2(width, height), 8 * scale, fill, stroke, 1.1 * scale)
   local size = (textSize or 10) * scale
@@ -58,8 +54,6 @@ function Display.draw(snapshot, settings, visual)
   local backgroundOpacity = math.max(0, math.min(1, tonumber(settings.backgroundOpacity) or 0.70))
   local width, height = ui.windowWidth(), ui.windowHeight()
   local scale = math.max(0.35, math.min(settings.scale or 1, width / 320, height / 94))
-  local events = { toggleLock = false }
-  local mouse = type(ui.mouseLocalPos) == 'function' and ui.mouseLocalPos() or vec2(-1, -1)
   local contentTop = 5 * scale
   local finalHeight = snapshot.finalLap and 25 * scale or 0
   local result = snapshot.result
@@ -135,13 +129,8 @@ function Display.draw(snapshot, settings, visual)
     TimingUI.leftText('P', 10 * scale, timerTL + vec2(10 * scale, 9 * scale), colors.amber)
   end
 
-  if type(ui.mouseClicked) == 'function' and ui.MouseButton
-      and ui.mouseClicked(ui.MouseButton.Right) and inside(mouse, vec2(0, 0), vec2(width, height)) then
-    events.toggleLock = true
-  end
   ui.popDWriteFont()
   ui.popStyleVar(1)
-  return events
 end
 
 return Display

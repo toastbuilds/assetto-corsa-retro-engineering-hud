@@ -6,6 +6,7 @@ local Intervals = require('modules/leaderboard/src/intervals')
 local Fuel = require('modules/leaderboard/src/fuel')
 local Leaderboard = require('modules/leaderboard/ui/leaderboard')
 local GlobalSettings = require('src/general_settings')
+local WindowAnchor = require('src/window_anchor')
 
 local dataState = Data.new()
 local intervalState = Intervals.new()
@@ -39,20 +40,7 @@ end
 function M.getTemperatureUnit() return Settings.values.temperatureUnit end
 
 function M.windowMain(_)
-  -- Manifest flags are static, so implement the persistent lock by restoring
-  -- the last saved screen position before drawing the current frame.
-  if Settings.values.lockWindow then
-    if Settings.values.lockX >= 0 and Settings.values.lockY >= 0 then
-      pcall(function() ui.setNextWindowPosition(vec2(Settings.values.lockX, Settings.values.lockY)) end)
-    else
-      pcall(function()
-        local position = ui.windowPos()
-        Settings.values.lockX, Settings.values.lockY = position.x, position.y
-      end)
-    end
-  else
-    Settings.values.lockX, Settings.values.lockY = -1, -1
-  end
+  Settings.values.lockWindow = WindowAnchor.isAnchored('leaderboard')
   local visual = ThemeSync.visual()
   local ok, err = pcall(function() Leaderboard.draw(lastSnapshot, Settings.values, visual) end)
   if not ok then

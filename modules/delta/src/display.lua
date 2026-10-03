@@ -220,7 +220,7 @@ local function drawNotification(notification, centerX, y, width, height, now, se
   ui.popClipRect()
 end
 
-function Display.draw(snapshot, settings, visual, pinned)
+function Display.draw(snapshot, settings, visual)
   local colors = visual.palette
   local opacity = visual.instrumentOpacity or 1
   local now = ui.time()
@@ -234,7 +234,7 @@ function Display.draw(snapshot, settings, visual, pinned)
   local contentHeight = barOnly and 112 or (compact and 72 or (showDetails and 164 or 104))
   local scale = math.min(settings.scale or 1, (width - 16) / 720, (height - 16) / contentHeight)
   scale = math.max(0.35, scale)
-  local events = { modeDelta = 0, toggleLock = false }
+  local events = { modeDelta = 0 }
 
   ui.pushStyleVarAlpha(opacity)
   ui.pushDWriteFont(FONT)
@@ -333,7 +333,6 @@ function Display.draw(snapshot, settings, visual, pinned)
     end
   end
 
-  if ui.mouseClicked(ui.MouseButton.Right) and inside(mouse, vec2(0, 0), vec2(width, height)) then events.toggleLock = true end
   ui.popDWriteFont()
   ui.popStyleVar(1)
   return events

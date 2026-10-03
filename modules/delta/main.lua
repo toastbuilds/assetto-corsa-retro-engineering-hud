@@ -200,20 +200,8 @@ function M.windowMain(_)
     notification1 = nil,
     notification2 = nil
   }
-  local pinned = Settings.values.locked == true
-  local events = Display.draw(snapshot, Settings.values, visual, pinned)
+  local events = Display.draw(snapshot, Settings.values, visual)
   if events and events.modeDelta ~= 0 and initialized then state:changeMode(events.modeDelta) end
-  if events and events.toggleLock then
-    local win = findWindow()
-    if win then
-      local current = false
-      pcall(function() current = win:pinned() == true end)
-      local nextValue = not current
-      pcall(function() win:setPinned(nextValue) end)
-      Settings.values.locked = nextValue
-      pinApplied = true
-    end
-  end
 end
 
 function M.windowSettings(_)

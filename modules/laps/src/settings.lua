@@ -54,7 +54,7 @@ function Settings.draw()
   end)
   SettingsUI.section('laps', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
-    checkbox('Pin / lock window', 'locked')
+    checkbox('Stay visible when mouse leaves', 'locked')
     if Edition.premium then checkbox('Animate lap changes', 'animateLapChanges') end
   end)
   SettingsUI.section('laps', 'advanced', 'Advanced', false, function()

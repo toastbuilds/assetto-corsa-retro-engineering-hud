@@ -44,13 +44,11 @@ function M.windowMain(_)
     palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
     instrumentOpacity = GeneralSettings.values.opacity
   }
-  local ok, events = pcall(Display.draw, snapshot, Settings.values, visual)
+  local ok, drawError = pcall(Display.draw, snapshot, Settings.values, visual)
   if not ok then
-    report('draw', events)
-    ui.text('Timer: ' .. tostring(events))
-    return
+    report('draw', drawError)
+    ui.text('Timer: ' .. tostring(drawError))
   end
-  if events and events.toggleLock then controller:toggleLock(Settings.values) end
 end
 
 function M.windowSettings(_)

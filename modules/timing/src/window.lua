@@ -121,10 +121,4 @@ function Window:invalidate()
   self.placementDirty = true
 end
 
-function Window:toggleLock(settings)
-  settings.locked = not (settings.locked == true)
-  self.lastLocked = nil
-  self:update(settings)
-end
-
 return Window

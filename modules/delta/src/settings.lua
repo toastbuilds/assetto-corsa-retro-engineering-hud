@@ -110,7 +110,7 @@ function Settings.draw()
       SettingsUI.choice('delta', 'position', 'Position', Settings.values.position,
         {{label='Upper', value=0}, {label='Centered', value=1}, {label='Lower', value=2}},
         function(value) Settings.values.position = value end)
-      checkbox('Pin / lock window', 'locked')
+      checkbox('Stay visible when mouse leaves', 'locked')
       checkbox('Auto-resize', 'autoResize')
       checkbox('Auto-placement', 'autoPlacement')
     end)

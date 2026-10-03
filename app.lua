@@ -9,6 +9,7 @@ local Dial = require('ui/dial')
 local Gt7 = require('ui/gt7_retro')
 local Condition = require('ui/car_condition')
 local ConditionLayout = require('src/car_condition_layout')
+local WindowAnchor = require('src/window_anchor')
 
 local panels = {
   relative = require('modules/relative/main'),
@@ -49,6 +50,11 @@ local function invoke(name, method, ...)
   end
 end
 
+local function drawHudWindow(id, callback)
+  WindowAnchor.begin(id)
+  callback()
+end
+
 local function updateCore(name, state, dt, values)
   local ok, err = pcall(function()
     local resolved = type(values) == 'function' and values() or values
@@ -71,6 +77,7 @@ local function publishTheme(dt)
 end
 
 function script.update(dt)
+  WindowAnchor.beginFrame()
   updateCore('dial', dialState, dt, DialSettings.current)
   updateCore('GT7', gt7State, dt, Gt7Settings.current)
   local ok, err = pcall(publishTheme, dt)
@@ -81,43 +88,47 @@ function script.update(dt)
 end
 
 function script.windowMain(_)
-  Dial.draw(dialState, DialSettings.current())
+  drawHudWindow('dial', function() Dial.draw(dialState, DialSettings.current()) end)
 end
 
 function script.gt7Main(_)
-  if not gt7SizeChecked then
-    gt7SizeChecked = true
-    local width, height = ui.windowWidth(), ui.windowHeight()
-    if height > 0 and width < height * 1.25 and ui.setNextWindowSize then
-      ui.setNextWindowSize(vec2(math.max(width * 1.25, 720), math.min(height, 360)))
+  drawHudWindow('gt7', function()
+    if not gt7SizeChecked then
+      gt7SizeChecked = true
+      local width, height = ui.windowWidth(), ui.windowHeight()
+      if height > 0 and width < height * 1.25 and ui.setNextWindowSize then
+        ui.setNextWindowSize(vec2(math.max(width * 1.25, 720), math.min(height, 360)))
+      end
     end
-  end
-  local settings = Gt7Settings.current()
-  Gt7.draw(gt7State, settings)
+    local settings = Gt7Settings.current()
+    Gt7.draw(gt7State, settings)
+  end)
 end
 
 function script.conditionMain(_)
-  if ac.setWindowSizeConstraints then
-    ac.setWindowSizeConstraints('condition', vec2(240, 210), vec2(1280, 1120))
-  end
-  if not conditionSizeChecked then
-    conditionSizeChecked = true
-    local width, height = ui.windowWidth(), ui.windowHeight()
-    if height > 0 and width / height < 1.05 and ui.setNextWindowSize then
-      ui.setNextWindowSize(vec2(math.max(ConditionLayout.width,
-        height * ConditionLayout.width / ConditionLayout.height), math.max(height, ConditionLayout.height)))
+  drawHudWindow('condition', function()
+    if ac.setWindowSizeConstraints then
+      ac.setWindowSizeConstraints('condition', vec2(240, 210), vec2(1280, 1120))
     end
-  end
-  Condition.draw(dialState, ConditionSettings.current())
+    if not conditionSizeChecked then
+      conditionSizeChecked = true
+      local width, height = ui.windowWidth(), ui.windowHeight()
+      if height > 0 and width / height < 1.05 and ui.setNextWindowSize then
+        ui.setNextWindowSize(vec2(math.max(ConditionLayout.width,
+          height * ConditionLayout.width / ConditionLayout.height), math.max(height, ConditionLayout.height)))
+      end
+    end
+    Condition.draw(dialState, ConditionSettings.current())
+  end)
 end
 
-function script.relativeMain(_) invoke('relative', 'windowMain', _) end
-function script.deltaMain(_) invoke('delta', 'windowMain', _) end
-function script.timerMain(_) invoke('timer', 'windowMain', _) end
-function script.lapsMain(_) invoke('laps', 'windowMain', _) end
-function script.leaderboardMain(_) invoke('leaderboard', 'windowMain', _) end
-function script.telemetryMain(_) invoke('telemetry', 'windowMain', _) end
-function script.mapMain(_) invoke('map', 'windowMain', _) end
+function script.relativeMain(_) drawHudWindow('relative', function() invoke('relative', 'windowMain', _) end) end
+function script.deltaMain(_) drawHudWindow('delta', function() invoke('delta', 'windowMain', _) end) end
+function script.timerMain(_) drawHudWindow('timer', function() invoke('timer', 'windowMain', _) end) end
+function script.lapsMain(_) drawHudWindow('laps', function() invoke('laps', 'windowMain', _) end) end
+function script.leaderboardMain(_) drawHudWindow('leaderboard', function() invoke('leaderboard', 'windowMain', _) end) end
+function script.telemetryMain(_) drawHudWindow('telemetry', function() invoke('telemetry', 'windowMain', _) end) end
+function script.mapMain(_) drawHudWindow('map', function() invoke('map', 'windowMain', _) end) end
 
 function script.deltaShow(_) invoke('delta', 'windowShow', _) end
 function script.deltaHide(_) invoke('delta', 'windowHide', _) end

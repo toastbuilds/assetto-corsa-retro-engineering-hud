@@ -174,11 +174,18 @@ borde y el punto indican el sector activo. Los récords, los sectores y las
 condiciones se pueden mostrar por separado desde los ajustes de Relative.
 
 **General** controla tema, unidades y opacidades de contenido y fondo para
-las ocho ventanas del HUD. Los fondos conservan la intensidad propia de cada
+las diez ventanas del HUD. Los fondos conservan la intensidad propia de cada
 diseño: los puntos del mapa siguen siendo más sutiles que su superficie.
 Escala, proporciones y tamaños continúan siendo locales. Los umbrales RPM,
 RPM de respaldo y parpadeos de Dial y GT7 también se configuran en General.
 Depuración y detección de clases permanecen en cada instrumento.
+
+En cualquiera de las diez ventanas HUD, haz clic derecho para anclarla en su
+posición actual. Otro clic derecho sobre ella la libera. El anclaje y la
+posición se conservan al reiniciar el juego; mientras está anclada, la ventana
+deja pasar el mouse para que puedas interactuar con lo que queda debajo. Este
+paso requiere CSP 0.2.8 o una versión posterior.
+**Retro UI Settings** permanece interactiva.
 
 Todas las páginas abren **Basics**; **Personalization** y **Advanced** se
 despliegan cuando hacen falta. En GT7 Premium, Basics contiene cuatro botones
@@ -200,8 +207,8 @@ una copia anterior en `Documents/Assetto Corsa/RetroUI/Class Backups`.
 
 Los archivos de las cuatro apps externas están integrados bajo `modules/`.
 Cada uno usa rutas `require()` y claves de almacenamiento separadas. El
-manifiesto CSP expone nueve ventanas en un único proceso. El paquete distribuye
-los archivos Lua, los mapas de clases, los recursos y las licencias.
+manifiesto CSP expone diez ventanas HUD y Settings en un único proceso. El
+paquete distribuye los archivos Lua, los mapas de clases, los recursos y las licencias.
 
 Para crear los paquetes locales, ejecuta `tools/build-package.ps1` con
 `-Edition free` o `-Edition premium`. El paquete Free conserva el layout GT7
@@ -215,8 +222,8 @@ la incluye ni impide por sí sola redistribuirlo.
 `npm run check:lua` comprueba sintaxis, módulos y callbacks CSP, incluidos
 los archivos Free y las pruebas. `python tools/test-lua.py` ejecuta todas las
 suites con Lupa y Lua 5.2, incluyendo los ajustes Premium y Free en runtimes
-separados. `tests/settings.lua` verifica las nueve páginas, migración, sliders,
-presets, resets y aplicación única de opacidad en las ocho ventanas. Con Lua 5.2
+separados. `tests/settings.lua` verifica las once páginas, migración, sliders,
+presets, resets y aplicación única de opacidad en las diez ventanas HUD. Con Lua 5.2
 o LuaJIT, ejecuta `lua tests/runtime_smoke.lua` y `lua tests/gt7_layouts.lua`
 para comprobar las ventanas principales y los layouts GT7 con una interfaz CSP
 simulada. Las pruebas de GT7 incluyen migración y persistencia de la composición,

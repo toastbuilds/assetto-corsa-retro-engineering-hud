@@ -310,8 +310,6 @@ function M.draw(snapshot, settings, visual)
   ui.popClipRect()
   ui.popDWriteFont()
   ui.popStyleVar(1)
-
-  if ui.mouseClicked(ui.MouseButton.Right) then settings.lockWindow = not settings.lockWindow end
 end
 
 return M

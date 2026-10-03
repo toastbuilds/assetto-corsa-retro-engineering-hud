@@ -1,6 +1,7 @@
 local M = {}
 local SettingsUI = require('src/settings_ui')
 local Classes = require('modules/leaderboard/src/classes')
+local WindowAnchor = require('src/window_anchor')
 
 M.values = ac.storage({
   settingsVersion = 1,
@@ -22,12 +23,26 @@ M.values = ac.storage({
   debug = false
 }, 'retro-ui.leaderboard.')
 
+WindowAnchor.initialize('leaderboard', {
+  anchored = M.values.lockWindow,
+  x = M.values.lockX,
+  y = M.values.lockY
+})
+
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
 
 local function checkbox(label, key)
   if ui.checkbox(label, M.values[key] == true) then M.values[key] = not M.values[key] end
+end
+
+local function anchorCheckbox()
+  local anchored = WindowAnchor.isAnchored('leaderboard')
+  if ui.checkbox('Anchor position and pass through mouse', anchored) then
+    local nextValue = not anchored
+    if WindowAnchor.setAnchored('leaderboard', nextValue) then M.values.lockWindow = nextValue end
+  end
 end
 
 local function slider(label, key, minimum, maximum, format)
@@ -47,7 +62,7 @@ local function resetAll()
   M.values.showCompound, M.values.scrollLongNames = false, false
   M.values.maxRows, M.values.intervalRefresh = 5, 0.25
   M.values.showFuel, M.values.fuelReserve, M.values.showLapEstimate = true, 2, true
-  M.values.lockWindow, M.values.debug = false, false
+  M.values.debug = false
   return true
 end
 
@@ -63,6 +78,7 @@ end
 
 function M.draw()
   M.normalize()
+  M.values.lockWindow = WindowAnchor.isAnchored('leaderboard')
   ui.header('Leaderboard')
   SettingsUI.section('leaderboard', 'basics', 'Basics', true, function()
     slider('HUD scale', 'hudScale', 0.55, 1.20, '%.2fx')
@@ -84,7 +100,7 @@ function M.draw()
   end)
   SettingsUI.section('leaderboard', 'advanced', 'Advanced', false, function()
     checkbox('Automatic class detection', 'automaticClasses')
-    checkbox('Lock overlay position', 'lockWindow')
+    anchorCheckbox()
     checkbox('Developer debug view', 'debug')
   end)
   ui.separator()
