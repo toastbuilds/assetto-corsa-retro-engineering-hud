@@ -32,7 +32,7 @@ local function blockGeometry(count, radius, depth, first, last, gap)
   return blocks
 end
 
-local mainGeometry, geometryKey, redlineGeometry, redlineKey
+local mainGeometry, geometryKey
 local subGeometry = blockGeometry(S.segmentCount, S.radius, S.segmentDepth,
   S.startAngle, S.endAngle, S.segmentGap)
 local analogSubGeometry = blockGeometry(S.segmentCount, S.analogRadius,
@@ -254,29 +254,18 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
     / math.max(state.rpmGaugeLimiter or 8000, 1), 0, 1)
   if digital < 1 then
     ui.pushStyleVarAlpha(1 - digital)
-    if rpm then
-      local key = table.concat({layout.gaugeStart, layout.gaugeEnd, redline}, '|')
-      if redlineKey ~= key then
-        redlineGeometry = blockGeometry(math.max(2, math.ceil((1 - redline) * D.segmentCount)),
-          D.segmentRadius, D.segmentDepth,
-          layout.gaugeStart + (layout.gaugeEnd - layout.gaugeStart) * redline,
-          layout.gaugeEnd, D.segmentGap)
-        redlineKey = key
-      end
-      for _, block in ipairs(redlineGeometry) do
-        Light.segment(center, scale, block, fraction >= redline and C.red or C.redDim,
-          fraction >= redline and L.segment or L.printedWarning)
-      end
-    end
     for _, tick in ipairs(geometry.ticks) do
-      if not rpm or tick.f < redline then
-        Light.line(center + vec2(tick.x1 * scale, tick.y1 * scale), center + vec2(tick.x2 * scale, tick.y2 * scale),
-          C.primary, (tick.major and D.tickWidth or D.minorWidth) * scale,
-          tick.major and L.major or (tick.medium and L.medium or L.minor), scale)
-      end
+      Light.line(center + vec2(tick.x1 * scale, tick.y1 * scale), center + vec2(tick.x2 * scale, tick.y2 * scale),
+        C.primary, (tick.major and D.tickWidth or D.minorWidth) * scale,
+        tick.major and L.major or (tick.medium and L.medium or L.minor), scale)
       if not tick.major then
+        local innerColor = C.secondary
+        if rpm and tick.f >= redline then
+          innerColor = rpmColor and rpmColor(tick.f, true, state, settings) or C.redDim
+        end
         ui.drawLine(center + vec2(tick.ix1 * scale, tick.iy1 * scale),
-          center + vec2(tick.ix2 * scale, tick.iy2 * scale), Light.color(C.secondary, L.inner), D.innerTickWidth * scale)
+          center + vec2(tick.ix2 * scale, tick.iy2 * scale),
+          Light.color(innerColor, L.inner), D.innerTickWidth * scale)
       end
     end
     for _, label in ipairs(geometry.labels) do

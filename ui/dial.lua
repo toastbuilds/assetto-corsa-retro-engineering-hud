@@ -149,7 +149,7 @@ local function rpmScaleColor(fraction, state, settings)
 end
 
 local function drawRpmScale(center, scale, state, settings, radius, tickInnerOffset,
-    tickOuterOffset, labelOffset, fontSize, tickWidth, backlit)
+    tickOuterOffset, labelOffset, fontSize, tickWidth, backlit, neutral)
   local maxRpm = rpmGaugeLimiter(state)
   local maxThousands = maxRpm / 1000
   local step = rpmScaleStep(maxRpm)
@@ -160,10 +160,11 @@ local function drawRpmScale(center, scale, state, settings, radius, tickInnerOff
     local angle = Layout.rpmStart + (Layout.rpmEnd - Layout.rpmStart) * fraction
     local tickInner = U.polar(center, radius * scale - tickInnerOffset * scale, angle)
     local tickOuter = U.polar(center, radius * scale - tickOuterOffset * scale, angle)
-    drawLine(tickInner, tickOuter, rpmScaleColor(fraction, state, settings), tickWidth * scale)
+    local color = neutral and C.primary or rpmScaleColor(fraction, state, settings)
+    drawLine(tickInner, tickOuter, color, tickWidth * scale)
     local labelPosition = U.polar(center, radius * scale - labelOffset * scale, angle)
     centeredBacklitText(string.format('%.0f', value), fontSize * scale, labelPosition,
-      rpmScaleColor(fraction, state, settings), scale, backlit)
+      color, scale, backlit)
     value = value + step
   end
 end
@@ -254,11 +255,10 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
 
   local backlit = state.headlights == true
   drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
-    backlit)
+    backlit, true)
 
   local gearCenter = dialCenter + vec2(0, Layout.analogGearOffsetY * scale)
-  local gearColor = state.rpmRedline and redlineColor(state, settings)
-    or (state.rpmWarning and C.amber or C.primary)
+  local gearColor = state.rpmWarning and C.amber or C.primary
   -- Put the gear pod behind the needle so the needle remains continuous
   -- across the pod instead of disappearing underneath it.
   ui.drawCircleFilled(gearCenter, Layout.analogGearPodRadius * scale, C.panelRaised, 32)
@@ -266,8 +266,7 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   ui.drawCircle(gearCenter, (Layout.analogGearPodRadius - 5) * scale, C.outlineDim, 32, 1 * scale)
 
   local needleAngle = Layout.rpmStart + span * state.analogNeedleNormalized
-  local needleColor = state.rpmRedline and redlineColor(state, settings)
-    or (state.rpmWarning and C.amber or nil)
+  local needleColor = state.rpmWarning and C.amber or nil
   local style = InstrumentConfig.normalizeNeedleStyle(settings.analogNeedleStyle, 'a01')
   local preset = InstrumentConfig.needlePreset(style)
   Needle.draw(dialCenter, scale * Layout.analogNeedleLength / preset.length,
@@ -645,12 +644,9 @@ local function drawCell(origin, scale, x, label, value, active, valueColor, draw
   end
 end
 
-local function drawWarningBezelCut(center, scale, state, settings, backdrop)
-  local active = state.rpmRedline or state.handbrake > 0.9
-  local warningFill = state.rpmRedline and (redlinePulseOn(state, settings) and C.redDim or C.amberDim) or C.amberDim
-  local warningStroke = state.rpmRedline and redlineColor(state, settings) or C.amber
+local function drawWarningBezelCut(center, scale, state, backdrop)
   drawBezelArcCut(center, Layout.bezelCutRadius * scale, math.pi / 2,
-    Layout.warningArcSpan, scale, active, backdrop, warningFill, warningStroke)
+    Layout.warningArcSpan, scale, state.handbrake > 0.9, backdrop, C.amberDim, C.amber)
 end
 
 local function drawDigitalRpmBezelCut(center, scale, state, settings, backdrop)
@@ -741,8 +737,6 @@ function M.draw(state, settings)
 
   if analogMode then
     drawAnalogDial(center, scale, state, settings, coreSurface, origin)
-    local analogCenter = center + vec2(0, Layout.analogDialOffsetY * scale)
-    drawRedlinePulse(analogCenter, (Layout.analogDialRadius - 8) * scale, scale, state, settings)
     drawAnalogAuxiliary(center, origin, scale, state, settings)
   else
     local coreAlertSurface = coreSurface
@@ -814,7 +808,7 @@ function M.draw(state, settings)
   end
 
   if analogMode then
-    drawWarningBezelCut(center, scale, state, settings, outerSurface)
+    drawWarningBezelCut(center, scale, state, outerSurface)
   else
     drawDigitalRpmBezelCut(center, scale, state, settings, outerSurface)
   end

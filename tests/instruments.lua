@@ -157,7 +157,7 @@ for _, x in ipairs({175, 1265}) do
   assert(rimCount == 3, 'new instrument layers must not add rings to the original bezel')
   assert(ledCount == Config.sub.segmentCount, 'fuel/boost fill must cover the printed scale at the same radius')
 end
--- Analog redline stays segmented, and only lights at the real threshold.
+-- Analog redline is carried by the internal divisions, not outer LED blocks.
 local oldFraction = state.rpmGaugeNormalized
 local colors = Theme.get('dark')
 for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
@@ -178,7 +178,7 @@ for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
       end
     end
   end
-  assert(count >= 2, 'analog redline requires visible digital blocks')
+  assert(count == 0, 'analog redline must not replace the numbered scale with LED blocks')
 end
 state.rpmGaugeNormalized = oldFraction
 for _, x in ipairs({175,1265}) do
