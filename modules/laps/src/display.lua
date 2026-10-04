@@ -98,7 +98,14 @@ function Display.draw(snapshot, settings, visual)
     visibleRows = visibleRows - 1
   end
   for i = 1, math.min(visibleRows, #snapshot.history) do
-    drawRow(snapshot.history[i], y - (rowHeight + rowGap) * remaining, width, rowHeight, colors, scale, false)
+    local rowY = y - (rowHeight + rowGap) * remaining
+    local fade = i == visibleRows and #snapshot.history > visibleRows
+    if fade then ui.beginGradientShade() end
+    drawRow(snapshot.history[i], rowY, width, rowHeight, colors, scale, false)
+    if fade then
+      ui.endGradientShade(vec2(0,rowY),vec2(0,rowY+rowHeight),
+        rgbm(1,1,1,1),rgbm(1,1,1,0.2),true)
+    end
     y = y + rowHeight + rowGap
   end
 

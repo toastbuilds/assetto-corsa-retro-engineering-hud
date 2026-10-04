@@ -427,6 +427,15 @@ ui.drawRectFilled = function(minimum, maximum, color)
   drawnMarkers[#drawnMarkers + 1] = { minimum = minimum, maximum = maximum, color = color }
 end
 
+local shadeActive, shadeCount = false,0
+ui.beginGradientShade = function() assert(not shadeActive); shadeActive=true end
+ui.endGradientShade = function(first,last,top,bottom,multiply)
+ assert(shadeActive and multiply==true)
+ assert(first.x==last.x and last.y>first.y,'fade must be vertical')
+ assert(top.r==1 and top.g==1 and top.b==1 and top.mult==1)
+ assert(bottom.r==1 and bottom.g==1 and bottom.b==1 and bottom.mult==0.2,'preserve RGB, multiply alpha to 20 percent')
+ shadeActive=false; shadeCount=shadeCount+1
+end
 local LapsDisplay = require('modules/laps/src/display')
 local Theme = require('modules/timing/src/theme')
 local renderSnapshot = {
@@ -453,7 +462,9 @@ for _, themeName in ipairs({ 'dark', 'light' }) do
         windowWidth = narrow and 143 or authored.x * scale
         windowHeight = authored.y * scale
         drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+        shadeCount=0
         LapsDisplay.draw(renderSnapshot, settings, { palette = colors, instrumentOpacity = 1 })
+        assert(not shadeActive and shadeCount==(rows==5 and 1 or 0),'shade only the last visible history row when more exists')
         assert(#drawnPanels == rows * 2 and #drawnMarkers == rows - 1 + 16)
         local rowIndex = 0
         for _, text in ipairs(drawnText) do
@@ -610,6 +621,26 @@ if Edition.premium then
     end
     assert(previousY == restingHistory.position.y)
   end
+end
+
+-- Limits and transitions must keep exactly one fade on the last historical row.
+for _,limit in ipairs({1,2,5,10}) do
+ for _,count in ipairs({0,1,5,12}) do
+  renderSnapshot.history={}
+  for index=1,count do renderSnapshot.history[index]={number=123-index,time=90000,status='slower'} end
+  for _,transition in ipairs({false,true}) do
+   renderSnapshot.transitionStartedAt=transition and 10 or nil
+   now=10.2; shadeCount=0
+   LapsDisplay.draw(renderSnapshot,{rows=limit,scale=1},
+    {palette=Theme.get('dark'),instrumentOpacity=0.4,animateLapChanges=true})
+   assert(not shadeActive and shadeCount==((count>limit-1 and limit>1) and 1 or 0))
+   assert(drawAlpha==1 and #alphaStack==0)
+  end
+ end
+end
+if TEST_LAPS_ONLY then
+ print('Laps: '..drawingCases..' drawings, full/hidden history, row limits, alpha multiplication and transitions passed')
+ return
 end
 
 local TimerDisplay = require('modules/timer/src/display')

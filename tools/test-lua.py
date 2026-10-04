@@ -11,6 +11,7 @@ def main():
     os.chdir(root)
     parser = argparse.ArgumentParser()
     parser.add_argument("--suite", action="append")
+    parser.add_argument("--edition", choices=("premium", "free"), default="premium")
     args = parser.parse_args()
     syntax = LuaRuntime()
     for folder in ("modules", "src", "ui"):
@@ -20,7 +21,9 @@ def main():
     if args.suite:
         for suite in args.suite:
             print(f"Running {suite}", flush=True)
-            LuaRuntime().execute((root / suite).read_text(encoding="utf-8-sig"))
+            runtime = LuaRuntime()
+            runtime.globals().TEST_EDITION = args.edition
+            runtime.execute((root / suite).read_text(encoding="utf-8-sig"))
         return
     suites = [
         "tests/leaderboard.lua",

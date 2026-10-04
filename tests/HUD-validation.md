@@ -9,3 +9,5 @@ Relatives: 96 panel drawing cases, 32 measured-column cases, long UTF-8 names, i
 Car Condition: per-axle percent WEAR_CURVE evaluation at tyreVirtualKM * 10 verified against the installed CMRT source. Cache, compound/car changes, replacement tyres, four-wheel mean, missing data, telemetry clearing and preference migration passed. Grip bar drawings cover below/above endpoints, both themes and three window sizes; selector persists and ignores locked input.
 
 Additional baseline failure: settings.lua rejects Timer's existing local Background opacity control as a duplicate global control. This assertion predates these changes; its Timer-scoped correction is deferred to the Timer commit.
+
+Laps: Premium and Free passed 24 drawing cases each plus full/hidden history, limits 1/2/5/10, and lap transitions. CSP SDK documents endGradientShade(useAlpha=true) as multiplying existing alpha; white RGB endpoints preserve colors, from 100% to 20% on only the final visible historical row.
