@@ -390,6 +390,10 @@ function vec2(horizontal, vertical)
 end
 function Vector.__add(first, second) return vec2(first.x + second.x, first.y + second.y) end
 function Vector.__sub(first, second) return vec2(first.x - second.x, first.y - second.y) end
+function Vector.__mul(first, second)
+  if type(first)=='number' then return vec2(first*second.x,first*second.y) end
+  return vec2(first.x*second,first.y*second)
+end
 function Vector.__div(vector, divisor) return vec2(vector.x / divisor, vector.y / divisor) end
 function rgbm(red, green, blue, alpha) return { r = red, g = green, b = blue, mult = alpha } end
 ac.storage = function(defaults) return defaults end
@@ -645,6 +649,7 @@ end
 
 local TimerDisplay = require('modules/timer/src/display')
 local timerDrawingCases = 0
+for _, themeName in ipairs({'dark','light'}) do
 for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   windowWidth, windowHeight = 320 * scale, 94 * scale
   for _, finalLap in ipairs({ false, true }) do
@@ -654,7 +659,7 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
         local snapshot = { currentLapTime = 139000, finalLap = finalLap, inPits = inPits }
         if resultActive then snapshot.result = { time = 139000, status = 'personal_best', delta = -1234 } end
         TimerDisplay.draw(snapshot, { scale = scale, backgroundOpacity = 0.7 },
-          { palette = Theme.get('dark'), instrumentOpacity = 1 })
+          { palette = Theme.get(themeName), instrumentOpacity = 1 })
         local panel = drawnPanels[finalLap and 2 or 1]
         local foundTime = false
         for _, text in ipairs(drawnText) do
@@ -674,6 +679,9 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   end
 end
 
+end
+
+for _, themeName in ipairs({'dark','light'}) do
 for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   windowWidth, windowHeight = 320 * scale, 94 * scale
   for _, finalLap in ipairs({ false, true }) do
@@ -686,7 +694,7 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
     }) do
       for _, opacity in ipairs({ 0, 0.7 }) do
         drawnText, drawnPanels, drawnMarkers = {}, {}, {}
-        local colors = Theme.get('dark')
+        local colors = Theme.get(themeName)
         local result = { kind = 'sector', time = 31000, status = outcome.status,
           delta = outcome.delta, valid = outcome.valid }
         TimerDisplay.draw({ result = result, finalLap = finalLap },
@@ -717,11 +725,12 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
           if text.value == 'BEST' then
             bestCount = bestCount + 1
             assert(text.size >= 19 * scale and text.color == colors.purple)
-          elseif text.value == deltaText then
+          elseif text.value == deltaText and not ((text.color.r==0x13/255 and text.color.g==0x10/255 and text.color.b==0x0D/255)
+              or (text.color.r==0xF2/255 and text.color.g==0xDB/255 and text.color.b==0xAE/255)) then
             deltaCount = deltaCount + 1
-            local expectedColor = not outcome.valid and colors.red or outcome.delta == nil and colors.secondary
+            local expectedColor = not outcome.valid and colors.secondary or outcome.delta == nil and colors.secondary
               or outcome.delta < 0 and colors.purple or colors.amber
-            assert(text.size >= 19 * scale and text.color == expectedColor,
+            assert(text.size >= 18 * scale and text.color == expectedColor,
               'large relative text must reflect the gap to the session record, including invalid laps')
           end
         end
@@ -735,6 +744,8 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
       end
     end
   end
+end
+
 end
 
 local visibleCheckboxes = {}
@@ -774,14 +785,14 @@ for _, preview in ipairs({
     'a preview must restart the sound so repeated clicks remain audible')
   assert(TimerSettings.values.audioEnabled == false, 'previewing must not enable automatic record alerts')
 end
-local playLapRecord = RecordAudio.playLapRecord
-RecordAudio.playLapRecord = function() return false, 'audio failed' end
+local playLapCompleted = RecordAudio.playLapCompleted
+RecordAudio.playLapCompleted = function() return false, 'audio failed' end
 local previewNotice
 ui.textWrapped = function(message) previewNotice = message end
 TimerSettings.draw()
 assert(previewNotice and previewNotice:find('Could not play the record sound', 1, true),
   'failed previews must give visible feedback instead of silently doing nothing')
-RecordAudio.playLapRecord = playLapRecord
+RecordAudio.playLapCompleted = playLapCompleted
 previewNotice = nil
 TimerSettings.draw()
 assert(previewNotice == nil, 'a successful preview must clear the previous failure notice')

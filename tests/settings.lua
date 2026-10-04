@@ -159,7 +159,8 @@ for _,page in ipairs(pages) do
   assert(visible['v  Basics##'..page[1]..'.basics'],'Basics must start open: '..page[1])
   assert(visible['>  Personalization##'..page[1]..'.personalization'],'Personalization must start closed')
   if page[1]~='general' then
-    assert(not visible['Content opacity'] and not visible['Background opacity'],'global controls must appear once')
+    assert(not visible['Content opacity'] and (page[1]=='timer' or not visible['Background opacity']),
+      'global controls must appear once; Timer retains its authored local plate opacity')
     assert(not visible['Blink redline alert'] and not visible['RPM warning threshold'])
   end
 end
@@ -245,6 +246,15 @@ end
 
 -- Draw actual window callbacks: a 50% global opacity must halve every foreground
 -- primitive once, even when obsolete local opacity fields hold other values.
+-- Prime the shared app runtime with timing telemetry before testing Timer's
+-- real window callback. The app's update also seeds the current Laps row.
+local savedGetCar, savedIterateCars = ac.getCar, ac.iterateCars
+local timingCar = { index=0, lapCount=0, currentSector=0, splinePosition=0.1,
+  lapTimeMs=12345, isLapValid=true, isActive=true, isConnected=true, wheels={} }
+ac.getCar=function(index) return index==0 and timingCar or nil end
+ac.iterateCars=function() return ipairs({timingCar}) end
+script.update(0)
+ac.getCar, ac.iterateCars = savedGetCar, savedIterateCars
 local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain'}
 local function assertGlobalOpacity(callback)
   General.values.opacity=1

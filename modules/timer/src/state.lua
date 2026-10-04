@@ -134,6 +134,7 @@ function State:resetSession(sim)
   self.data.invalid = false
   self.data.inPits = false
   self.data.finalLap = false
+  self.raceEnd = { observations = {} }
   self:seedRecords()
 end
 
@@ -260,18 +261,76 @@ function State:processCar(car)
 end
 
 function State:isFinalLap(sim, player)
-  local session
-  local ok = pcall(function() session = ac.getSession(sim.currentSessionIndex) end)
-  if not ok or not Session.isRace(session) then return false end
-  local flag = Session.flag(sim, session)
-  if flag == 'LAST LAP' then return true end
-  if not Session.isTimed(session) then
-    local total = positive(session and session.laps)
-    local completed = math.max(0, math.floor(numberOr(Timing.field(player, 'lapCount',
-      Timing.field(player, 'sessionLapCount', 0)), 0)))
-    return total ~= nil and completed >= math.max(0, math.floor(total + 0.5) - 1)
+  local ok, session = pcall(ac.getSession, sim.currentSessionIndex)
+  if not ok or not Session.isRace(session) then
+    self.raceEnd = { observations = {} }
+    return false
   end
-  return false
+  local state = self.raceEnd or { observations = {} }
+  local remaining = Session.timeLeftSeconds(sim, session)
+  local frame = sim.isReplayActive == true and tonumber(sim.replayCurrentFrame) or nil
+  local completed = math.max(0, math.floor(numberOr(Timing.field(player,'lapCount',
+    Timing.field(player,'sessionLapCount',0)),0)))
+  if (frame and state.frame and frame < state.frame)
+      or (state.playerLaps and completed < state.playerLaps)
+      or (remaining and state.remaining and remaining > state.remaining + 5) then
+    state = { observations = {} }
+  end
+  self.raceEnd = state
+  state.frame, state.playerLaps, state.remaining = frame, completed, remaining
+
+  local flag = Session.flag(sim, session)
+  if flag == 'FINISH' or sim.isSessionFinished == true or session.isSessionFinished == true
+      or session.isFinished == true or Timing.field(player,'isRaceFinished',false) then
+    state.active, state.expired = false, false
+    return false
+  end
+  -- The official last-lap flag overrides every fallback, including extra laps.
+  if flag == 'LAST LAP' then state.active = true end
+
+  local leader, observations, leaderPosition, leaderProgress = nil, {}, math.huge, -math.huge
+  for _, car in ipairs(Timing.cars()) do
+    if Timing.field(car,'isActive',true) ~= false and Timing.field(car,'isConnected',true) ~= false then
+      local index = Timing.field(car,'index',nil)
+      local lap = numberOr(Timing.field(car,'lapCount',Timing.field(car,'sessionLapCount',0)),0)
+      local spline = Timing.currentSpline(car,self.trackName)
+      local position = positive(Timing.field(car,'racePosition',nil)) or math.huge
+      if index ~= nil then
+        local before = state.observations[index]
+        local after = {lap=lap,spline=spline,crossed=false}
+        if before and lap >= before.lap then
+          local counterChanged = lap > before.lap
+          local wrapped = before.spline > 0.75 and spline < 0.25
+          local counterCross = counterChanged and not (before.pendingCounter and lap <= before.pendingCounter)
+          local splineCross = wrapped and not before.pendingSpline
+          after.crossed = counterCross or splineCross
+          -- Counter and spline can arrive on different frames. Count one crossing.
+          if splineCross and not counterChanged then after.pendingCounter = lap+1
+          elseif before.pendingCounter and lap < before.pendingCounter then after.pendingCounter = before.pendingCounter end
+          after.pendingSpline = not wrapped and (before.pendingSpline or (counterCross and spline > 0.75))
+        end
+        observations[index] = after
+      end
+      if position < leaderPosition or (position == leaderPosition and lap+spline > leaderProgress) then
+        leader, leaderPosition, leaderProgress = car, position, lap+spline
+      end
+    end
+  end
+  local crossed = false
+  if leader then
+    local index = Timing.field(leader,'index',nil)
+    crossed = observations[index] ~= nil and observations[index].crossed == true
+  end
+  state.observations = observations
+
+  if not Session.isTimed(session) then
+    local total = positive(session.laps)
+    if total and completed >= math.max(0,math.floor(total+0.5)-1) then state.active = true end
+  else
+    if remaining ~= nil and remaining <= 0 then state.expired = true end
+    if state.expired and (session.hasAdditionalLap ~= true or crossed) then state.active = true end
+  end
+  return state.active == true
 end
 
 function State:publishPlayerData(player)
