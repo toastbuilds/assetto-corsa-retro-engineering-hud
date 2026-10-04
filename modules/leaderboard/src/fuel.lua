@@ -67,6 +67,7 @@ function M.update(state, snapshot, settings)
   state.fuel, state.maxFuel, state.available = fuel, maxFuel, validFuel(fuel, maxFuel)
   if not state.available then
     state.fuelText, state.averageText, state.estimatedLapsText, state.finishText = 'N/A', '--', '--', '--'
+    state.fuelNeeded, state.finishAvailable, state.estimatedLaps = nil, false, nil
     return state
   end
 
@@ -96,6 +97,7 @@ function M.update(state, snapshot, settings)
       resetLapBase(state, lap, fuel)
       state.sawRefuel = false
     elseif lap < state.currentLap then
+      M.reset(state, sessionIndex)
       resetLapBase(state, lap, fuel)
     end
   end

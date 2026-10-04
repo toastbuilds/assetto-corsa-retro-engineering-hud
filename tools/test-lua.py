@@ -1,6 +1,7 @@
 """Run CSP regression suites in isolated Lua 5.2 runtimes (requires Lupa)."""
 from pathlib import Path
 import os
+import argparse
 
 from lupa.lua52 import LuaRuntime
 
@@ -8,7 +9,21 @@ from lupa.lua52 import LuaRuntime
 def main():
     root = Path(__file__).resolve().parent.parent
     os.chdir(root)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--suite", action="append")
+    args = parser.parse_args()
+    syntax = LuaRuntime()
+    for folder in ("modules", "src", "ui"):
+        for path in (root / folder).rglob("*.lua"):
+            syntax.execute("assert(load(...))", path.read_text(encoding="utf-8-sig"))
+    print("Lua syntax passed", flush=True)
+    if args.suite:
+        for suite in args.suite:
+            print(f"Running {suite}", flush=True)
+            LuaRuntime().execute((root / suite).read_text(encoding="utf-8-sig"))
+        return
     suites = [
+        "tests/leaderboard.lua",
         "tests/window_anchor.lua",
         "tests/runtime_smoke.lua",
         "tests/relative.lua",

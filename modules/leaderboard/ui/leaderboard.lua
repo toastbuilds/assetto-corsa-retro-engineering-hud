@@ -140,10 +140,7 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
   ui.drawLine(origin + vec2(145 * scale, 29 * scale), origin + vec2(145 * scale, 70 * scale), role(palette, 'outlineSoft', 0.98), 1 * scale)
   text('TIME  ' .. (h.timeText or '--:--'), 18 * scale, origin + vec2(170 * scale, 38 * scale), role(palette, 'primary', textOpacity))
   text('LAP  ' .. (h.currentLapText or '--'), 18 * scale, origin + vec2(365 * scale, 38 * scale), role(palette, 'primary', textOpacity))
-  if settings.showFlags == false then
-    text('AIR  ' .. (h.ambientText or '--'), 14 * scale, origin + vec2(36 * scale, 78 * scale), role(palette, 'secondary', labelOpacity))
-    text('TARMAC  ' .. (h.trackText or '--'), 14 * scale, origin + vec2(225 * scale, 78 * scale), role(palette, 'cyan', textOpacity))
-  else
+  if settings.showFlags ~= false then
     local flagColors = { green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white' }
     local flagColor = flagColors[h.flagRole] or 'green'
     local pulse = flagPulse(h.flagLabel, ui.time())
@@ -151,15 +148,13 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
     chamferRect(flagTL, flagBR, 4 * scale, role(palette, flagColor, (0.14 + 0.26 * pulse) * surfaceOpacity), role(palette, flagColor, 0.58 + 0.40 * pulse), 0.9 * scale)
     text('FLAG', 12 * scale, origin + vec2(42 * scale, 81 * scale), role(palette, 'secondary', labelOpacity))
     emphasizedText(h.flagLabel or 'CLEAR', 15 * scale, origin + vec2(92 * scale, 78 * scale), role(palette, flagColor, 0.72 + 0.28 * pulse))
-    text('AIR  ' .. (h.ambientText or '--'), 13 * scale, origin + vec2(255 * scale, 79 * scale), role(palette, 'secondary', labelOpacity))
-    text('TARMAC  ' .. (h.trackText or '--'), 13 * scale, origin + vec2(375 * scale, 79 * scale), role(palette, 'cyan', textOpacity))
   end
 
-  local lapTL, lapBR = origin + vec2(525 * scale, 29 * scale), origin + vec2(715 * scale, 78 * scale)
+  local lapTL, lapBR = origin + vec2(360 * scale, 72 * scale), origin + vec2(665 * scale, 100 * scale)
   chamferRect(lapTL, lapBR, 6 * scale, role(palette, 'panelRaised', surfaceOpacity), role(palette, 'amber', 0.96), 1.2 * scale)
-  centered(h.lapsText or 'LAPS: --', 19 * scale, vec2((lapTL.x + lapBR.x) / 2, lapTL.y + 25 * scale), role(palette, 'amber', textOpacity))
+  centered(h.lapsText or 'LAPS: --', 19 * scale, vec2((lapTL.x + lapBR.x) / 2, lapTL.y + 14 * scale), role(palette, 'amber', textOpacity))
 
-  local fuelX, fuelY, fuelW, fuelH = origin.x + (width - 250) * scale, origin.y + 21 * scale, 225 * scale, 72 * scale
+  local fuelX, fuelY, fuelW, fuelH = origin.x + (width - 375) * scale, origin.y + 21 * scale, 350 * scale, 80 * scale
   if settings.showFuel == false then
     text(settings.lockWindow and 'LOCK' or 'MOVE', 9 * scale, origin + vec2((width - 54) * scale, 92 * scale), role(palette, 'secondary', opacity))
     return
@@ -183,13 +178,16 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
       vec2(fuelX + 72 * scale, fuelY + (14 + i * 7) * scale), barColor)
   end
   local fuel = snapshot.fuel or {}
-  text('FUEL', 13 * scale, vec2(fuelX + 88 * scale, fuelY + 10 * scale), role(palette, 'secondary', labelOpacity))
-  text(fuel.available and (fuel.fuelText or 'N/A') or 'N/A', 16 * scale, vec2(fuelX + 166 * scale, fuelY + 8 * scale), role(palette, 'primary', textOpacity))
-  ui.drawLine(vec2(fuelX + 85 * scale, fuelY + 31 * scale), vec2(fuelX + fuelW - 10 * scale, fuelY + 31 * scale), role(palette, 'outlineDim', 0.92), 0.8 * scale)
-  text('AVG', 12 * scale, vec2(fuelX + 88 * scale, fuelY + 36 * scale), role(palette, 'secondary', labelOpacity))
-  text(fuel.averageText or '--', 14 * scale, vec2(fuelX + 166 * scale, fuelY + 34 * scale), role(palette, fuel.average and 'amber' or 'primary', textOpacity))
-  text('EST', 12 * scale, vec2(fuelX + 88 * scale, fuelY + 55 * scale), role(palette, 'secondary', labelOpacity))
-  text(fuel.estimatedLapsText or '--', 14 * scale, vec2(fuelX + 166 * scale, fuelY + 53 * scale), role(palette, 'primary', textOpacity))
+  local labels = { 'FUEL', 'AVG', 'EST' }
+  local values = { fuel.available and (fuel.fuelText or 'N/A') or 'N/A', fuel.averageText or '--', fuel.estimatedLapsText or '--' }
+  for i = 1, 3 do
+    local cy = fuelY + (14 + (i - 1) * 26) * scale
+    local labelSize, valueSize = 16 * scale, 24 * scale
+    local measured = ui.measureDWriteText(values[i], valueSize)
+    valueSize = valueSize * math.min(1, 196 * scale / math.max(1, measured.x))
+    text(labels[i], labelSize, vec2(fuelX + 88 * scale, cy - ui.measureDWriteText(labels[i], labelSize).y / 2), role(palette, 'secondary', labelOpacity))
+    text(values[i], valueSize, vec2(fuelX + 144 * scale, cy - ui.measureDWriteText(values[i], valueSize).y / 2), role(palette, 'primary', textOpacity))
+  end
 end
 
 local function currentSectorText(row)

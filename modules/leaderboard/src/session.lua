@@ -8,7 +8,7 @@ end
 
 local function number(value)
   value = tonumber(value)
-  return value and value == value and value or nil
+  return value and value == value and value ~= math.huge and value ~= -math.huge and value or nil
 end
 
 local function positive(value)
@@ -17,15 +17,10 @@ local function positive(value)
 end
 
 local function seconds(value, key)
-  value = positive(value)
-  if not value then return nil end
-  -- CSP has used both seconds and milliseconds for time-left style fields.
-  if key and key:lower():find('ms', 1, true) then return value / 1000 end
-  if value > 100000 then return value / 1000 end
-  -- A millisecond value exposed under a generic `timeLeft` name is common in
-  -- older CSP builds; normal session countdowns are not hours long.
-  if value > 7200 then return value / 1000 end
-  return value
+  value = number(value)
+  if value == nil then return nil end
+  -- CSP countdown fields are documented in milliseconds, including timeLeft.
+  return value / 1000
 end
 
 function M.safeCurrent()
@@ -99,15 +94,14 @@ function M.lapHeader(session, sim, leaderRow, sessionBest, showEstimate)
   if showEstimate == false then return 'LAPS: --' end
 
   local remaining = M.timeLeftSeconds(sim, session)
-  -- A total-lap projection becomes trustworthy as soon as any driver has set
-  -- a valid fastest lap. Do not wait for the current leader to complete one.
-  local reference = M.sessionBestReferenceSeconds(sessionBest)
+  -- Only the current overall leader sets the timed-race reference.
+  local reference = M.sessionBestReferenceSeconds(leaderRow and leaderRow.bestLapTimeMs)
   local leaderLap = leaderRow and number(leaderRow.lapCount)
   if not remaining or not reference or not leaderLap or reference < 5 or reference > 600 then
     return 'LAPS: --'
   end
 
-  local projected = math.max(0, math.floor(leaderLap + math.ceil(remaining / reference)))
+  local projected = math.max(0, math.floor(leaderLap + math.ceil(math.max(0, remaining) / reference)))
   if read(session, 'hasAdditionalLap') == true then projected = projected + 1 end
   if projected <= 0 then return 'LAPS: --' end
   return 'LAPS: ~' .. tostring(projected)
@@ -120,12 +114,12 @@ function M.lapsRemaining(session, sim, localRow, leaderRow, sessionBest)
     return math.max(0, math.floor(laps - (number(localRow.lapCount) or 0)))
   end
   local remaining = M.timeLeftSeconds(sim, session)
-  local reference = M.sessionBestReferenceSeconds(sessionBest)
+  local reference = M.sessionBestReferenceSeconds(leaderRow and leaderRow.bestLapTimeMs)
   if not remaining or not reference or reference < 5 or reference > 600 then return nil end
   local localLap = number(localRow.lapCount)
   if not localLap then return nil end
   local extra = read(session, 'hasAdditionalLap') == true and 1 or 0
-  return math.max(0, math.ceil(remaining / reference) + extra)
+  return math.max(0, math.ceil(math.max(0, remaining) / reference) + extra)
 end
 
 local function enumEquals(value, enum, key)

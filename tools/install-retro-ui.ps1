@@ -1,6 +1,8 @@
 param(
   [string]$AssettoCorsaRoot,
   [ValidateSet('free', 'premium')][string]$Edition = 'premium',
+  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer')][string]$App,
+  [string[]]$SharedFiles = @(),
   [switch]$Finalize,
   [switch]$Validated
 )
@@ -41,6 +43,35 @@ $stateFile = Join-Path $backupRoot 'migration.json'
 $target = Join-Path $luaApps 'RetroUI'
 Assert-ChildPath $game $backupRoot
 Assert-ChildPath $game $target
+
+# Partial deployment backs up the installed app before copying selected files.
+if ($App) {
+  if (-not (Test-Path -LiteralPath (Join-Path $target 'manifest.ini'))) { throw 'Install RetroUI before deploying one app.' }
+  $backup = Join-Path $backupRoot ((Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + $App)
+  New-Item -ItemType Directory -Path $backup -Force | Out-Null
+  Copy-Item -LiteralPath $target -Destination (Join-Path $backup 'previous-RetroUI') -Recurse
+  $files = @()
+  if ($App -eq 'condition') {
+    $files += @('ui/car_condition.lua', 'src/condition_settings.lua', 'src/tyre_grip.lua')
+  } else {
+    $module = Join-Path $project ('modules/' + $App)
+    $files += Get-ChildItem -LiteralPath $module -Recurse -File | Where-Object { $_.Extension -eq '.lua' } | ForEach-Object { $_.FullName.Substring($project.Length + 1) }
+  }
+  $files += $SharedFiles
+  foreach ($file in $files | Select-Object -Unique) {
+    $source = Join-Path $project $file
+    $destination = Join-Path $target $file
+    Assert-ChildPath $project $source
+    Assert-ChildPath $target $destination
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath $source -Destination $destination -Force
+    if ((Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $destination).Hash) { throw "Installed file mismatch: $file" }
+  }
+  (Get-Item -LiteralPath (Join-Path $target 'RetroUI.lua')).LastWriteTime = Get-Date
+  Write-Output "Installed and SHA256 verified: $App ($($files.Count) files)"
+  Write-Output "Backup: $backup"
+  return
+}
 
 $legacyNames = @('RetroEngineeringHUD', 'MulticlassRelative', 'CMRTRetroDeltaBar',
   'RetroEngineeringLeaderboard', 'RetroEngineeringTelemetry')
