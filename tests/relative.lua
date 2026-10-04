@@ -233,6 +233,40 @@ for _, theme in ipairs({ 'dark', 'light' }) do
   end
 end
 
+-- Measured columns must share edges independently of names and status text.
+local Display = require('modules/relative/src/display')
+local columnSettings = {fontSize=18,decimals=2,maximumGap=120,showDriver=true,
+ showGap=true,showPitIndicator=true,showLapDifference=true}
+local testRow = {overall=123,classPosition=42,classID='UNKNOWN',number=123,
+ driver='?lex Extremely Long Driver Name',inPitlane=true,approaching=true,
+ progress=5,filteredGap=-12.34}
+local columnCases=0
+for mask=0,15 do
+ columnSettings.showOverall=mask%2==1
+ columnSettings.showClassPosition=math.floor(mask/2)%2==1
+ columnSettings.showClassText=math.floor(mask/4)%2==1
+ columnSettings.showNumber=math.floor(mask/8)%2==1
+ for _,available in ipairs({280,500}) do
+  local size=Display.fontSize(columnSettings,available,1)
+  calls={}
+  Display.draw(testRow,false,{progress=3},columnSettings,0,available,10,30,size,{})
+  local previousRight=0
+  for _,c in ipairs(calls) do
+   local m=ui.measureDWriteText(c.text,c.size)
+   assert(c.pos.x>=previousRight-0.001 and c.pos.x+m.x<=available+0.001,'columns must not overlap')
+   assert(math.abs(c.pos.y+m.y/2-25)<0.001,'text must share the useful row center')
+   previousRight=c.pos.x+m.x
+   if c.text=='-12.34' then assert(math.abs(previousRight-available)<0.001,'GAP must be right aligned') end
+  end
+  columnCases=columnCases+1
+ end
+end
+local originalMeasure=ui.measureDWriteText
+ui.measureDWriteText=function(value,size) return vec2(#tostring(value)*size*0.56,size*1.35) end
+render()
+ui.measureDWriteText=originalMeasure
+assert(columnCases==32)
+
 -- Leave a representative actual draw trace available for an optional preview.
 width, height = 560, 420
 globalSettings.theme = 'dark'

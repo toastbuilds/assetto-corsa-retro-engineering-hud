@@ -138,9 +138,8 @@ local function drawRow(row, isPlayer, visual, x1, x2, y, fontSize, rowHeight, no
       0, nil, 2 * fontSize / settings.fontSize)
   end
   ui.pushClipRect(vec2(x1 + markerWidth + 3, y), finish)
-  textAt(Display.rowText(row, isPlayer, player, settings, x2 - x1, fontSize),
-    fontSize, x1 + markerWidth + 7, y + math.max(1, (rowHeight - fontSize) / 2 - 1),
-    Theme.withAlpha(palette.primary, opacity))
+  Display.draw(row, isPlayer, player, settings, x1 + markerWidth + 7, x2 - 7,
+    y, rowHeight - 2, fontSize, Theme.withAlpha(palette.primary, opacity))
   ui.popClipRect()
 end
 
@@ -249,11 +248,11 @@ local function drawEnvironment(visual, x1, x2, y, scale)
       + (group.text and 26 + ui.measureDWriteText(group.text, 18).x or 0)
     maximumWidth = math.max(maximumWidth, group.width)
   end
-  local start = x1 + 8 * scale
-  local cy = y + 24 * scale
-  scale = scale * math.min(1, (cellWidth - 8 * scale) / (maximumWidth * scale))
+  local padding, blockHeight = 8 * scale, 48 * scale
+  scale = scale * math.min(1, (cellWidth - padding) / (maximumWidth * scale))
+  local start, cy = x1 + padding, y + blockHeight / 2
   local fontSize, iconScale = 18 * scale, 1.25 * scale
-  local textY = cy - fontSize / 2
+  local textY = cy - ui.measureDWriteText('Ag', fontSize).y / 2
   for i, group in ipairs(groups) do
     local center = start + (i - 0.5) * cellWidth
     local x = center - group.width * scale / 2
@@ -322,21 +321,21 @@ end
 local function drawRecords(visual, x1, x2, y, scale)
   local palette, opacity = visual.palette, visual.instrumentOpacity
   local mid = (x1 + x2) / 2
-  panel(x1, y, x2, y + 44 * scale, palette, opacity, scale)
-  ui.drawLine(vec2(mid, y + 5 * scale), vec2(mid, y + 39 * scale),
+  panel(x1, y, x2, y + 52 * scale, palette, opacity, scale)
+  ui.drawLine(vec2(mid, y + 5 * scale), vec2(mid, y + 47 * scale),
     Theme.withAlpha(palette.outlineDim, opacity), scale)
   for i, item in ipairs({
     { label = 'SESSION RECORD', value = records.sessionBest, color = palette.green },
     { label = 'TRACK RECORD', value = records.trackBest, color = palette.purple }
   }) do
     local left, right = i == 1 and x1 or mid, i == 1 and mid or x2
-    ui.pushClipRect(vec2(left + 4 * scale, y + 3 * scale), vec2(right - 4 * scale, y + 41 * scale))
+    ui.pushClipRect(vec2(left + 4 * scale, y + 3 * scale), vec2(right - 4 * scale, y + 49 * scale))
     textAt(item.label, 10 * scale, left + 12 * scale, y + 4 * scale,
       Theme.withAlpha(palette.secondary, opacity))
     ui.drawRectFilled(vec2(left + 12 * scale, y + 21 * scale),
-      vec2(left + 15 * scale, y + 36 * scale), Theme.withAlpha(item.color, opacity))
+      vec2(left + 15 * scale, y + 44 * scale), Theme.withAlpha(item.color, opacity))
     local value = Records.timeText(item.value)
-    local size = 20 * scale
+    local size = 24 * scale
     local textWidth = ui.measureDWriteText(value, size).x
     size = size * math.min(1, (right - left - 32 * scale) / math.max(1, textWidth))
     textAt(value, size, left + 23 * scale, y + 17 * scale,
@@ -354,7 +353,7 @@ local function drawRelative(visual, x1, x2, top, bottom, scale)
   local y = top + 9 * scale
   if settings.showRecords then
     drawRecords(visual, innerX1, innerX2, y, scale)
-    y = y + 48 * scale
+    y = y + 56 * scale
   end
 
   if telemetryError then
@@ -368,19 +367,14 @@ local function drawRelative(visual, x1, x2, top, bottom, scale)
     return
   end
 
-  local requiredChars = 2 + (settings.showOverall and 3 or 0)
-    + (settings.showClassPosition and 3 or 0) + (settings.showClassText and 6 or 0)
-    + (settings.showNumber and 4 or 0) + (settings.showDriver and 8 or 0)
-    + (settings.showGap and 7 or 0) + 8
-  local fontSize = math.max(10, math.min(settings.fontSize * scale,
-    (innerX2 - innerX1 - 34) / (requiredChars * 0.56)))
-  local rowHeight = math.max(22 * scale, math.floor(fontSize * 1.45)) + 2 * scale
+  local fontSize = Display.fontSize(settings, innerX2 - innerX1 - settings.classMarkerWidth * scale - 14, scale)
+  local markerWidth = math.max(2, math.floor(settings.classMarkerWidth * fontSize / settings.fontSize + 0.5))
+  local textLeft, textRight = innerX1 + markerWidth + 7, innerX2 - 7
+  local rowHeight = math.max(22 * scale, math.ceil(ui.measureDWriteText('Ag',fontSize).y)) + 2 * scale
   if settings.showHeader then
-    ui.pushClipRect(vec2(innerX1, y), vec2(innerX2, y + fontSize + 3 * scale))
-    textAt(Display.headerText(settings, innerX2 - innerX1, fontSize), fontSize,
-      innerX1 + 9 * scale, y, Theme.withAlpha(palette.secondary, opacity))
-    ui.popClipRect()
-    y = y + fontSize + 4 * scale
+    Display.draw(nil, false, player, settings, textLeft, textRight, y, rowHeight - 2,
+      fontSize, Theme.withAlpha(palette.secondary, opacity))
+    y = y + rowHeight
   end
   local slots = math.max(1, math.floor((bottom - 8 * scale - y) / rowHeight))
   local extra = slots - 1
@@ -407,7 +401,7 @@ local function drawMain()
   local opacity = visual.instrumentOpacity
   local width, height = ui.windowWidth(), ui.windowSize().y
   local relativeMinimum = 9
-    + (settings.showRecords and 48 or 0)
+    + (settings.showRecords and 56 or 0)
     + (settings.showHeader and settings.fontSize + 4 or 0)
     + math.max(22, settings.fontSize * 1.45) + 10
   local showBottom = settings.showSectors or settings.showWeather or settings.showTemperatures
