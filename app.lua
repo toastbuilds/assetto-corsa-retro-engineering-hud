@@ -51,8 +51,7 @@ local function invoke(name, method, ...)
 end
 
 local function drawHudWindow(id, callback)
-  WindowAnchor.begin(id)
-  callback()
+  WindowAnchor.draw(id, callback)
 end
 
 local function updateCore(name, state, dt, values)
@@ -77,7 +76,7 @@ local function publishTheme(dt)
 end
 
 function script.update(dt)
-  WindowAnchor.beginFrame()
+  WindowAnchor.beginFrame(dt)
   updateCore('dial', dialState, dt, DialSettings.current)
   updateCore('GT7', gt7State, dt, Gt7Settings.current)
   local ok, err = pcall(publishTheme, dt)

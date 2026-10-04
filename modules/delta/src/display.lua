@@ -1,6 +1,7 @@
 local Constants = require('modules/delta/src/constants')
 local LapData = require('modules/delta/src/lap_data')
 local Theme = require('modules/delta/src/theme')
+local WindowAnchor = require('src/window_anchor')
 
 local Display = {}
 local FONT = Theme.fonts.utility
@@ -225,6 +226,7 @@ function Display.draw(snapshot, settings, visual)
   local opacity = visual.instrumentOpacity or 1
   local now = ui.time()
   local mouse = ui.mouseLocalPos()
+  local acceptsLeftInput = not WindowAnchor.isAnchored('delta')
   local width, height = ui.windowWidth(), ui.windowHeight()
   local barOnly = settings.barOnly == true
   local showDetails = settings.showDetails ~= false
@@ -269,10 +271,10 @@ function Display.draw(snapshot, settings, visual)
       local leftHovered = inside(mouse, buttonLeftTL, buttonLeftBR)
       local rightHovered = inside(mouse, buttonRightTL, buttonRightBR)
       drawButton(buttonLeftTL, buttonLeftBR, '<', leftHovered,
-        leftHovered and ui.mouseDown(ui.MouseButton.Left), colors, scale)
+        acceptsLeftInput and leftHovered and ui.mouseDown(ui.MouseButton.Left), colors, scale)
       drawButton(buttonRightTL, buttonRightBR, '>', rightHovered,
-        rightHovered and ui.mouseDown(ui.MouseButton.Left), colors, scale)
-      if ui.mouseClicked(ui.MouseButton.Left) then
+        acceptsLeftInput and rightHovered and ui.mouseDown(ui.MouseButton.Left), colors, scale)
+      if acceptsLeftInput and ui.mouseClicked(ui.MouseButton.Left) then
         if leftHovered then events.modeDelta = -1 end
         if rightHovered then events.modeDelta = 1 end
       end
@@ -301,12 +303,12 @@ function Display.draw(snapshot, settings, visual)
     local buttonRightTL = buttonRightBR - vec2(buttonW, barBR.y - barTL.y)
     local leftHovered = inside(mouse, buttonLeftTL, buttonLeftBR)
     local rightHovered = inside(mouse, buttonRightTL, buttonRightBR)
-    local leftPressed = leftHovered and ui.mouseDown(ui.MouseButton.Left)
-    local rightPressed = rightHovered and ui.mouseDown(ui.MouseButton.Left)
+    local leftPressed = acceptsLeftInput and leftHovered and ui.mouseDown(ui.MouseButton.Left)
+    local rightPressed = acceptsLeftInput and rightHovered and ui.mouseDown(ui.MouseButton.Left)
     drawButton(buttonLeftTL, buttonLeftBR, '<', leftHovered, leftPressed, colors, scale)
     drawButton(buttonRightTL, buttonRightBR, '>', rightHovered, rightPressed, colors, scale)
     drawDeltaBar(barTL, barBR.x - barTL.x, barBR.y - barTL.y, snapshot, colors, scale)
-    if ui.mouseClicked(ui.MouseButton.Left) then
+    if acceptsLeftInput and ui.mouseClicked(ui.MouseButton.Left) then
       if leftHovered then events.modeDelta = -1 end
       if rightHovered then events.modeDelta = 1 end
     end

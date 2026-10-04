@@ -10,6 +10,16 @@ mostrarse a la vez. **Retro UI Settings** ofrece una pestaña por instrumento.
 - Assetto Corsa para PC y Custom Shaders Patch con Lua apps habilitadas.
 - Content Manager es recomendable para instalar el ZIP y activar la app.
 
+## Lock in place
+
+Haz clic derecho sobre cualquier ventana del HUD para fijar su posición; otro
+clic derecho la libera. Cada ventana recuerda su posición y bloqueo de forma
+independiente. Las marcas de alineación muestran brevemente **FIXED** (ámbar)
+o **MOVE** (cian), siguiendo el tema seleccionado. En **FIXED**, el clic izquierdo
+no activa controles ni arrastra el HUD; el clic derecho permite desbloquearlo.
+Requiere CSP 0.2.3-preview62 o posterior para
+mover ventanas IMGUI mediante la API de ventanas.
+
 ## Instalación nueva
 
 Descarga `RetroUI-vX.Y.Z.zip` desde la [última versión publicada](https://github.com/yukkine0704/assetto-corsa-retro-engineering-hud/releases/latest)

@@ -9,6 +9,7 @@ def main():
     root = Path(__file__).resolve().parent.parent
     os.chdir(root)
     suites = [
+        "tests/window_anchor.lua",
         "tests/runtime_smoke.lua",
         "tests/relative.lua",
         "tests/car_condition.lua",

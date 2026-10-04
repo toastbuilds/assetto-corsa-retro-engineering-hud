@@ -39,7 +39,7 @@ end
 
 local function anchorCheckbox()
   local anchored = WindowAnchor.isAnchored('leaderboard')
-  if ui.checkbox('Anchor position and pass through mouse', anchored) then
+  if ui.checkbox('Lock in place (right-click HUD to toggle)', anchored) then
     local nextValue = not anchored
     if WindowAnchor.setAnchored('leaderboard', nextValue) then M.values.lockWindow = nextValue end
   end
