@@ -412,6 +412,45 @@ local function drawLegend(origin, scale)
   end
 end
 
+local function drawLegendSelector(origin, scale, mode)
+  local options = { {label='Temperature',value='temperature'}, {label='Grip',value='grip'}, {label='None',value='none'} }
+  local settings = require('src/condition_settings')
+  for index, option in ipairs(options) do
+    local x = 24 + (index - 0.5) * (Layout.width - 48) / 3
+    centeredText(option.label, 10 * scale, point(origin,scale,x,232),
+      mode == option.value and C.primary or C.secondary)
+    if ui.invisibleButton and ui.backupCursor and ui.restoreCursor and ui.setCursor
+        and not require('src/window_anchor').isAnchored('condition') then
+      ui.backupCursor()
+      ui.setCursor(point(origin,scale,x-44,224))
+      if ui.invisibleButton('##condition.legend.' .. option.value,vec2(88*scale,16*scale)) then
+        settings.setLegendMode(option.value)
+        mode = option.value
+      end
+      ui.restoreCursor()
+    end
+  end
+  return mode
+end
+
+local function drawGrip(origin,scale,grip)
+  local left,right,y = 24,Layout.width-24,255
+  centeredText(grip and string.format('GRIP %.1f%%',grip) or 'GRIP --',10*scale,
+    point(origin,scale,Layout.carCenterX,245),C.primary)
+  ui.drawRectFilled(point(origin,scale,left,y),point(origin,scale,right,y+7),C.inactive)
+  if grip then
+    local length = U.clamp((grip-94)/6,0,1)
+    ui.drawRectFilled(point(origin,scale,left,y),point(origin,scale,left+(right-left)*length,y+7),C.primary)
+  end
+  local refs = {'END 94','LOW 96','MID 98','HIGH 100'}
+  for index,label in ipairs(refs) do
+    local x = left+(right-left)*(index-1)/3
+    drawLine(point(origin,scale,x,y+8),point(origin,scale,x,y+11),C.secondary,scale)
+    -- End labels are inset so the measured text stays inside the app.
+    centeredText(label,8*scale,point(origin,scale,x,273),C.secondary)
+  end
+end
+
 function M.draw(state, settings)
   C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
   local width = ui.windowWidth()
@@ -432,7 +471,10 @@ function M.draw(state, settings)
     drawTyre(origin, scale, Layout.rightWheelX, Layout.frontWheelY, 'FR', condition.wheels[2], state, settings)
     drawTyre(origin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state, settings)
     drawTyre(origin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state, settings)
-    if settings.showTemperatureLegend ~= false then drawLegend(origin, scale) end
+    local mode = settings.legendMode or (settings.showTemperatureLegend == false and 'none' or 'temperature')
+    mode = drawLegendSelector(origin,scale,mode)
+    if mode == 'temperature' then drawLegend(origin,scale)
+    elseif mode == 'grip' then drawGrip(origin,scale,condition.grip) end
   end
 
   ui.popDWriteFont()

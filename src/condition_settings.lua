@@ -7,8 +7,18 @@ M.values = ac.storage({
   lifeTextWeight = 'Regular',
   temperatureDisplay = 'general',
   temperatureCoreWeight = TyreTemperature.coreWeight(nil),
+  legendMode = '',
   showTemperatureLegend = true
 }, 'retro-ui.condition.')
+
+function M.setLegendMode(mode)
+  if mode == 'temperature' or mode == 'grip' or mode == 'none' then
+    M.values.legendMode = mode
+  end
+end
+if M.values.legendMode == '' then
+  M.values.legendMode = M.values.showTemperatureLegend == false and 'none' or 'temperature'
+end
 
 local function resetAppearance()
   M.values.lifeTextSize = 24
@@ -16,6 +26,7 @@ local function resetAppearance()
   M.values.temperatureDisplay = 'general'
   M.values.temperatureCoreWeight = TyreTemperature.coreWeight(nil)
   M.values.showTemperatureLegend = true
+  M.values.legendMode = 'temperature'
 end
 
 function M.draw()
@@ -24,9 +35,9 @@ function M.draw()
     SettingsUI.choice('condition', 'temperatureDisplay', 'Tyre temperature', M.values.temperatureDisplay,
       {{label='Core + surface zones', value='general'}, {label='Core + surface uniform', value='uniform'},
        {label='Surface zones', value='surface'}}, function(mode) M.values.temperatureDisplay = mode end)
-    if ui.checkbox('Show temperature scale', M.values.showTemperatureLegend) then
-      M.values.showTemperatureLegend = not M.values.showTemperatureLegend
-    end
+    SettingsUI.choice('condition', 'legendMode', 'Legend', M.values.legendMode,
+      {{label='Temperature', value='temperature'}, {label='Grip', value='grip'},
+       {label='None', value='none'}}, M.setLegendMode)
   end)
   SettingsUI.section('condition', 'personalization', 'Personalization', false, function()
     local value, changed = ui.slider('Life number size', M.values.lifeTextSize, 12, 36, '%.0f px', 1)
@@ -53,7 +64,8 @@ function M.current()
     lifeTextWeight = M.values.lifeTextWeight,
     temperatureDisplay = M.values.temperatureDisplay,
     temperatureCoreWeight = TyreTemperature.coreWeight(M.values.temperatureCoreWeight),
-    showTemperatureLegend = M.values.showTemperatureLegend
+    legendMode = M.values.legendMode,
+    showTemperatureLegend = M.values.legendMode == 'temperature'
   })
 end
 

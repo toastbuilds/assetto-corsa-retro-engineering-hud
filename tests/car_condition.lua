@@ -308,3 +308,40 @@ texts, rectangles, gradients, pathColors = {}, {}, {}, {}
 Condition.draw(state, {theme = 'dark', opacity = 1})
 assert(#centralHalves() == 8, 'weighted zone gradient must be the default when no mode is specified')
 print('Car condition: life, temperature, four-wheel zone orientation, center readings, fallback, contrast and punctures passed')
+
+local function findText(value)
+ for _,t in ipairs(texts) do if t.text==value then return t end end
+end
+for _,dimensions in ipairs({{240,210},{320,280},{640,560}}) do
+ width,height=dimensions[1],dimensions[2]
+ local scale=width/320
+ for _,theme in ipairs({'dark','light'}) do
+  for _,grip in ipairs({92,94,96,98,100,102}) do
+   state.condition.grip=grip
+   draw(theme,{legendMode='grip'})
+   assert(findText(string.format('GRIP %.1f%%',grip)),'percentage must retain values beyond the bar endpoints')
+   local bar=rectangles[#rectangles]
+   assert(math.abs(bar.b.x-bar.a.x-272*scale*math.max(0,math.min(1,(grip-94)/6)))<0.001)
+  end
+  state.condition.grip=nil
+  draw(theme,{legendMode='grip'})
+  assert(findText('GRIP --'))
+  assert(rectangles[#rectangles].color.r==require('src/theme').get(theme).inactive.r)
+  draw(theme,{legendMode='none'})
+  assert(not findText('COLD') and not findText('GRIP --'))
+ end
+end
+local clicked, anchored = false,false
+package.loaded['src/window_anchor']={isAnchored=function() return anchored end}
+ui.backupCursor=function() end; ui.restoreCursor=function() end; ui.setCursor=function() end
+ui.invisibleButton=function(id)
+ if id=='##condition.legend.grip' then clicked=true; return true end
+ return false
+end
+draw('dark',{legendMode='temperature'})
+assert(clicked and require('src/condition_settings').values.legendMode=='grip')
+clicked=false; anchored=true
+require('src/condition_settings').setLegendMode('temperature')
+draw('dark',{legendMode='temperature'})
+assert(not clicked and require('src/condition_settings').values.legendMode=='temperature','locked selector must ignore clicks')
+print('Condition grip: bar endpoints, unavailable state, themes, sizes, selector persistence and input lock passed')

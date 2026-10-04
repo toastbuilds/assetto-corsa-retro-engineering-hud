@@ -29,6 +29,7 @@ def main():
         "tests/relative.lua",
         "tests/car_condition.lua",
         "tests/tyre_temperature.lua",
+        "tests/tyre_grip.lua",
         "tests/instrument_illumination.lua",
     ]
     for suite in suites:

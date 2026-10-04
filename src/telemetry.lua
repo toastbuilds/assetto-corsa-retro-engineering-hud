@@ -3,6 +3,7 @@ local Layout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
 local TyreTemperature = require('src/tyre_temperature')
+local TyreGrip = require('src/tyre_grip')
 
 local M = {}
 local SIM = ac.getSim()
@@ -311,6 +312,7 @@ end
 local function resetCondition(state)
   local condition = state.condition
   condition.available = false
+  condition.grip = nil
   condition.body.front = 0
   condition.body.rear = 0
   condition.body.left = 0
@@ -348,6 +350,7 @@ end
 local function updateCondition(state, car)
   local condition = state.condition
   condition.available = true
+  condition.grip = TyreGrip.average(car)
 
   local damage = U.read(car, 'damage', nil)
   condition.body.front = normalizedDamage(U.read(damage, 0, 0))
