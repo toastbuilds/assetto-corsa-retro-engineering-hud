@@ -359,14 +359,42 @@ for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
   state.condition.gripDetails=gripDetails
   ui.mouseLocalPos=function() return origin+vec2(160*scale,15*scale) end
   draw(theme,{legendMode='grip'})
-  assert(findText('TYRE GRIP PROFILE') and findText('AVG GRIP  98.0%'),
+  assert(findText('TYRE GRIP PROFILE') and findText('AVG GRIP') and findText('98.0%'),
     'the new top bar must open its detailed grip panel')
+  local title=findText('TYRE GRIP PROFILE')
+  assert(title.font=='Consolas;Weight=Bold' and title.size==20*scale,
+    'hover title must match Leaderboard emphasis with larger type')
+  local stage,distance,laps=findText('MEDIUM'),findText('40.0'),findText('8.0')
+  assert(stage.font=='Consolas;Weight=Regular' and stage.size==16*scale
+    and distance.size==20*scale and laps.size==20*scale,
+    'stage and threshold values must use readable Leaderboard type')
+  assert(stage.position.x+ui.measureDWriteText(stage.text,stage.size).x<distance.position.x
+    and distance.position.x+ui.measureDWriteText(distance.text,distance.size).x<laps.position.x,
+    'larger stage, distance and lap columns must not overlap')
+  assert(findText('98.0%').size==24*scale and findText('98.0%').font=='Consolas;Weight=Bold',
+    'average grip must have the same value emphasis as the Leaderboard header')
   ui.mouseLocalPos=function() return origin+vec2(160*scale,260*scale) end
   draw(theme,{legendMode='grip'})
   assert(not findText('TYRE GRIP PROFILE'),'the old bottom area must no longer open grip details')
   ui.mouseLocalPos=nil
  end
 end
+width,height=240,210
+ui.mouseLocalPos=function() return vec2(120,11) end
+gripDetails.compound='A very long tyre compound name that cannot fit the panel'
+gripDetails.details[2].km,gripDetails.details[2].laps=99999.9,9999.9
+state.condition.gripDetails=gripDetails
+draw('dark',{legendMode='grip'})
+assert(not findText(gripDetails.compound),'long compound names must fit at the larger font size')
+assert(findText('99999.9') and findText('9999.9'),'large thresholds must remain visible')
+gripDetails.wearDisabled=true
+draw('light',{legendMode='grip'})
+assert(findText('No tyre wear'),'disabled wear must retain a readable explanation')
+gripDetails.wearDisabled=false
+gripDetails.details[2].laps=nil
+draw('dark',{legendMode='grip'})
+assert(findText('--'),'missing lap conversion must remain explicit')
+ui.mouseLocalPos=nil
 ui.invisibleButton=function() error('HUD legend must not create selector buttons') end
 draw('dark',{legendMode='temperature'})
 for _,mode in ipairs({'temperature','grip','none'}) do

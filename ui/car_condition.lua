@@ -426,25 +426,46 @@ local function drawGripDetails(origin,scale,grip)
     and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
   if not inside then return end
   drawPolygon(origin,scale,{
-    {30,52},{Layout.width-30,52},{Layout.width-24,58},{Layout.width-24,215},
-    {Layout.width-30,221},{30,221},{24,215},{24,58}
+    {16,32},{Layout.width-16,32},{Layout.width-8,40},{Layout.width-8,264},
+    {Layout.width-16,272},{16,272},{8,264},{8,40}
   },C.panel,C.outline,1)
-  ui.dwriteDrawText('TYRE GRIP PROFILE',11*scale,point(origin,scale,36,61),C.primary)
-  local compound=grip.compound or 'Compound unavailable'
-  ui.dwriteDrawText(compound,10*scale,point(origin,scale,36,79),C.secondary)
-  local labelY=101
-  for index,threshold in ipairs(grip.details) do
-    local y=labelY+(index-1)*25
-    ui.drawRectFilled(point(origin,scale,37,y+3),point(origin,scale,43,y+9),stageColor(threshold.name))
-    ui.dwriteDrawText(threshold.name,9*scale,point(origin,scale,49,y),C.primary)
-    local value=grip.wearDisabled and 'No tyre wear'
-      or (threshold.laps and string.format('%.1f km  /  %.1f laps',threshold.km,threshold.laps)
-      or string.format('%.1f km',threshold.km))
-    local measured=ui.measureDWriteText(value,9*scale)
-    ui.dwriteDrawText(value,9*scale,point(origin,scale,Layout.width-36, y)-vec2(measured.x,0),C.secondary)
+  -- Match the Leaderboard's regular text and bold emphasis, measuring each
+  -- column independently so larger numbers never collide with stage names.
+  local function detailText(value,size,x,centerY,color,rightAligned,bold)
+    if bold then ui.pushDWriteFont(lifeFonts.Bold) end
+    size=size*scale
+    local measured=ui.measureDWriteText(value,size)
+    local position=point(origin,scale,x,centerY)-vec2(rightAligned and measured.x or 0,measured.y/2)
+    ui.dwriteDrawText(value,size,position,color)
+    if bold then ui.popDWriteFont() end
   end
-  local summary=string.format('AVG GRIP  %.1f%%',grip.average)
-  ui.dwriteDrawText(summary,10*scale,point(origin,scale,36,202),C.primary)
+  detailText('TYRE GRIP PROFILE',20,24,55,C.primary,false,true)
+  local compound=grip.compound or 'Compound unavailable'
+  if ui.measureDWriteText(compound,18*scale).x>(Layout.width-48)*scale then
+    local truncated=compound
+    repeat truncated=truncated:sub(1,-2)
+    until #truncated==0 or ui.measureDWriteText(truncated..'...',18*scale).x<=(Layout.width-48)*scale
+    compound=truncated..'...'
+  end
+  detailText(compound,18,24,81,C.primary)
+  detailText('STAGE',16,38,105,C.secondary)
+  detailText('KM',16,186,105,C.secondary,true)
+  detailText('LAPS',16,296,105,C.secondary,true)
+  drawLine(point(origin,scale,24,117),point(origin,scale,296,117),C.outlineSoft,scale)
+  for index,threshold in ipairs(grip.details) do
+    local y=132+(index-1)*30
+    ui.drawRectFilled(point(origin,scale,24,y-4),point(origin,scale,30,y+4),stageColor(threshold.name))
+    detailText(threshold.name,16,38,y,C.primary)
+    if grip.wearDisabled then
+      detailText('No tyre wear',20,296,y,C.primary,true)
+    else
+      detailText(string.format('%.1f',threshold.km),20,186,y,C.primary,true)
+      detailText(threshold.laps and string.format('%.1f',threshold.laps) or '--',20,296,y,C.primary,true)
+    end
+  end
+  drawLine(point(origin,scale,24,238),point(origin,scale,296,238),C.outlineSoft,scale)
+  detailText('AVG GRIP',16,24,254,C.primary)
+  detailText(string.format('%.1f%%',grip.average),24,296,254,C.primary,true,true)
 end
 
 local function drawGrip(origin,scale,grip)
