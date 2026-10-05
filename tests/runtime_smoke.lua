@@ -304,6 +304,34 @@ local function makeCar(overrides)
 end
 
 local telemetry = Telemetry.new()
+local flashState = Telemetry.new()
+local flashCar = makeCar({headlightsActive=false,lowBeams=true,highBeams=false,flashingLightsActive=true})
+Telemetry.update(flashState,1/144,Settings.current(),flashCar)
+assert(flashState.headlights and flashState.highBeams and flashState.flashingLights
+  and flashState.steadyHeadlights==false and flashState.lightsAvailable,
+  'the flasher must illuminate the HUD and the high-beam telltale with the normal lights off')
+flashCar.flashingLightsActive=false
+Telemetry.update(flashState,1/144,Settings.current(),flashCar)
+assert(flashState.headlights==false and flashState.highBeams==false,
+  'releasing the flasher must restore unlit headlights instead of leaving a latched telltale')
+flashCar.headlightsActive=true
+Telemetry.update(flashState,1/60,Settings.current(),flashCar)
+assert(flashState.headlights and not flashState.highBeams,'official highBeams must override legacy low-beam inference')
+flashCar.flashingLightsActive=true
+Telemetry.update(flashState,1/144,Settings.current(),flashCar)
+assert(flashState.highBeams and flashState.headlights,'flashing over low beams must indicate the high beams')
+flashCar.flashingLightsActive=false
+Telemetry.update(flashState,1/144,Settings.current(),flashCar)
+assert(flashState.headlights and flashState.highBeams==false,'release must preserve normal low beams')
+flashCar.headlightsActive,flashCar.highBeams,flashCar.flashingLightsActive=false,true,nil
+Telemetry.update(flashState,1/144,Settings.current(),flashCar)
+assert(flashState.flashingLights and flashState.headlights,'older CSP must infer flashing from active high beams with lamps off')
+flashCar.headlightsActive,flashCar.highBeams,flashCar.lowBeams=true,nil,false
+Telemetry.update(flashState,1/60,Settings.current(),flashCar)
+assert(flashState.highBeams,'older CSP must preserve legacy high-beam detection')
+flashCar.headlightsActive,flashCar.highBeams,flashCar.lowBeams=nil,nil,nil
+Telemetry.update(flashState,1/60,Settings.current(),flashCar)
+assert(not flashState.lightsAvailable and flashState.headlights==nil,'missing lamp telemetry must remain unavailable')
 car = makeCar({ ffbFinal = 0.62 })
 for _ = 1, 30 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
 assert(telemetry.speedGaugeMaximum == 280 and telemetry.speedGaugeStep == 40

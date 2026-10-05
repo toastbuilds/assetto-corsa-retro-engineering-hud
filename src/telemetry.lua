@@ -119,6 +119,8 @@ local function blankState()
     absActive = nil,
     lightsAvailable = false,
     headlights = nil,
+    steadyHeadlights = nil,
+    flashingLights = nil,
     highBeams = nil,
     leftIndicator = nil,
     rightIndicator = nil,
@@ -701,6 +703,8 @@ function M.update(state, dt, settings, sampleCar)
   if not car then
     state.available = false
     state.hybrid = nil
+    state.lightsAvailable = false
+    state.headlights, state.steadyHeadlights, state.flashingLights, state.highBeams = nil, nil, nil, nil
     state.ffbAvailable = false
     state.ffbSigned = 0
     state.ffbMagnitudeRaw = 0
@@ -831,14 +835,21 @@ function M.update(state, dt, settings, sampleCar)
   end
   updateLimitAssistWarnings(state, dt)
 
-  state.headlights = U.read(car, 'headlightsActive', nil)
+  local headlights = U.read(car, 'headlightsActive', nil)
+  local flashing = U.read(car, 'flashingLightsActive', nil)
+  local highBeams = U.read(car, 'highBeams', nil)
   local lowBeams = U.read(car, 'lowBeams', nil)
-  state.lightsAvailable = state.headlights ~= nil
-  if state.headlights ~= nil and lowBeams ~= nil then
-    state.highBeams = state.headlights and not lowBeams
-  else
-    state.highBeams = nil
+  if highBeams == nil and headlights ~= nil and lowBeams ~= nil then
+    highBeams = headlights and not lowBeams
   end
+  if flashing == nil and headlights == false and highBeams ~= nil then flashing = highBeams end
+  state.flashingLights = flashing
+  state.highBeams = flashing == true or highBeams
+  state.lightsAvailable = headlights ~= nil or flashing ~= nil or highBeams ~= nil
+  state.steadyHeadlights = headlights == true or (highBeams == true and flashing ~= true)
+  if state.lightsAvailable then
+    state.headlights = state.steadyHeadlights or flashing == true or highBeams == true
+  else state.headlights = nil end
 
   state.leftIndicator = U.read(car, 'turningLeftLights', nil)
   state.rightIndicator = U.read(car, 'turningRightLights', nil)

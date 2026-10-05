@@ -31,6 +31,33 @@ for _, rate in ipairs({30, 60, 144}) do
   assert(sample.gt7Instruments.light == 0)
 end
 
+for _, rate in ipairs({30,60,144}) do
+  local sample={available=true,lightsAvailable=true,headlights=false,steadyHeadlights=false,turboAvailable=false}
+  Presentation.update(sample,{},0)
+  for _=1,3 do
+    sample.headlights,sample.flashingLights=true,true
+    Presentation.update(sample,{},1/rate)
+    assert(sample.gt7Instruments.light==1 and sample.gt7Instruments.steadyLight==0,
+      'even a one-frame flash must immediately illuminate GT7 without changing the normal lamp intensity')
+    sample.headlights,sample.flashingLights=false,false
+    Presentation.update(sample,{},1/rate)
+    assert(sample.gt7Instruments.light==0,'release must immediately restore the unlit HUD without an accumulated flash tail')
+  end
+  sample.headlights,sample.steadyHeadlights=true,true
+  Presentation.update(sample,{},Config.lightTransition/2)
+  local normal=sample.gt7Instruments.light
+  sample.flashingLights=true
+  Presentation.update(sample,{},0)
+  assert(sample.gt7Instruments.light==1)
+  sample.flashingLights=false
+  Presentation.update(sample,{},0)
+  assert(near(sample.gt7Instruments.light,normal),'flash release must restore an in-progress normal light transition')
+  sample.flashingLights=true
+  sample.available=false
+  Presentation.update(sample,{},Config.lightTransition)
+  assert(sample.gt7Instruments.light==0,'a lost car must not keep a stale flash illuminating the HUD')
+end
+
 for _, theme in ipairs({'dark', 'light'}) do
   local C = Theme.get(theme)
   local off = Light.resolve(C, theme, 0)

@@ -31,7 +31,13 @@ end
 function M.update(state, settings, dt)
   local visual = state.gt7Instruments
   if not visual then visual = {}; state.gt7Instruments = visual end
-  local target = state.available and state.lightsAvailable and state.headlights == true and 1 or 0
+  -- The flasher overrides only the displayed intensity. The regular lamp
+  -- transition continues underneath, so a short flash responds immediately
+  -- and releasing it restores the current headlight intensity without a tail.
+  if visual.steadyLight ~= nil then visual.light = visual.steadyLight end
+  local steady = state.steadyHeadlights
+  if steady == nil then steady = state.headlights == true and state.flashingLights ~= true end
+  local target = state.available and state.lightsAvailable and steady and 1 or 0
   if visual.light == nil then
     visual.light, visual.lightTarget, visual.lightFrom, visual.lightElapsed = target, target, target, 0
   else
@@ -43,6 +49,8 @@ function M.update(state, settings, dt)
     local eased = 1 - (1 - progress) * (1 - progress)
     visual.light = visual.lightFrom + (target - visual.lightFrom) * eased
   end
+  visual.steadyLight = visual.light
+  if state.available and state.lightsAvailable and state.flashingLights == true then visual.light = 1 end
   visual.speedDigital = transition(visual.speedDigital,
     settings.gt7SpeedNeedleMode == 'digital' and 1 or 0, dt, Config.modeTransition)
   visual.rpmDigital = transition(visual.rpmDigital,
