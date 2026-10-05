@@ -313,6 +313,8 @@ local function resetCondition(state)
   local condition = state.condition
   condition.available = false
   condition.grip = nil
+  condition.gripMeter = nil
+  condition.gripDetails = nil
   condition.body.front = 0
   condition.body.rear = 0
   condition.body.left = 0
@@ -350,7 +352,11 @@ end
 local function updateCondition(state, car)
   local condition = state.condition
   condition.available = true
-  condition.grip = TyreGrip.average(car)
+  local simOk,sim=pcall(ac.getSim)
+  local grip = TyreGrip.snapshot(car,simOk and sim or nil)
+  condition.grip = grip and grip.average or nil
+  condition.gripMeter = grip and grip.remaining or nil
+  condition.gripDetails = grip
 
   local damage = U.read(car, 'damage', nil)
   condition.body.front = normalizedDamage(U.read(damage, 0, 0))

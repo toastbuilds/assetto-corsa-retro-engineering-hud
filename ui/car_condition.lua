@@ -433,36 +433,79 @@ local function drawLegendSelector(origin, scale, mode)
   return mode
 end
 
-local function gripColor(grip)
-  if grip >= 66 then return mix(C.flagYellow, C.green, (grip-66)/34) end
-  if grip >= 33 then return mix(C.amber, C.flagYellow, (grip-33)/33) end
-  return mix(C.red, C.amber, grip/33)
+local function gripStage(remaining, thresholds)
+  if not thresholds then return 'HIGH' end
+  if remaining > (thresholds.HIGH or 100) then return 'HIGH' end
+  if remaining > (thresholds.MEDIUM or 66) then return 'MEDIUM' end
+  if remaining > (thresholds.LOW or 33) then return 'LOW' end
+  return 'EOL'
+end
+
+local function stageColor(stage)
+  if stage == 'HIGH' then return C.green end
+  if stage == 'MEDIUM' then return C.flagYellow end
+  if stage == 'LOW' then return C.amber end
+  return C.red
+end
+
+local function drawGripDetails(origin,scale,grip)
+  if not ui.mouseLocalPos or not grip or not grip.details then return end
+  local mouse=ui.mouseLocalPos()
+  local inside=mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
+    and mouse.y>=origin.y+248*scale and mouse.y<=origin.y+280*scale
+  if not inside then return end
+  local tl=point(origin,scale,24,52)
+  local br=point(origin,scale,Layout.width-24,221)
+  chamferRect(tl,br,6*scale,C.panel,C.outline,scale)
+  ui.dwriteDrawText('TYRE GRIP PROFILE',11*scale,point(origin,scale,36,61),C.primary)
+  local compound=grip.compound or 'Compound unavailable'
+  ui.dwriteDrawText(compound,10*scale,point(origin,scale,36,79),C.secondary)
+  local labelY=101
+  for index,threshold in ipairs(grip.details) do
+    local y=labelY+(index-1)*25
+    ui.drawRectFilled(point(origin,scale,37,y+3),point(origin,scale,43,y+9),stageColor(threshold.name))
+    ui.dwriteDrawText(threshold.name,9*scale,point(origin,scale,49,y),C.primary)
+    local value=grip.wearDisabled and 'No tyre wear'
+      or (threshold.laps and string.format('%.1f km  /  %.1f laps',threshold.km,threshold.laps)
+      or string.format('%.1f km',threshold.km))
+    local measured=ui.measureDWriteText(value,9*scale)
+    ui.dwriteDrawText(value,9*scale,point(origin,scale,Layout.width-36, y)-vec2(measured.x,0),C.secondary)
+  end
+  local summary=string.format('AVG GRIP  %.1f%%',grip.average)
+  ui.dwriteDrawText(summary,10*scale,point(origin,scale,36,202),C.primary)
 end
 
 local function drawGrip(origin,scale,grip)
-  local left,right,y = 24,Layout.width-24,255
-  centeredText(grip and string.format('GRIP %.1f%%',grip) or 'GRIP --',10*scale,
-    point(origin,scale,Layout.carCenterX,245),C.primary)
-  local segments = 64
+  local left,right,y=24,Layout.width-24,255
+  local average=grip and grip.average or nil
+  local remaining=grip and grip.remaining or nil
+  local thresholds=grip and grip.progressThresholds or nil
+  local readout=average and remaining and string.format('GRIP %.1f%%  /  LIFE %.0f%%',average,remaining)
+    or 'GRIP --'
+  centeredText(readout,9*scale,point(origin,scale,Layout.carCenterX,245),C.primary)
+  local segments=64
   for index=0,segments-1 do
     local x1=left+(right-left)*index/segments
     local x2=left+(right-left)*(index+1)/segments
-    local color=gripColor(100-index*100/segments)
+    local progress=100-(index+0.5)*100/segments
+    local stage=gripStage(progress,thresholds)
+    local color=remaining and progress<=remaining and stageColor(stage) or C.inactive
     ui.drawRectFilled(point(origin,scale,x1,y),point(origin,scale,x2,y+7),color)
   end
-  local references = {
-    {value=100,label='HIGH'}, {value=66,label='MID'},
-    {value=33,label='LOW'}, {value=0,label='EOL'}
-  }
-  for _,item in ipairs(references) do
-    local x=left+(right-left)*(100-item.value)/100
-    drawLine(point(origin,scale,x,y+8),point(origin,scale,x,y+11),C.secondary,scale)
-    centeredText(item.label,8*scale,point(origin,scale,x,273),C.secondary)
+  if thresholds then
+    for _,name in ipairs({'HIGH','MEDIUM','LOW','EOL'}) do
+      local value=thresholds[name]
+      local x=left+(right-left)*(1-U.clamp(value/100,0,1))
+      drawLine(point(origin,scale,x,y-1),point(origin,scale,x,y+8),stageColor(name),1.2*scale)
+    end
   end
-  if grip then
-    local marker=left+(right-left)*(1-U.clamp(grip/100,0,1))
-    drawLine(point(origin,scale,marker,y-2),point(origin,scale,marker,y+9),C.primary,2*scale)
+  centeredText('100',8*scale,point(origin,scale,left+7,273),C.secondary)
+  centeredText('0',8*scale,point(origin,scale,right-4,273),C.secondary)
+  if remaining then
+    local marker=left+(right-left)*(1-U.clamp(remaining/100,0,1))
+    drawLine(point(origin,scale,marker,y-3),point(origin,scale,marker,y+10),C.primary,2*scale)
   end
+  drawGripDetails(origin,scale,grip)
 end
 
 function M.draw(state, settings)
@@ -488,7 +531,7 @@ function M.draw(state, settings)
     local mode = settings.legendMode or (settings.showTemperatureLegend == false and 'none' or 'temperature')
     mode = drawLegendSelector(origin,scale,mode)
     if mode == 'temperature' then drawLegend(origin,scale)
-    elseif mode == 'grip' then drawGrip(origin,scale,condition.grip) end
+    elseif mode == 'grip' then drawGrip(origin,scale,condition.gripDetails) end
   end
 
   ui.popDWriteFont()
