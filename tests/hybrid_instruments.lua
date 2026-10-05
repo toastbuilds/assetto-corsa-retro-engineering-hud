@@ -16,9 +16,11 @@ assert(state.hybrid.powerKw==120 and state.hybrid.charge==0.84,
   'wheel torque times angular velocity must provide kW independently of battery charge')
 assert(Hybrid.forGauge(state)==state.hybrid,'hybrids without turbo must select electric automatically')
 state.turboAvailable=true
-assert(Hybrid.forGauge(state)==nil and Hybrid.forGauge(state,'electric')==state.hybrid,
-  'turbo takes precedence in Auto while Electric can be selected explicitly')
-assert(Hybrid.forGauge(state,'fuel')==nil and Hybrid.forGauge(state,'off')==nil)
+assert(Hybrid.forGauge(state)==state.hybrid and Hybrid.forGauge(state,'auto')==state.hybrid
+  and Hybrid.forGauge(state,'electric')==state.hybrid,
+  'hybrids must select electric automatically even when turbo is available')
+assert(Hybrid.forGauge(state,'fuel')==nil and Hybrid.forGauge(state,'off')==nil
+  and Hybrid.forGauge(state,'turbo')==nil, 'explicit auxiliary selections must remain available')
 state.turboAvailable=false
 for i=0,3 do physics.wheels[i].electricTorque=-200 end
 Hybrid.update(state,car,0,physics)
@@ -51,11 +53,13 @@ assert(state.hybrid==nil,'switching to a conventional car must clear hybrid stat
 
 -- Exercise the production telemetry integration, rather than only the helper.
 car.kersPresent,car.physicsAvailable,car.kersCharge,car.kersInput=true,true,0.84,0.7
+car.turboCount,car.turboBoost=1,0.7
 for i=0,3 do physics.wheels[i].electricTorque=300 end
 ac.getCarPhysics=function() return physics end
 local live = Telemetry.new()
 Telemetry.update(live,0,require('src/settings').current(),car)
-assert(live.hybrid and live.hybrid.powerKw==120,'live telemetry must feed both renderers')
+assert(live.turboAvailable and live.hybrid and live.hybrid.powerKw==120
+  and Hybrid.forGauge(live)==live.hybrid, 'live hybrid turbo telemetry must select the battery gauge')
 ac.getCar=function() return nil end
 Telemetry.update(live,0,require('src/settings').current())
 assert(live.hybrid==nil,'losing the current car must clear electric readings')
@@ -72,24 +76,27 @@ local function texts(calls)
   end
   return labels
 end
-for _,theme in ipairs({'dark','light'}) do
-  for _,lights in ipairs({false,true}) do
-    drawState.headlights,drawState.gt7Instruments=lights,nil
-    local options={theme=theme,hudScale=1}
-    for _,window in ipairs({{620,620},{460,460},{330,330}}) do
-      local labels=texts(harness.drawDial(options,drawState,window))
-      assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%'],
-        'standalone must show independent charge and electric power using the Triptych layout')
-    end
-    for _,mode in ipairs({'analog','digital'}) do
-      options.gt7SpeedNeedleMode,options.gt7RpmNeedleMode=mode,mode
-      for _,frame in ipairs({'classic','modern','outer_pedals','steering_dial'}) do
-        for _,window in ipairs({{1440,500},{720,360}}) do
-          local labels=texts(harness.draw(frame,options,drawState,window))
-          assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%']
-            and not labels['BOOST'] and not labels['NAT ASP'],
-            'all GT7 modes and compositions must use the electric RPM subinstrument')
-          assert(labels['FUEL'],'GT7 electric mode must preserve the speed dial fuel gauge')
+for _,turbo in ipairs({false,true}) do
+  drawState.turboAvailable=turbo
+  for _,theme in ipairs({'dark','light'}) do
+    for _,lights in ipairs({false,true}) do
+      drawState.headlights,drawState.gt7Instruments=lights,nil
+      local options={theme=theme,hudScale=1}
+      for _,window in ipairs({{620,620},{460,460},{330,330}}) do
+        local labels=texts(harness.drawDial(options,drawState,window))
+        assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%'],
+          'standalone must show independent charge and electric power using the Triptych layout')
+      end
+      for _,mode in ipairs({'analog','digital'}) do
+        options.gt7SpeedNeedleMode,options.gt7RpmNeedleMode=mode,mode
+        for _,frame in ipairs({'classic','modern','outer_pedals','steering_dial'}) do
+          for _,window in ipairs({{1440,500},{720,360}}) do
+            local labels=texts(harness.draw(frame,options,drawState,window))
+            assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%']
+              and not labels['BOOST'] and not labels['NAT ASP'],
+              'all GT7 modes and compositions must use the electric RPM subinstrument')
+            assert(labels['FUEL'],'GT7 electric mode must preserve the speed dial fuel gauge')
+          end
         end
       end
     end
@@ -104,10 +111,17 @@ assert(labels['ERS 70%'] and labels['--%'] and not labels['120 kW'],
   'unsupported mods must label ERS input and unavailable battery honestly')
 drawState.turboAvailable,drawState.turboBoost,drawState.turboDisplayMax=true,0.7,1.5
 labels=texts(harness.drawDial({hudScale=1},drawState))
-assert(labels['TURBO'] and labels['0.70 BAR'] and not labels['CHG'],'hybrid turbos must retain boost in Auto')
+assert(labels['ERS 70%'] and labels['--%'] and labels['CHG'] and not labels['TURBO'],
+  'hybrid turbos must show electric delivery and battery in Auto even without measured kW')
+labels=texts(harness.drawDial({analogAuxiliaryMode='turbo',hudScale=1},drawState))
+assert(labels['TURBO'] and labels['0.70 BAR'] and not labels['CHG'],
+  'explicit Turbo must remain available on the standalone dial')
 labels=texts(harness.drawDial({analogAuxiliaryMode='electric',hudScale=1},drawState))
 assert(labels['ERS 70%'],'standalone Electric override must also work on hybrid turbo cars')
 drawState.hybrid=nil
+labels=texts(harness.drawDial({hudScale=1},drawState))
+assert(labels['TURBO'] and labels['0.70 BAR'] and not labels['CHG'],
+  'conventional turbo cars must still select boost automatically')
 labels=texts(harness.drawDial({analogAuxiliaryMode='electric',hudScale=1},drawState))
 assert(labels['ERS N/A'] and not labels['FUEL'],'explicit Electric without data must not silently display fuel')
 
@@ -124,19 +138,21 @@ ui.pathFillConvex=function() end
 local freeRenderer=assert(loadfile('free-edition/ui/gt7_retro.lua'))()
 local freeDial=assert(loadfile('ui/dial.lua'))()
 local options=require('src/gt7_settings').current()
-drawState.turboAvailable=false
 drawState.hybrid={powerKw=120,needle=0.8,charge=0.84}
-for _,theme in ipairs({'dark','light'}) do
-  options.theme,options.hudScale=theme,1
-  for _,mode in ipairs({'analog','digital'}) do
-    options.gt7SpeedNeedleMode,options.gt7RpmNeedleMode=mode,mode
-    labels=texts(harness.drawRenderer(freeRenderer,drawState,options,{1440,500}))
-    assert(labels['120 kW'] and labels['84%'] and not labels['NAT ASP'],
-      'Free GT7 must also replace boost with electric power and battery charge')
+for _,turbo in ipairs({false,true}) do
+  drawState.turboAvailable=turbo
+  for _,theme in ipairs({'dark','light'}) do
+    options.theme,options.hudScale=theme,1
+    for _,mode in ipairs({'analog','digital'}) do
+      options.gt7SpeedNeedleMode,options.gt7RpmNeedleMode=mode,mode
+      labels=texts(harness.drawRenderer(freeRenderer,drawState,options,{1440,500}))
+      assert(labels['120 kW'] and labels['84%'] and not labels['NAT ASP'] and not labels['BOOST'],
+        'Free GT7 must also replace boost with electric power and battery charge')
+    end
+    local dialOptions=require('src/settings').current()
+    dialOptions.theme,dialOptions.instrumentMode,dialOptions.analogAuxiliaryMode=theme,'analog','auto'
+    labels=texts(harness.drawRenderer(freeDial,drawState,dialOptions,{620,620}))
+    assert(labels['120 kW'] and labels['84%'],'the Free palette must support the standalone electric gauge')
   end
-  local dialOptions=require('src/settings').current()
-  dialOptions.theme,dialOptions.instrumentMode,dialOptions.analogAuxiliaryMode=theme,'analog','auto'
-  labels=texts(harness.drawRenderer(freeDial,drawState,dialOptions,{620,620}))
-  assert(labels['120 kW'] and labels['84%'],'the Free palette must support the standalone electric gauge')
 end
-print('Hybrid instruments: mechanical kW, regeneration, zero/missing data, car changes, telemetry integration, turbo priority, themes, sizes and all GT7 compositions passed')
+print('Hybrid instruments: mechanical kW, regeneration, zero/missing data, car changes, telemetry integration, hybrid priority with/without turbo, themes, sizes and all GT7 compositions passed')

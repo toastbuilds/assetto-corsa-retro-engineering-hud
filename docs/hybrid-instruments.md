@@ -6,8 +6,8 @@ bisel y el icono con porcentaje representan la carga de batería. Los datos son
 independientes. Una carga de batería inferior o igual al 15 % usa rojo.
 
 El dial independiente lo activa en Analog con **Auxiliary gauge > Auto** para
-coches híbridos sin turbo. **Electric** permite seleccionarlo explícitamente,
-también cuando el coche tiene turbo. Fuel, Turbo y Off conservan sus funciones.
+coches híbridos, también cuando tienen turbo. **Electric** permite seleccionarlo
+explícitamente. Fuel, Turbo y Off conservan sus funciones.
 GT7 lo activa automáticamente en el subinstrumento de RPM, tanto en Analog como
 en Digital y en todas las composiciones. Su indicador de combustible se conserva.
 
@@ -30,7 +30,7 @@ Las repeticiones y los coches remotos no usan datos físicos indisponibles.
 
 - Sintaxis Lua, pruebas de runtime, iluminación y layouts GT7 aprobadas.
 - `tests/hybrid_instruments.lua`: conversión a kW, recuperación, cero medido,
-  canales ausentes, cambio de coche, prioridad del turbo, integración de
+  canales ausentes, cambio de coche, prioridad de batería en híbridos con y sin turbo, integración de
   telemetría, dos temas, luces y tamaños de Dial/GT7 aprobados.
 - Ajustes aprobados en Free y Premium. Timer final lap aprobado.
 - El renderizador GT7 de Free y el dial con su paleta también se comprobaron

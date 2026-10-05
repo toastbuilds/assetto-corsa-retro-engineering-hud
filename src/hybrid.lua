@@ -59,7 +59,7 @@ end
 
 function M.forGauge(state, mode)
   if state.available == false or not state.hybrid then return nil end
-  if mode == 'electric' or ((mode == nil or mode == 'auto') and not state.turboAvailable) then
+  if mode == 'electric' or mode == nil or mode == 'auto' then
     return state.hybrid
   end
   return nil
