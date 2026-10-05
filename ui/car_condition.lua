@@ -433,21 +433,35 @@ local function drawLegendSelector(origin, scale, mode)
   return mode
 end
 
+local function gripColor(grip)
+  if grip >= 66 then return mix(C.flagYellow, C.green, (grip-66)/34) end
+  if grip >= 33 then return mix(C.amber, C.flagYellow, (grip-33)/33) end
+  return mix(C.red, C.amber, grip/33)
+end
+
 local function drawGrip(origin,scale,grip)
   local left,right,y = 24,Layout.width-24,255
   centeredText(grip and string.format('GRIP %.1f%%',grip) or 'GRIP --',10*scale,
     point(origin,scale,Layout.carCenterX,245),C.primary)
-  ui.drawRectFilled(point(origin,scale,left,y),point(origin,scale,right,y+7),C.inactive)
-  if grip then
-    local length = U.clamp((grip-94)/6,0,1)
-    ui.drawRectFilled(point(origin,scale,left,y),point(origin,scale,left+(right-left)*length,y+7),C.primary)
+  local segments = 64
+  for index=0,segments-1 do
+    local x1=left+(right-left)*index/segments
+    local x2=left+(right-left)*(index+1)/segments
+    local color=gripColor(100-index*100/segments)
+    ui.drawRectFilled(point(origin,scale,x1,y),point(origin,scale,x2,y+7),color)
   end
-  local refs = {'END 94','LOW 96','MID 98','HIGH 100'}
-  for index,label in ipairs(refs) do
-    local x = left+(right-left)*(index-1)/3
+  local references = {
+    {value=100,label='HIGH'}, {value=66,label='MID'},
+    {value=33,label='LOW'}, {value=0,label='EOL'}
+  }
+  for _,item in ipairs(references) do
+    local x=left+(right-left)*(100-item.value)/100
     drawLine(point(origin,scale,x,y+8),point(origin,scale,x,y+11),C.secondary,scale)
-    -- End labels are inset so the measured text stays inside the app.
-    centeredText(label,8*scale,point(origin,scale,x,273),C.secondary)
+    centeredText(item.label,8*scale,point(origin,scale,x,273),C.secondary)
+  end
+  if grip then
+    local marker=left+(right-left)*(1-U.clamp(grip/100,0,1))
+    drawLine(point(origin,scale,marker,y-2),point(origin,scale,marker,y+9),C.primary,2*scale)
   end
 end
 
