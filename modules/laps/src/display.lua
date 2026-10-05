@@ -103,8 +103,8 @@ function Display.draw(snapshot, settings, visual)
     if fade then ui.beginGradientShade() end
     drawRow(snapshot.history[i], rowY, width, rowHeight, colors, scale, false)
     if fade then
-      ui.endGradientShade(vec2(0,rowY),vec2(0,rowY+rowHeight),
-        rgbm(0,0,0,1),rgbm(0,0,0,0.2),true)
+      ui.endGradientShade(vec2(0,rowY),vec2(0,rowY+rowHeight*0.8),
+        rgbm(0,0,0,1),rgbm(0,0,0,0.05),true)
     end
     y = y + rowHeight + rowGap
   end
