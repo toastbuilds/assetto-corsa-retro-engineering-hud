@@ -4,6 +4,8 @@ local Layout = require('src/layout')
 local U = require('src/utils')
 local InstrumentConfig = require('src/instrument_config')
 local Needle = require('ui/instrument_needle')
+local Hybrid = require('src/hybrid')
+local HybridGauge = require('ui/hybrid_gauge')
 
 local M = {}
 local drawAnalogElectronics
@@ -313,6 +315,17 @@ end
 local function drawAnalogAuxiliary(center, origin, scale, state, settings)
   local requestedMode = settings.analogAuxiliaryMode or 'auto'
   if requestedMode == 'off' then return end
+
+  local hybrid = Hybrid.forGauge(state, requestedMode)
+  if hybrid then
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, state.headlights and 1 or 0, 'standalone')
+    return
+  end
+  if requestedMode == 'electric' then
+    centeredText('ERS N/A', 13 * scale,
+      point(origin, scale, Layout.centerX, Layout.analogAuxLabelY), C.secondary)
+    return
+  end
 
   local useTurbo = requestedMode == 'turbo' or (requestedMode == 'auto' and state.turboAvailable)
   local available = useTurbo and state.turboAvailable or state.fuel ~= nil and state.maxFuel ~= nil

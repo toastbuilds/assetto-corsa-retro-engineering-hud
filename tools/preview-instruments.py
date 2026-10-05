@@ -142,7 +142,7 @@ def create_harness():
     return lua, harness
 
 
-def main():
+def main(hybrid=False):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     lua, harness = create_harness()
     state = harness["state"]
@@ -181,6 +181,30 @@ def main():
         renders[name] = picture
         print(f"{name}: {len(calls)} draw calls")
         return picture
+
+    if hybrid:
+        state["turboAvailable"] = False
+        state["analogNeedleNormalized"] = 0.65
+        state["hybrid"] = lua.table_from(dict(powerKw=120, needle=0.8, charge=0.84))
+        sheet = Image.new("RGB", (1320, 650), "#121416")
+        for row, theme in enumerate(("dark", "light")):
+            state["headlights"] = True
+            options = lua.table_from(dict(analogNeedleStyle="a02", theme=theme, hudScale=1))
+            calls = harness["drawDial"](options, state, lua.table_from((620, 620)))
+            picture = raster(calls, 620, 620)
+            picture.save(OUTPUT / f"hybrid-standalone-{theme}.png")
+            sheet.paste(picture.resize((320,320),Image.Resampling.LANCZOS), (0,row*325))
+            for column, mode in enumerate(("analog", "digital")):
+                picture = render(f"hybrid-gt7-{mode}-{theme}", mode=mode, lights=True, theme=theme)
+                sheet.paste(picture.crop((1090,78,1440,433)).resize((320,320),Image.Resampling.LANCZOS),
+                            (330+column*330,row*325))
+            state["hybrid"]["powerKw"], state["hybrid"]["needle"] = -80,-0.8
+            picture = render(f"hybrid-gt7-recovery-{theme}", lights=True, theme=theme)
+            sheet.paste(picture.crop((1090,78,1440,433)).resize((320,320),Image.Resampling.LANCZOS),
+                        (990,row*325))
+            state["hybrid"]["powerKw"], state["hybrid"]["needle"] = 120,0.8
+        sheet.save(OUTPUT / "hybrid-comparison.png")
+        return
 
     for theme in ("dark", "light"):
         for mode in ("analog", "digital"):
@@ -265,5 +289,7 @@ def main():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=OUTPUT)
-    OUTPUT = parser.parse_args().output
-    main()
+    parser.add_argument("--hybrid", action="store_true", help="Preview the Triptych electric instruments only")
+    args = parser.parse_args()
+    OUTPUT = args.output
+    main(hybrid=args.hybrid)

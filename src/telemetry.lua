@@ -4,6 +4,7 @@ local Gt7Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
 local TyreTemperature = require('src/tyre_temperature')
 local TyreGrip = require('src/tyre_grip')
+local Hybrid = require('src/hybrid')
 
 local M = {}
 local SIM = ac.getSim()
@@ -699,6 +700,7 @@ function M.update(state, dt, settings, sampleCar)
   local car = sampleCar or ac.getCar(0)
   if not car then
     state.available = false
+    state.hybrid = nil
     state.ffbAvailable = false
     state.ffbSigned = 0
     state.ffbMagnitudeRaw = 0
@@ -807,6 +809,8 @@ function M.update(state, dt, settings, sampleCar)
     state.boostNeedleNormalized = 0
     state.boostNeedleVelocity = 0
   end
+
+  Hybrid.update(state, car, dt or 0)
 
   local tcModes = U.number(U.read(car, 'tractionControlModes', nil), nil)
   state.tcSupported = tcModes ~= nil and tcModes > 0

@@ -4,6 +4,8 @@ local Theme = require('src/theme')
 local Needle = require('ui/instrument_needle')
 local Light = require('ui/instrument_illumination')
 local U = require('src/utils')
+local Hybrid = require('src/hybrid')
+local HybridGauge = require('ui/hybrid_gauge')
 local M = {}
 local D, S = Config.dial, Config.sub
 
@@ -108,6 +110,11 @@ end
 
 local function subGauge(center, scale, state, settings, C, digital, light, rpm, L)
   local subCenter = center + vec2(0, S.offsetY * scale)
+  local hybrid = rpm and Hybrid.forGauge(state)
+  if hybrid then
+    HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7')
+    return
+  end
   Light.ambient(subCenter, scale, L, true)
   arc(subCenter, S.housingRadius * scale,
     math.pi, math.pi * 2, C.metalDim, 2 * scale)

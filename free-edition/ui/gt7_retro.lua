@@ -3,6 +3,8 @@ local Theme = require('src/theme')
 local Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
 local U = require('src/utils')
+local Hybrid = require('src/hybrid')
+local HybridGauge = require('ui/hybrid_gauge')
 
 local M = {}
 local C = Theme.colors
@@ -361,8 +363,13 @@ local function drawSpeedDial(origin, scale, state, settings, backdropOpacity)
   drawFuelGauge(origin, scale, state)
 end
 
-local function drawBoostGauge(origin, scale, state)
+local function drawBoostGauge(origin, scale, state, settings)
   local center = point(origin, scale, Layout.rightCenterX, Layout.dialCenterY + 88)
+  local hybrid = Hybrid.forGauge(state)
+  if hybrid then
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, state.headlights and 1 or 0, 'gt7')
+    return
+  end
   if not state.turboAvailable then
     centeredText('NAT ASP', 11 * scale, center + vec2(0, 22 * scale), C.outlineSoft)
     return
@@ -410,7 +417,7 @@ local function drawRpmDial(origin, scale, state, settings, backdropOpacity)
   end,
     needleFraction, state, settings, true, settings.gt7RpmNeedleMode)
   centeredText('x1000 RPM', 14 * scale, center + vec2(0, -25 * scale), C.secondary)
-  drawBoostGauge(origin, scale, state)
+  drawBoostGauge(origin, scale, state, settings)
 end
 
 local function drawFfb(origin, scale, state)

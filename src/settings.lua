@@ -157,7 +157,7 @@ function M.draw()
         InstrumentConfig, function(value) M.values.analogNeedleStyle = value end)
       SettingsUI.choice('dial', 'lower', 'Auxiliary gauge', M.values.analogAuxiliaryMode,
         {{label='Auto', value='auto'}, {label='Turbo', value='turbo'},
-         {label='Fuel', value='fuel'}, {label='Off', value='off'}},
+         {label='Electric', value='electric'}, {label='Fuel', value='fuel'}, {label='Off', value='off'}},
         function(value) M.values.analogAuxiliaryMode = value end)
     end
     checkbox('Show steering marker', 'showSteering')

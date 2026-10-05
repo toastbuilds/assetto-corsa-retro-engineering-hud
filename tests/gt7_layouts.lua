@@ -766,5 +766,12 @@ local function drawNeedle(center, scale, angle, preset, palette, lights, alert, 
   assert(alphaDepth == 0, 'needle drawing must balance styles')
   return calls
 end
-return { draw=draw, drawDial=drawDial, drawNeedle=drawNeedle, state=state,
+local function drawRenderer(renderer, drawState, options, window)
+  width,height=window[1],window[2]
+  calls={}
+  renderer.draw(drawState,options)
+  assert(fonts==0 and alphaDepth==0,'drawing must balance fonts and styles')
+  return calls
+end
+return { draw=draw, drawDial=drawDial, drawNeedle=drawNeedle, drawRenderer=drawRenderer, state=state,
   pendingCombos=pendingCombos, pendingButtons=pendingButtons, pendingSliders=pendingSliders }

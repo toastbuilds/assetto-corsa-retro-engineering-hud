@@ -1,7 +1,7 @@
 param(
   [string]$AssettoCorsaRoot,
   [ValidateSet('free', 'premium')][string]$Edition = 'premium',
-  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer')][string]$App,
+  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments')][string]$App,
   [string[]]$SharedFiles = @(),
   [switch]$Finalize,
   [switch]$Validated
@@ -53,6 +53,10 @@ if ($App) {
   $files = @()
   if ($App -eq 'condition') {
     $files += @('ui/car_condition.lua', 'src/condition_settings.lua', 'src/tyre_grip.lua')
+  } elseif ($App -eq 'instruments') {
+    $files += @('src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua',
+      'ui/dial.lua', 'ui/side_instruments.lua', 'src/settings.lua')
+    if ($Edition -eq 'free') { $files += 'ui/gt7_retro.lua' }
   } else {
     $module = Join-Path $project ('modules/' + $App)
     $files += Get-ChildItem -LiteralPath $module -Recurse -File | Where-Object { $_.Extension -eq '.lua' } | ForEach-Object { $_.FullName.Substring($project.Length + 1) }
@@ -60,6 +64,9 @@ if ($App) {
   $files += $SharedFiles
   foreach ($file in $files | Select-Object -Unique) {
     $source = Join-Path $project $file
+    if ($App -eq 'instruments' -and $Edition -eq 'free' -and $file -eq 'ui/gt7_retro.lua') {
+      $source = Join-Path $project ('free-edition/' + $file)
+    }
     $destination = Join-Path $target $file
     Assert-ChildPath $project $source
     Assert-ChildPath $target $destination

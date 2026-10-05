@@ -57,6 +57,15 @@ preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 
 ## Ajustes
 
+Los híbridos sin turbo sustituyen automáticamente el indicador de boost por
+entrega eléctrica y carga de batería, siguiendo la opción C de Triptych. En el
+dial independiente se usa **Analog > Auxiliary gauge > Auto**; **Electric**
+permite forzarlo también en híbridos con turbo. GT7 lo muestra en su indicador
+auxiliar de RPM. El arco CHG/PWR usa verde para recuperación y cian para entrega;
+el arco del bisel y el porcentaje indican la batería. Si el mod no ofrece par
+eléctrico válido, la lectura se identifica como **ERS %**. Más detalles y
+verificación en [Indicadores eléctricos](docs/hybrid-instruments.md).
+
 **Condition > Personalization > Core weight** permite mezclar la temperatura del
 núcleo y la superficie de los neumáticos entre 0 % y 100 % core. El porcentaje
 surface es el complementario; el valor inicial es 80 % core / 20 % surface y
