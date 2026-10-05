@@ -66,7 +66,11 @@ function M.draw(center, scale, hybrid, palette, theme, lights, profile)
   text('PWR', p.labelSize, p.labelX, p.labelY, palette.cyan, L.label)
   local value = hybrid.powerKw ~= nil and string.format('%.0f kW', hybrid.powerKw)
     or hybrid.delivery ~= nil and string.format('ERS %.0f%%', hybrid.delivery * 100) or 'ERS --'
-  text(value, p.valueSize, 0, p.valueY, hybrid.powerKw and hybrid.powerKw < 0 and palette.green or palette.cyan, L.value)
+  if hybrid.batteryRecovery then
+    value = hybrid.chargeRecoveryRate and string.format('-%.1f%%/s', hybrid.chargeRecoveryRate) or 'CHG'
+  end
+  text(value, p.valueSize, 0, p.valueY,
+    (hybrid.batteryRecovery or hybrid.powerKw and hybrid.powerKw < 0) and palette.green or palette.cyan, L.value)
   local charge = hybrid.charge ~= nil and string.format('%.0f%%', hybrid.charge * 100) or '--%'
   local measured = ui.measureDWriteText(charge, p.chargeSize * scale)
   local groupWidth = 25 * p.iconScale * scale + 8 * scale + measured.x

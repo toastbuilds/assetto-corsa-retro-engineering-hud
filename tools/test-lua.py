@@ -36,6 +36,7 @@ def main():
         "tests/timer_final_lap.lua",
         "tests/instrument_illumination.lua",
         "tests/hybrid_instruments.lua",
+        "tests/hybrid_regeneration.lua",
     ]
     for suite in suites:
         print(f"Running {suite}", flush=True)

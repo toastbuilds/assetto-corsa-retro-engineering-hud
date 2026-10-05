@@ -26,6 +26,17 @@ desde `kersInput`, sin convertir la carga de batería en potencia. Sin entrada E
 se muestra `ERS --`; sin carga se muestra `--%` y el arco de batería queda inactivo.
 Las repeticiones y los coches remotos no usan datos físicos indisponibles.
 
+Si el coche no publica par negativo durante la recuperación, el indicador usa
+la señal `kersCharging` y el aumento real de `kersCharge`. En ese caso muestra
+una tasa negativa de carga en puntos porcentuales por segundo (por ejemplo,
+`-2.0%/s`), en verde en el lado CHG. Con señal de carga pero sin una tasa válida,
+muestra `CHG` y un segmento activo. Esta lectura describe la carga neta de la
+batería; los kW siguen reservados para la potencia mecánica medida en las ruedas.
+El muestreo de 0,1 segundos descarta saltos de carga, pausas, reinicios, cambios
+de coche o sesión y retrocesos de tiempo. Las repeticiones no calculan tasas
+contra el tiempo de actualización del HUD. El cambio entre CHG y PWR actualiza
+el signo inmediatamente y suaviza la amplitud dentro de cada lado.
+
 ## Verificación de esta entrega
 
 - Sintaxis Lua, pruebas de runtime, iluminación y layouts GT7 aprobadas.
@@ -33,6 +44,11 @@ Las repeticiones y los coches remotos no usan datos físicos indisponibles.
   canales ausentes, cambio de coche, prioridad de batería en híbridos con y sin turbo, integración de
   telemetría, dos temas, luces y tamaños de Dial/GT7 aprobados.
 - Ajustes aprobados en Free y Premium. Timer final lap aprobado.
+- `tests/hybrid_regeneration.lua`: recuperación con par cero, ausente o positivo
+  durante la frenada, prioridad de kW negativos medidos, señal de carga ausente,
+  transiciones, reinicios, repeticiones y dibujo en Free/Premium aprobados.
+- Vistas de recuperación obtenidas del cálculo y dibujo Lua reales, revisadas
+  en ambos temas y en Dial/GT7 Analog/Digital: `output/hybrid-regeneration/`.
 - El renderizador GT7 de Free y el dial con su paleta también se comprobaron
   mostrando potencia eléctrica y porcentaje de batería en ambos temas.
 - Vistas obtenidas de las llamadas de dibujo Lua, revisadas en ambos temas:
