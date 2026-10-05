@@ -16,12 +16,12 @@ ui = {
   windowWidth = function() return width end,
   windowHeight = function() return height end,
   measureDWriteText = function(text, size) return vec2(#text * size * 0.6, size) end,
-  dwriteDrawText = function(text, size, position)
+  dwriteDrawText = function(text, size, position, color)
     local measured = ui.measureDWriteText(text, size)
     assert(position.x >= 0 and position.y >= 0
       and position.x + measured.x <= width + 0.001
       and position.y + measured.y <= height + 0.001, 'text must fit the window: ' .. text)
-    texts[#texts + 1] = { text = text, position = position, size = size, font = fontStack[#fontStack] }
+    texts[#texts + 1] = { text = text, position = position, size = size, font = fontStack[#fontStack], color = color }
   end,
   drawRectFilled = function(a, b, color)
     assert(a.x >= 0 and a.y >= 0 and b.x <= width and b.y <= height,
@@ -74,6 +74,26 @@ for _, size in ipairs({ {320, 280}, {240, 210}, {240, 260}, {640, 560} }) do
     for _, item in ipairs(texts) do found[item.text] = true end
     for _, value in ipairs({ '96', '92', '78', '64' }) do
       assert(found[value], 'each wheel must display its remaining life')
+      local foreground,edges=nil,{}
+      for _, item in ipairs(texts) do
+        if item.text==value then
+          if item.color.r==0 and item.color.g==0 and item.color.b==0 then
+            edges[#edges+1]=item
+            assert(not foreground,'the outline must be behind the original number')
+          else foreground=item end
+        end
+      end
+      assert(foreground and #edges>0,'life needs its original foreground plus a black outline')
+      local left,right,above,below=false,false,false,false
+      for _, edge in ipairs(edges) do
+        left=left or edge.position.x<foreground.position.x
+        right=right or edge.position.x>foreground.position.x
+        above=above or edge.position.y<foreground.position.y
+        below=below or edge.position.y>foreground.position.y
+        assert(edge.font==foreground.font and edge.size==foreground.size,
+          'outline must preserve the selected life font and measured size')
+      end
+      assert(left and right and above and below,'black edging must surround the number rather than form a one-sided shadow')
     end
   end
 end

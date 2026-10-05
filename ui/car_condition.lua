@@ -11,6 +11,10 @@ local effectWhite = rgbm(1, 1, 1, 1)
 local lifeFonts = { Regular = 'Consolas;Weight=Regular', Bold = 'Consolas;Weight=Bold' }
 local legendY = 12
 local carOffsetY = 20
+local lifeOutlineOffsets = {
+  {-1,0},{1,0},{0,-1},{0,1},
+  {-0.7,-0.7},{0.7,-0.7},{-0.7,0.7},{0.7,0.7}
+}
 local thermalStops = {
   { position = 0, color = rgbm(0.08, 0.16, 0.44, 1) },
   { position = 1, color = rgbm(0.20, 0.47, 0.85, 1) },
@@ -65,6 +69,17 @@ end
 local function centeredText(text, size, center, color)
   local measured = ui.measureDWriteText(text, size)
   ui.dwriteDrawText(text, size, center - measured / 2, color)
+end
+
+local function outlinedLife(text, size, center, scale)
+  local measured = ui.measureDWriteText(text, size)
+  local position = center - measured / 2
+  local spread = math.max(0.75, scale)
+  for _, offset in ipairs(lifeOutlineOffsets) do
+    ui.dwriteDrawText(text, size,
+      position + vec2(offset[1] * spread, offset[2] * spread), effectBlack)
+  end
+  ui.dwriteDrawText(text, size, position, C.primary)
 end
 
 local function drawLine(a, b, color, width)
@@ -333,7 +348,7 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
   local measured = ui.measureDWriteText(life, lifeSize)
   local availableWidth = 60 * scale
   if measured.x > availableWidth then lifeSize = lifeSize * availableWidth / measured.x end
-  centeredText(life, lifeSize, point(origin, scale, lifeX, y), C.primary)
+  outlinedLife(life, lifeSize, point(origin, scale, lifeX, y), scale)
   ui.popDWriteFont()
 
   if wheel and wheel.isBlown then
