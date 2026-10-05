@@ -10,18 +10,30 @@ function rgbm(r, g, b, mult) return { r = r, g = g, b = b, mult = mult } end
 
 local width, height = 320, 280
 local texts, rectangles, gradients, pathColors
+local paths, path, overlays, currentOverlay
+local windowPosition=vec2(500,700)
 local fontStack = {}
 local function noop() end
 ui = {
   windowWidth = function() return width end,
   windowHeight = function() return height end,
+  windowPos = function() return windowPosition end,
+  transparentWindow = function(id, position, size, noPadding, inputs, content)
+    assert(noPadding and not inputs,'hover overlay must preserve its measured bounds and pass through inputs')
+    overlays[#overlays+1]={id=id,position=position,size=size}
+    local parentWidth,parentHeight=width,height
+    width,height,currentOverlay=size.x,size.y,id
+    local ok,err=pcall(content)
+    width,height,currentOverlay=parentWidth,parentHeight,nil
+    assert(ok,err)
+  end,
   measureDWriteText = function(text, size) return vec2(#text * size * 0.6, size) end,
   dwriteDrawText = function(text, size, position, color)
     local measured = ui.measureDWriteText(text, size)
     assert(position.x >= 0 and position.y >= 0
       and position.x + measured.x <= width + 0.001
       and position.y + measured.y <= height + 0.001, 'text must fit the window: ' .. text)
-    texts[#texts + 1] = { text = text, position = position, size = size, font = fontStack[#fontStack], color = color }
+    texts[#texts + 1] = { text = text, position = position, size = size, font = fontStack[#fontStack], color = color, overlay=currentOverlay }
   end,
   drawRectFilled = function(a, b, color)
     assert(a.x >= 0 and a.y >= 0 and b.x <= width and b.y <= height,
@@ -36,8 +48,12 @@ ui = {
     gradients[#gradients + 1] = { a = a, b = b, left = topLeft, right = topRight }
   end,
   drawRect = noop, drawLine = noop, drawCircle = noop, drawCircleFilled = noop,
-  drawTriangleFilled = noop, pathClear = noop, pathLineTo = noop,
-  pathFillConvex = function(color) pathColors[#pathColors + 1] = color end,
+  drawTriangleFilled = noop, pathClear = function() path={} end,
+  pathLineTo = function(position) path[#path+1]=position end,
+  pathFillConvex = function(color)
+    pathColors[#pathColors + 1] = color
+    paths[#paths+1]={points=path,color=color,overlay=currentOverlay}
+  end,
   pathStroke = noop,
   pushDWriteFont = function(font) fontStack[#fontStack + 1] = font end,
   popDWriteFont = function() assert(#fontStack > 0); fontStack[#fontStack] = nil end,
@@ -45,6 +61,7 @@ ui = {
 }
 
 ac = {storage = function(defaults) return defaults end}
+ac.getUI=function() return {windowSize=vec2(1920,1080)} end
 local Condition = require('ui/car_condition')
 local state = { clock = 0, condition = {
   available = true, body = {}, engineDamage = 0, gearboxDamage = 0, wheels = {}
@@ -58,6 +75,7 @@ end
 
 local function draw(theme, settings)
   texts, rectangles, gradients, pathColors = {}, {}, {}, {}
+  paths,path,overlays,currentOverlay={},{},{},nil
   settings = settings or {}
   -- Existing zone scenarios explicitly exercise the optional surface mode.
   if settings.temperatureDisplay == nil then settings.temperatureDisplay = 'surface' end
@@ -381,6 +399,11 @@ for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
   draw(theme,{legendMode='grip'})
   assert(findText('TYRE GRIP PROFILE') and findText('AVG GRIP') and findText('98.0%'),
     'the new top bar must open its detailed grip panel')
+  assert(#overlays==1 and overlays[1].position.y+overlays[1].size.y
+    < windowPosition.y+origin.y+12*scale,
+    'grip hover must float entirely above the bar rather than cover the car')
+  assert(findText('TYRE GRIP PROFILE').overlay==overlays[1].id,
+    'hover content must draw in its own window so the parent cannot clip it')
   local title=findText('TYRE GRIP PROFILE')
   assert(title.font=='Consolas;Weight=Bold' and title.size==20*scale,
     'hover title must match Leaderboard emphasis with larger type')
@@ -396,6 +419,7 @@ for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
   ui.mouseLocalPos=function() return origin+vec2(160*scale,260*scale) end
   draw(theme,{legendMode='grip'})
   assert(not findText('TYRE GRIP PROFILE'),'the old bottom area must no longer open grip details')
+  assert(#overlays==0,'hover window must close when the pointer leaves the bar')
   ui.mouseLocalPos=nil
  end
 end
@@ -415,6 +439,58 @@ gripDetails.details[2].laps=nil
 draw('dark',{legendMode='grip'})
 assert(findText('--'),'missing lap conversion must remain explicit')
 ui.mouseLocalPos=nil
+-- The drop points at the live average along the selected scale, including its
+-- two endpoints; its rounded head stays inside the compact parent window.
+local function drop()
+ for _,shape in ipairs(paths) do
+  if not shape.overlay and #shape.points==10 then return shape.points end
+ end
+end
+for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
+ width,height=dimensions[1],dimensions[2]
+ local scale=math.min(width/320,height/280)
+ local origin=vec2((width-320*scale)/2,(height-280*scale)/2)
+ for _,theme in ipairs({'dark','light'}) do
+  for _,remaining in ipairs({100,65,0,-10,110}) do
+   gripDetails.remaining=remaining
+   draw(theme,{legendMode='grip'})
+   local points=assert(drop(),'valid grip must have a droplet marker')
+   local fraction=1-math.max(0,math.min(1,remaining/100))
+   assert(math.abs(points[6].x-(origin.x+(24+272*fraction)*scale))<0.001
+     and math.abs(points[6].y-(origin.y+11*scale))<0.001,
+     'drop tip must track live grip and clamp at the ends of the bar')
+   for _,p in ipairs(points) do assert(p.x>=0 and p.y>=0 and p.x<=width and p.y<=height) end
+   assert(points[1].y<points[6].y and points[3].x>points[6].x
+     and points[8].x<points[6].x,'drop needs a rounded head above its downward point')
+  end
+  state.condition.gripDetails=nil
+  draw(theme,{legendMode='grip'})
+  assert(not drop(),'unavailable grip must not show a false current-state marker')
+  state.condition.gripDetails=gripDetails
+  draw(theme,{legendMode='none'})
+  assert(not drop(),'None must hide the state marker')
+  for _,temperature in ipairs({0,80,200}) do
+   for _,tyre in ipairs(state.condition.wheels) do
+    tyre.temperature,tyre.optimumTemperatureMin,tyre.optimumTemperatureMax=temperature,75,85
+   end
+   draw(theme,{legendMode='temperature'})
+   local points=assert(drop(),'four valid temperatures must have a state marker')
+   local fraction=temperature==0 and 0 or (temperature==80 and 0.5 or 1)
+   assert(math.abs(points[6].x-(origin.x+(24+272*fraction)*scale))<0.001,
+     'temperature marker must track the cold, optimal and hot parts of the legend')
+  end
+  state.condition.wheels[4].temperature=nil
+  draw(theme,{legendMode='temperature'})
+  assert(not drop(),'missing temperature from any wheel must hide the aggregate marker')
+ end
+end
+width,height=320,280
+windowPosition=vec2(1900,20)
+ui.mouseLocalPos=function() return vec2(160,15) end
+draw('dark',{legendMode='grip'})
+assert(overlays[1].position.x>=0 and overlays[1].position.x+overlays[1].size.x<=1920
+  and overlays[1].position.y==0,'near-screen-edge hover must remain on screen without flipping downward')
+ui.mouseLocalPos=nil
 ui.invisibleButton=function() error('HUD legend must not create selector buttons') end
 draw('dark',{legendMode='temperature'})
 for _,mode in ipairs({'temperature','grip','none'}) do
@@ -422,4 +498,4 @@ for _,mode in ipairs({'temperature','grip','none'}) do
  assert(require('src/condition_settings').values.legendMode==mode,
    'the settings selector must remain persistent')
 end
-print('Condition legends: text-free top bars, unavailable grip, themes, sizes, hover relocation and persistent settings passed')
+print('Condition legends: upward floating hover, droplet state markers, unavailable data, themes, sizes, screen edges and persistent settings passed')

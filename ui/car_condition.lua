@@ -136,8 +136,7 @@ local function temperatureWindow(wheel)
   return minimum, maximum
 end
 
-local function temperatureColor(temperature, minimum, maximum)
-  if temperature == nil then return C.metalDim end
+local function temperaturePosition(temperature, minimum, maximum)
   local position = 2
   if temperature < minimum - Layout.tyreBlueOffset then
     position = (temperature - (minimum - Layout.tyreDarkBlueOffset))
@@ -153,7 +152,12 @@ local function temperatureColor(temperature, minimum, maximum)
   elseif temperature > maximum then
     position = 2 + (temperature - maximum) / Layout.tyreYellowOffset
   end
-  return thermalColor(position)
+  return position
+end
+
+local function temperatureColor(temperature, minimum, maximum)
+  if temperature == nil then return C.metalDim end
+  return thermalColor(temperaturePosition(temperature, minimum, maximum))
 end
 
 local function conditionColor(wheel)
@@ -405,7 +409,16 @@ local function drawBody(origin, scale, condition)
     point(origin, scale, 126, 20), C.secondary)
 end
 
-local function drawLegend(origin, scale)
+local function drawStateDrop(origin, scale, fraction)
+  local x = 24 + (Layout.width - 48) * U.clamp(fraction, 0, 1)
+  local y = legendY
+  drawPolygon(origin, scale, {
+    {x,y-11},{x+2.5,y-10.3},{x+4,y-8.5},{x+4,y-6.5},{x+2.7,y-4.5},
+    {x,y-1},{x-2.7,y-4.5},{x-4,y-6.5},{x-4,y-8.5},{x-2.5,y-10.3}
+  }, C.primary, tyreEffectColor(C.primary), 1)
+end
+
+local function drawLegend(origin, scale, condition, settings)
   local left, right, y = 24, Layout.width - 24, legendY
   local segments = 96
   for i = 0, segments - 1 do
@@ -417,6 +430,18 @@ local function drawLegend(origin, scale)
   end
   ui.drawRect(point(origin, scale, left, y), point(origin, scale, right, y + 7),
     C.metal, 0, nil, scale)
+  local position = 0
+  for i = 1, 4 do
+    local wheel = condition.wheels[i]
+    if not wheel or not wheel.available then return end
+    local temperature
+    if settings.temperatureDisplay == 'surface' then temperature = wheel.temperature
+    else temperature = TyreTemperature.generalTemperature(wheel, settings.temperatureCoreWeight) end
+    if temperature == nil then return end
+    local minimum, maximum = temperatureWindow(wheel)
+    position = position + U.clamp(temperaturePosition(temperature, minimum, maximum), 0, 5) / 4
+  end
+  drawStateDrop(origin, scale, position <= 2 and position / 4 or 0.5 + (position - 2) / 6)
 end
 
 local function gripStage(remaining, thresholds)
@@ -434,12 +459,7 @@ local function stageColor(stage)
   return C.red
 end
 
-local function drawGripDetails(origin,scale,grip)
-  if not ui.mouseLocalPos or not grip or not grip.details then return end
-  local mouse=ui.mouseLocalPos()
-  local inside=mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
-    and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
-  if not inside then return end
+local function drawGripPanel(origin,scale,grip)
   drawPolygon(origin,scale,{
     {16,32},{Layout.width-16,32},{Layout.width-8,40},{Layout.width-8,264},
     {Layout.width-16,272},{16,272},{8,264},{8,40}
@@ -483,6 +503,25 @@ local function drawGripDetails(origin,scale,grip)
   detailText(string.format('%.1f%%',grip.average),24,296,254,C.primary,true,true)
 end
 
+local function drawGripDetails(origin,scale,grip)
+  if not ui.mouseLocalPos or not grip or not grip.details
+    or not ui.transparentWindow or not ui.windowPos then return end
+  local mouse=ui.mouseLocalPos()
+  local inside=mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
+    and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
+  if not inside then return end
+  -- Use an independent overlay so the panel can extend above the compact app
+  -- without being clipped by its window or covering its car diagram.
+  local size=vec2((Layout.width-14)*scale,242*scale)
+  local position=ui.windowPos()+origin+vec2(7*scale,(legendY-14)*scale-size.y)
+  local screen=ac.getUI and U.read(ac.getUI(),'windowSize',nil) or nil
+  position.x=math.max(0,screen and math.min(position.x,screen.x-size.x) or position.x)
+  position.y=math.max(0,position.y)
+  ui.transparentWindow('##condition-grip-profile',position,size,true,false,function()
+    drawGripPanel(vec2(-7*scale,-31*scale),scale,grip)
+  end)
+end
+
 local function drawGrip(origin,scale,grip)
   local left,right,y=24,Layout.width-24,legendY
   local remaining=grip and grip.remaining or nil
@@ -504,8 +543,7 @@ local function drawGrip(origin,scale,grip)
     end
   end
   if remaining then
-    local marker=left+(right-left)*(1-U.clamp(remaining/100,0,1))
-    drawLine(point(origin,scale,marker,y-3),point(origin,scale,marker,y+10),C.primary,2*scale)
+    drawStateDrop(origin,scale,1-remaining/100)
   end
   drawGripDetails(origin,scale,grip)
 end
@@ -532,7 +570,7 @@ function M.draw(state, settings)
     drawTyre(carOrigin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state, settings)
     drawTyre(carOrigin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state, settings)
     local mode = settings.legendMode or (settings.showTemperatureLegend == false and 'none' or 'temperature')
-    if mode == 'temperature' then drawLegend(origin,scale)
+    if mode == 'temperature' then drawLegend(origin,scale,condition,settings)
     elseif mode == 'grip' then drawGrip(origin,scale,condition.gripDetails) end
   end
 
