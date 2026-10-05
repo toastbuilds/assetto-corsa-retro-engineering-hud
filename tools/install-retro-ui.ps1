@@ -55,8 +55,7 @@ if ($App) {
     $files += @('ui/car_condition.lua', 'src/condition_settings.lua', 'src/tyre_grip.lua')
   } elseif ($App -eq 'instruments') {
     $files += @('src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',
-      'ui/dial.lua', 'ui/side_instruments.lua', 'src/settings.lua')
-    if ($Edition -eq 'free') { $files += 'ui/gt7_retro.lua' }
+      'ui/dial.lua', 'ui/side_instruments.lua', 'ui/gt7_retro.lua', 'src/settings.lua')
   } else {
     $module = Join-Path $project ('modules/' + $App)
     $files += Get-ChildItem -LiteralPath $module -Recurse -File | Where-Object { $_.Extension -eq '.lua' } | ForEach-Object { $_.FullName.Substring($project.Length + 1) }

@@ -265,13 +265,18 @@ local function lampColors(layout, side)
   assert(#result == layout.verticalLampCount, 'exactly one column must be drawn per side')
   return result
 end
-local function expectLamps(layout, side, filled, color)
+local function expectLamps(layout, side, filled, color, palette)
+  palette = palette or Theme.colors
   for i, lamp in ipairs(lampColors(layout, side)) do
     assert(near(lamp.y, layout.verticalLampBottom - (i - 1) * layout.verticalLampSpacing),
       'lamps must fill bottom to top')
-    assert(equalColor(lamp.color, i <= filled and color or Theme.colors.outlineDim),
+    local activeColor = type(color) == 'function' and color(i) or color
+    assert(equalColor(lamp.color, i <= filled and activeColor or palette.outlineDim),
       'unexpected ' .. side .. ' lamp color at level ' .. i)
   end
+end
+local function nineColors(palette)
+  return function(i) return i <= 3 and palette.flagYellow or (i <= 6 and palette.shiftBlue or palette.red) end
 end
 local function indicatorColor(layout, side)
   local tipX = side == 'left' and layout.indicatorLeftX - 13 or layout.indicatorRightX + 13
@@ -286,11 +291,14 @@ for _, id in ipairs({ 'outer_pedals', 'steering_dial' }) do
   local layout = Layouts.get(id)
   state.raceFlagType, state.clock, state.leftIndicator, state.rightIndicator = 2, 0, true, false
   state.radarRightLevel = 0
+  state.radarRightLevel9 = 0
   for level = 0, 3 do
     state.radarLeftLevel = level
+    state.radarLeftLevel9 = level * 3
     draw(id, { gt7RadarStyle = 'arcs' })
     expectLamps(layout, 'left', level > 0 and level * layout.verticalLampCount / 3 or layout.verticalLampCount,
-      level == 0 and Theme.colors.flagYellow or (level == 3 and Theme.colors.red or Theme.colors.amber))
+      level == 0 and Theme.colors.flagYellow or (layout.verticalLampCount == 9 and nineColors(Theme.colors)
+        or (level == 3 and Theme.colors.red or Theme.colors.amber)))
     expectLamps(layout, 'right', layout.verticalLampCount, Theme.colors.flagYellow)
     assert(indicatorColor(layout, 'left') == Theme.colors.amber
       and indicatorColor(layout, 'right') == Theme.colors.outlineDim, 'radar must not replace turn signals')
@@ -307,8 +315,10 @@ for _, id in ipairs({ 'outer_pedals', 'steering_dial' }) do
   expectLamps(layout, 'left', layout.verticalLampCount, Theme.colors.flagYellow)
   state.proximityRadarAvailable = true
   state.radarRightLevel, state.hazardLights = 2, true
+  state.radarRightLevel9 = 6
   draw(id)
-  expectLamps(layout, 'right', layout.verticalLampCount * 2 / 3, Theme.colors.amber)
+  expectLamps(layout, 'right', layout.verticalLampCount * 2 / 3,
+    layout.verticalLampCount == 9 and nineColors(Theme.colors) or Theme.colors.amber)
   assert(indicatorColor(layout, 'left') == Theme.colors.amber
     and indicatorColor(layout, 'right') == Theme.colors.amber, 'hazards must remain independent')
   state.indicatorPhase = false
@@ -318,6 +328,7 @@ for _, id in ipairs({ 'outer_pedals', 'steering_dial' }) do
   draw(id, { animateIndicators = false })
   assert(indicatorColor(layout, 'left') == Theme.colors.amber, 'turn animation toggle must still work')
   state.radarLeftLevel, state.radarRightLevel = 0, 0
+  state.radarLeftLevel9, state.radarRightLevel9 = 0, 0
   state.clock = layout.flagBlinkPeriod
   draw(id)
   expectLamps(layout, 'left', 0, Theme.colors.flagYellow)
@@ -325,6 +336,25 @@ for _, id in ipairs({ 'outer_pedals', 'steering_dial' }) do
   expectLamps(layout, 'left', layout.verticalLampCount, Theme.colors.flagYellow)
   state.indicatorPhase, state.hazardLights, state.clock, state.raceFlagType = true, false, 0, nil
 end
+
+-- Exercise every single-lamp increment in both themes and on both sides.
+local nineLayout = Layouts.get('steering_dial')
+for _, theme in ipairs({ 'dark', 'light' }) do
+  local palette = Theme.get(theme)
+  for level = 1, 9 do
+    state.radarLeftLevel, state.radarRightLevel = math.ceil(level / 3), math.ceil(level / 3)
+    state.radarLeftLevel9, state.radarRightLevel9 = level, level
+    draw('steering_dial', { theme = theme })
+    expectLamps(nineLayout, 'left', level, nineColors(palette), palette)
+    expectLamps(nineLayout, 'right', level, nineColors(palette), palette)
+    state.clock = nineLayout.radarBlinkPeriod
+    draw('steering_dial', { theme = theme })
+    expectLamps(nineLayout, 'left', level >= 7 and 0 or level, nineColors(palette), palette)
+    state.clock = 0
+  end
+end
+state.radarLeftLevel, state.radarRightLevel = 0, 0
+state.radarLeftLevel9, state.radarRightLevel9 = 0, 0
 
 local modern = Layouts.get('modern')
 local function topFlagStrip(side)

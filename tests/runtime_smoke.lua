@@ -409,6 +409,64 @@ assert(radarTelemetry.proximityRadarAvailable
   and radarTelemetry.radarRightLevel == 2,
   'GT7 radar must distinguish alongside traffic from a close offset car')
 
+-- The nine-lamp option has three genuine increments in each warning band.
+local ninePositions = {}
+for _, distance in ipairs({ 17, 14, 11, 9, 7.5, 5.5 }) do
+  ninePositions[#ninePositions + 1] = -math.sqrt(distance * distance - 4)
+end
+for _, longitudinal in ipairs({ -3.75, -2.25, -0.75 }) do
+  ninePositions[#ninePositions + 1] = longitudinal
+end
+radarCars = { radarLeft, radarRight }
+for level, longitudinal in ipairs(ninePositions) do
+  radarLeft.position = { x = 2, z = longitudinal }
+  radarRight.position = { x = -2, z = longitudinal }
+  Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+  assert(radarTelemetry.radarLeftLevel9 == level and radarTelemetry.radarRightLevel9 == level,
+    'nine-lamp radar must reach individual level ' .. level .. ' symmetrically')
+  assert(radarTelemetry.radarLeftLevel == math.ceil(level / 3),
+    'existing three-stage presentations must retain their warning thresholds')
+end
+radarCars[#radarCars + 1] = makeCar({ index = 3, position = { x = 2, z = -15 } })
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(radarTelemetry.radarLeftLevel9 == 9, 'a farther car must not downgrade a nearer warning')
+radarCars = { radarLeft, radarRight }
+for level = 9, 1, -1 do
+  radarLeft.position.z, radarRight.position.z = ninePositions[level], ninePositions[level]
+  Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+  assert(radarTelemetry.radarLeftLevel9 == level and radarTelemetry.radarRightLevel9 == level,
+    'receding traffic must empty nine-lamp radar one step at a time')
+end
+radarLeft.position.z, radarRight.position.z = -19, -19
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(radarTelemetry.radarLeftLevel9 == 0 and radarTelemetry.radarRightLevel9 == 0,
+  'out-of-range traffic must clear nine-stage warnings')
+Settings.values.instrumentMode = 'analog'
+radarTelemetry.radarLeftLevel9, radarTelemetry.radarRightLevel9 = 9, 9
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(radarTelemetry.radarLeftLevel9 == 0 and radarTelemetry.radarRightLevel9 == 0,
+  'leaving GT7 must clear nine-stage warnings')
+Settings.values.instrumentMode = 'gt7_retro'
+radarCars = {}
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(radarTelemetry.radarLeftLevel9 == 0 and radarTelemetry.radarRightLevel9 == 0,
+  'nine-stage warnings must clear when traffic disappears')
+local radarIterator = ac.iterateCars
+ac.iterateCars = function() error('grid unavailable') end
+radarTelemetry.radarLeftLevel9, radarTelemetry.radarRightLevel9 = 9, 9
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(not radarTelemetry.proximityRadarAvailable and radarTelemetry.radarLeftLevel9 == 0
+  and radarTelemetry.radarRightLevel9 == 0, 'failed grid reads must clear nine-stage warnings')
+ac.iterateCars = radarIterator
+car = nil
+radarTelemetry.radarLeftLevel9, radarTelemetry.radarRightLevel9 = 9, 9
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+assert(radarTelemetry.radarLeftLevel9 == 0 and radarTelemetry.radarRightLevel9 == 0,
+  'missing player must clear nine-stage warnings')
+car, radarCars = radarPlayer, { radarLeft, radarRight }
+radarLeft.position, radarRight.position = { x = 6, y = 0, z = 0 }, { x = -4, y = 0, z = -6 }
+Telemetry.update(radarTelemetry, 1 / 60, Settings.current())
+
 local leftRedArcs = 0
 local lastArcX
 local outerLeftArcRadius = 0

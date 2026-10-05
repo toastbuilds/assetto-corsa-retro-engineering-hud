@@ -643,8 +643,9 @@ local function drawVerticalColumn(origin, scale, side, count, filled, visible, c
   local bottom = count == 9 and 269 or 251
   local spacing = count == 9 and 18 or 14
   for i = 1, count do
+    local lampColor = type(color) == 'function' and color(i) or color
     drawRadarLamp(origin, scale, x, bottom - (i - 1) * spacing,
-      visible and i <= filled, color or C.outlineDim)
+      visible and i <= filled, lampColor or C.outlineDim)
   end
 end
 
@@ -668,7 +669,11 @@ local function drawFlagPresentation(origin, scale, side, state, settings)
   drawVerticalColumn(origin, scale, side, count, count, visible, color, false)
 end
 
-local function drawRadarPresentation(origin, scale, side, level, visible)
+local function nineLampColor(index)
+  return index <= 3 and C.flagYellow or (index <= 6 and C.shiftBlue or C.red)
+end
+
+local function drawRadarPresentation(origin, scale, side, level, visible, level9)
   local style = Layout.radarPresentation
   if style == 'classic_lights' then
     drawRadarLights(origin, scale, side, level, visible)
@@ -676,8 +681,8 @@ local function drawRadarPresentation(origin, scale, side, level, visible)
     drawModernRadarBars(origin, scale, side, level, visible)
   elseif style == 'column_3' or style == 'column_9' then
     local count = style == 'column_9' and 9 or 3
-    local filled = math.floor(level * count / 3 + 0.5)
-    local color = level >= 3 and C.red or C.amber
+    local filled = count == 9 and math.max(0, math.min(9, level9 or level)) or level
+    local color = count == 9 and nineLampColor or (level >= 3 and C.red or C.amber)
     drawVerticalColumn(origin, scale, side, count, filled, visible, color,
       Layout.flagPresentation == 'modern_strips')
   else
@@ -688,7 +693,7 @@ end
 local function drawSideIndicators(origin, scale, state, settings)
   local radarEnabled = settings.gt7ProximityRadar ~= false and state.proximityRadarAvailable
   local blinkOn = math.floor((state.clock or 0) / Layout.radarBlinkPeriod) % 2 == 0
-  local function drawSide(side, level)
+  local function drawSide(side, level, level9)
     drawTurnIndicator(origin, scale, side, state, settings)
 
     -- Modern continuous flag strips are a persistent status channel and never
@@ -699,13 +704,13 @@ local function drawSideIndicators(origin, scale, state, settings)
 
     local traffic = radarEnabled and level > 0
     if traffic then
-      drawRadarPresentation(origin, scale, side, level, level < 3 or blinkOn)
+      drawRadarPresentation(origin, scale, side, level, level < 3 or blinkOn, level9)
     elseif Layout.flagPresentation ~= 'modern_strips' then
       drawFlagPresentation(origin, scale, side, state, settings)
     end
   end
-  drawSide('left', state.radarLeftLevel or 0)
-  drawSide('right', state.radarRightLevel or 0)
+  drawSide('left', state.radarLeftLevel or 0, state.radarLeftLevel9)
+  drawSide('right', state.radarRightLevel or 0, state.radarRightLevel9)
 end
 
 local function drawPedals(origin, scale, state)

@@ -129,6 +129,8 @@ local function blankState()
     proximityRadarAvailable = false,
     radarLeftLevel = 0,
     radarRightLevel = 0,
+    radarLeftLevel9 = 0,
+    radarRightLevel9 = 0,
     raceFlagType = nil,
     pitLane = false,
     pitLimiter = nil,
@@ -621,6 +623,8 @@ local function updateProximityRadar(state, playerCar, settings)
   state.proximityRadarAvailable = false
   state.radarLeftLevel = 0
   state.radarRightLevel = 0
+  state.radarLeftLevel9 = 0
+  state.radarRightLevel9 = 0
 
   -- The radar is specific to the GT7 panoramic layout. Keep the old turn
   -- indicators available in every other instrument mode and on CSP builds
@@ -673,10 +677,31 @@ local function updateProximityRadar(state, playerCar, settings)
                 and distance <= Gt7Layout.radarAlongsideRange then
               level = 3
             end
+            -- Subdivide each existing warning band into three steps. The
+            -- alongside band also follows longitudinal overlap, so a close
+            -- car behind us cannot light the red lamps prematurely.
+            local progress
+            if level == 1 then
+              progress = (Gt7Layout.radarRange - distance)
+                / (Gt7Layout.radarRange - Gt7Layout.radarNearRange)
+            elseif level == 2 then
+              local alongsideDistance = math.min(Gt7Layout.radarAlongsideRange,
+                math.sqrt(overlapLength * overlapLength + lateralAbs * lateralAbs))
+              progress = (Gt7Layout.radarNearRange - distance)
+                / (Gt7Layout.radarNearRange - alongsideDistance)
+            else
+              progress = 1 - math.max(math.abs(longitudinal) / overlapLength,
+                (distance - Gt7Layout.radarMinLateral)
+                  / (Gt7Layout.radarAlongsideRange - Gt7Layout.radarMinLateral))
+            end
+            local level9 = (level - 1) * 3 + 1
+              + math.min(2, math.floor(math.max(0, progress) * 3))
             if lateral < 0 then
               state.radarLeftLevel = math.max(state.radarLeftLevel, level)
+              state.radarLeftLevel9 = math.max(state.radarLeftLevel9, level9)
             else
               state.radarRightLevel = math.max(state.radarRightLevel, level)
+              state.radarRightLevel9 = math.max(state.radarRightLevel9, level9)
             end
           end
         end
@@ -690,6 +715,8 @@ local function updateProximityRadar(state, playerCar, settings)
     state.proximityRadarAvailable = false
     state.radarLeftLevel = 0
     state.radarRightLevel = 0
+    state.radarLeftLevel9 = 0
+    state.radarRightLevel9 = 0
   end
 end
 
@@ -724,6 +751,8 @@ function M.update(state, dt, settings, sampleCar)
     state.proximityRadarAvailable = false
     state.radarLeftLevel = 0
     state.radarRightLevel = 0
+    state.radarLeftLevel9 = 0
+    state.radarRightLevel9 = 0
     PedalHistory.clear(state.pedalHistory)
     resetCondition(state)
     return
