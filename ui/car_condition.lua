@@ -9,6 +9,8 @@ local C = Theme.colors
 local effectBlack = rgbm(0, 0, 0, 1)
 local effectWhite = rgbm(1, 1, 1, 1)
 local lifeFonts = { Regular = 'Consolas;Weight=Regular', Bold = 'Consolas;Weight=Bold' }
+local legendY = 12
+local carOffsetY = 20
 local thermalStops = {
   { position = 0, color = rgbm(0.08, 0.16, 0.44, 1) },
   { position = 1, color = rgbm(0.20, 0.47, 0.85, 1) },
@@ -389,7 +391,7 @@ local function drawBody(origin, scale, condition)
 end
 
 local function drawLegend(origin, scale)
-  local left, right, y = 24, Layout.width - 24, 246
+  local left, right, y = 24, Layout.width - 24, legendY
   local segments = 96
   for i = 0, segments - 1 do
     local fraction = i / (segments - 1)
@@ -400,37 +402,6 @@ local function drawLegend(origin, scale)
   end
   ui.drawRect(point(origin, scale, left, y), point(origin, scale, right, y + 7),
     C.metal, 0, nil, scale)
-  local items = {
-    { x = left + 15, label = 'COLD' },
-    { x = Layout.carCenterX, label = 'OPT' },
-    { x = right - 12, label = 'HOT' }
-  }
-  for _, item in ipairs(items) do
-    drawLine(point(origin, scale, item.x, y + 8), point(origin, scale, item.x, y + 12),
-      C.secondary, scale)
-    centeredText(item.label, 9 * scale, point(origin, scale, item.x, y + 22), C.secondary)
-  end
-end
-
-local function drawLegendSelector(origin, scale, mode)
-  local options = { {label='Temperature',value='temperature'}, {label='Grip',value='grip'}, {label='None',value='none'} }
-  local settings = require('src/condition_settings')
-  for index, option in ipairs(options) do
-    local x = 24 + (index - 0.5) * (Layout.width - 48) / 3
-    centeredText(option.label, 10 * scale, point(origin,scale,x,232),
-      mode == option.value and C.primary or C.secondary)
-    if ui.invisibleButton and ui.backupCursor and ui.restoreCursor and ui.setCursor
-        and not require('src/window_anchor').isAnchored('condition') then
-      ui.backupCursor()
-      ui.setCursor(point(origin,scale,x-44,224))
-      if ui.invisibleButton('##condition.legend.' .. option.value,vec2(88*scale,16*scale)) then
-        settings.setLegendMode(option.value)
-        mode = option.value
-      end
-      ui.restoreCursor()
-    end
-  end
-  return mode
 end
 
 local function gripStage(remaining, thresholds)
@@ -452,11 +423,12 @@ local function drawGripDetails(origin,scale,grip)
   if not ui.mouseLocalPos or not grip or not grip.details then return end
   local mouse=ui.mouseLocalPos()
   local inside=mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
-    and mouse.y>=origin.y+248*scale and mouse.y<=origin.y+280*scale
+    and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
   if not inside then return end
-  local tl=point(origin,scale,24,52)
-  local br=point(origin,scale,Layout.width-24,221)
-  chamferRect(tl,br,6*scale,C.panel,C.outline,scale)
+  drawPolygon(origin,scale,{
+    {30,52},{Layout.width-30,52},{Layout.width-24,58},{Layout.width-24,215},
+    {Layout.width-30,221},{30,221},{24,215},{24,58}
+  },C.panel,C.outline,1)
   ui.dwriteDrawText('TYRE GRIP PROFILE',11*scale,point(origin,scale,36,61),C.primary)
   local compound=grip.compound or 'Compound unavailable'
   ui.dwriteDrawText(compound,10*scale,point(origin,scale,36,79),C.secondary)
@@ -476,13 +448,9 @@ local function drawGripDetails(origin,scale,grip)
 end
 
 local function drawGrip(origin,scale,grip)
-  local left,right,y=24,Layout.width-24,255
-  local average=grip and grip.average or nil
+  local left,right,y=24,Layout.width-24,legendY
   local remaining=grip and grip.remaining or nil
   local thresholds=grip and grip.progressThresholds or nil
-  local readout=average and remaining and string.format('GRIP %.1f%%  /  LIFE %.0f%%',average,remaining)
-    or 'GRIP --'
-  centeredText(readout,9*scale,point(origin,scale,Layout.carCenterX,245),C.primary)
   local segments=64
   for index=0,segments-1 do
     local x1=left+(right-left)*index/segments
@@ -499,8 +467,6 @@ local function drawGrip(origin,scale,grip)
       drawLine(point(origin,scale,x,y-1),point(origin,scale,x,y+8),stageColor(name),1.2*scale)
     end
   end
-  centeredText('100',8*scale,point(origin,scale,left+7,273),C.secondary)
-  centeredText('0',8*scale,point(origin,scale,right-4,273),C.secondary)
   if remaining then
     local marker=left+(right-left)*(1-U.clamp(remaining/100,0,1))
     drawLine(point(origin,scale,marker,y-3),point(origin,scale,marker,y+10),C.primary,2*scale)
@@ -523,13 +489,13 @@ function M.draw(state, settings)
     centeredText('NO CAR DATA', 14 * scale,
       point(origin, scale, Layout.carCenterX, Layout.height / 2), C.secondary)
   else
-    drawBody(origin, scale, condition)
-    drawTyre(origin, scale, Layout.leftWheelX, Layout.frontWheelY, 'FL', condition.wheels[1], state, settings)
-    drawTyre(origin, scale, Layout.rightWheelX, Layout.frontWheelY, 'FR', condition.wheels[2], state, settings)
-    drawTyre(origin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state, settings)
-    drawTyre(origin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state, settings)
+    local carOrigin = origin + vec2(0, carOffsetY * scale)
+    drawBody(carOrigin, scale, condition)
+    drawTyre(carOrigin, scale, Layout.leftWheelX, Layout.frontWheelY, 'FL', condition.wheels[1], state, settings)
+    drawTyre(carOrigin, scale, Layout.rightWheelX, Layout.frontWheelY, 'FR', condition.wheels[2], state, settings)
+    drawTyre(carOrigin, scale, Layout.leftWheelX, Layout.rearWheelY, 'RL', condition.wheels[3], state, settings)
+    drawTyre(carOrigin, scale, Layout.rightWheelX, Layout.rearWheelY, 'RR', condition.wheels[4], state, settings)
     local mode = settings.legendMode or (settings.showTemperatureLegend == false and 'none' or 'temperature')
-    mode = drawLegendSelector(origin,scale,mode)
     if mode == 'temperature' then drawLegend(origin,scale)
     elseif mode == 'grip' then drawGrip(origin,scale,condition.gripDetails) end
   end

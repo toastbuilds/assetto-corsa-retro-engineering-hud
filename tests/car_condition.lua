@@ -24,6 +24,8 @@ ui = {
     texts[#texts + 1] = { text = text, position = position, size = size, font = fontStack[#fontStack] }
   end,
   drawRectFilled = function(a, b, color)
+    assert(a.x >= 0 and a.y >= 0 and b.x <= width and b.y <= height,
+      'filled rectangles must fit the window')
     rectangles[#rectangles + 1] = { a = a, b = b, color = color }
   end,
   drawRectFilledMultiColor = function(a, b, topLeft, topRight, bottomRight, bottomLeft)
@@ -244,12 +246,11 @@ for _, size in ipairs({ {320, 280}, {240, 210}, {640, 560} }) do
 end
 width, height = 320, 280
 draw('light', {lifeTextSize = 12, lifeTextWeight = 'Regular', showTemperatureLegend = true})
-local legendFound, smallLife = false, false
+local smallLife = false
 for _, item in ipairs(texts) do
-  legendFound = legendFound or item.text == 'COLD'
   smallLife = smallLife or (item.text == '100' and item.size == 12 and item.font == 'Consolas;Weight=Regular')
 end
-assert(legendFound and smallLife, 'legend and regular smaller life numbers must be selectable')
+assert(smallLife, 'regular smaller life numbers must remain selectable')
 for _, tyre in ipairs(state.condition.wheels) do
   tyre.temperature, tyre.temperatureCore = 80, 80
   tyre.optimumTemperatureMin, tyre.optimumTemperatureMax = 75, 85
@@ -312,36 +313,65 @@ print('Car condition: life, temperature, four-wheel zone orientation, center rea
 local function findText(value)
  for _,t in ipairs(texts) do if t.text==value then return t end end
 end
-for _,dimensions in ipairs({{240,210},{320,280},{640,560}}) do
+local gripDetails = {
+ average=98,remaining=65,compound='Medium',
+ progressThresholds={HIGH=75,MEDIUM=50,LOW=25,EOL=0},
+ details={
+  {name='HIGH',km=20,laps=4},{name='MEDIUM',km=40,laps=8},
+  {name='LOW',km=60,laps=12},{name='EOL',km=80,laps=16}
+ }
+}
+for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
  width,height=dimensions[1],dimensions[2]
- local scale=width/320
+ local scale=math.min(width/320,height/280)
+ local origin=vec2((width-320*scale)/2,(height-280*scale)/2)
  for _,theme in ipairs({'dark','light'}) do
-  for _,grip in ipairs({92,94,96,98,100,102}) do
-   state.condition.grip=grip
-   draw(theme,{legendMode='grip'})
-   assert(findText(string.format('GRIP %.1f%%',grip)),'percentage must retain values beyond the bar endpoints')
+  state.condition.gripDetails=gripDetails
+  for _,mode in ipairs({'temperature','grip'}) do
+   draw(theme,{legendMode=mode})
+   for _,item in ipairs(texts) do
+    assert(not item.text:find('GRIP') and not item.text:find('LIFE')
+      and item.text~='Temperature' and item.text~='Grip' and item.text~='None'
+      and item.text~='COLD' and item.text~='OPT' and item.text~='HOT',
+      'the HUD legend must contain no labels or mode controls')
+   end
+   local count=mode=='temperature' and 96 or 64
    local bar=rectangles[#rectangles]
-   assert(math.abs(bar.b.x-bar.a.x-272*scale*math.max(0,math.min(1,(grip-94)/6)))<0.001)
+   assert(bar.b.y < findText('FL').position.y,'legend must be above the car labels')
+   local first=rectangles[#rectangles-count+1]
+   assert(math.abs(first.a.x-(origin.x+24*scale))<0.001
+      and math.abs(bar.b.x-(origin.x+296*scale))<0.001,
+      'both legends must retain their full width at every window size')
   end
-  state.condition.grip=nil
+  state.condition.gripDetails=nil
   draw(theme,{legendMode='grip'})
-  assert(findText('GRIP --'))
-  assert(rectangles[#rectangles].color.r==require('src/theme').get(theme).inactive.r)
+  local inactive=require('src/theme').get(theme).inactive
+  for index=#rectangles-63,#rectangles do
+   local color=rectangles[index].color
+   assert(color.r==inactive.r and color.g==inactive.g and color.b==inactive.b,
+     'missing grip data must leave the entire bar inactive')
+  end
   draw(theme,{legendMode='none'})
   assert(not findText('COLD') and not findText('GRIP --'))
+  local noLegendCount=#rectangles
+  draw(theme,{legendMode='temperature'})
+  assert(#rectangles==noLegendCount+96,'None must hide the legend bar')
+  state.condition.gripDetails=gripDetails
+  ui.mouseLocalPos=function() return origin+vec2(160*scale,15*scale) end
+  draw(theme,{legendMode='grip'})
+  assert(findText('TYRE GRIP PROFILE') and findText('AVG GRIP  98.0%'),
+    'the new top bar must open its detailed grip panel')
+  ui.mouseLocalPos=function() return origin+vec2(160*scale,260*scale) end
+  draw(theme,{legendMode='grip'})
+  assert(not findText('TYRE GRIP PROFILE'),'the old bottom area must no longer open grip details')
+  ui.mouseLocalPos=nil
  end
 end
-local clicked, anchored = false,false
-package.loaded['src/window_anchor']={isAnchored=function() return anchored end}
-ui.backupCursor=function() end; ui.restoreCursor=function() end; ui.setCursor=function() end
-ui.invisibleButton=function(id)
- if id=='##condition.legend.grip' then clicked=true; return true end
- return false
+ui.invisibleButton=function() error('HUD legend must not create selector buttons') end
+draw('dark',{legendMode='temperature'})
+for _,mode in ipairs({'temperature','grip','none'}) do
+ require('src/condition_settings').setLegendMode(mode)
+ assert(require('src/condition_settings').values.legendMode==mode,
+   'the settings selector must remain persistent')
 end
-draw('dark',{legendMode='temperature'})
-assert(clicked and require('src/condition_settings').values.legendMode=='grip')
-clicked=false; anchored=true
-require('src/condition_settings').setLegendMode('temperature')
-draw('dark',{legendMode='temperature'})
-assert(not clicked and require('src/condition_settings').values.legendMode=='temperature','locked selector must ignore clicks')
-print('Condition grip: bar endpoints, unavailable state, themes, sizes, selector persistence and input lock passed')
+print('Condition legends: text-free top bars, unavailable grip, themes, sizes, hover relocation and persistent settings passed')
