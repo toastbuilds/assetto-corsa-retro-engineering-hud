@@ -1,22 +1,30 @@
 local Session = require('modules/leaderboard/src/session')
 local Classes = require('modules/leaderboard/src/classes')
 local FlagCause = require('src/flag_cause')
+local Sectors = require('modules/leaderboard/src/sectors')
+local Timeline = require('modules/leaderboard/src/timeline')
 
 local M = {}
 
 local function read(object, key)
   if object == nil then return nil end
   local ok, value = pcall(function() return object[key] end)
-  return ok and value or nil
+  if ok then return value end
+  return nil
 end
 
 local function number(value)
   value = tonumber(value)
-  return value and value == value and value or nil
+  return value and value == value and math.abs(value) < math.huge and value or nil
 end
 
 local function bool(value)
   return value == true
+end
+
+local function validity(value)
+  if type(value) == 'boolean' then return value end
+  return nil
 end
 
 local function safeDriverName(index, car)
@@ -69,7 +77,7 @@ local function isPit(car)
 end
 
 local function statusFor(car, isLocal, race)
-  if bool(read(car, 'isRaceFinished')) or bool(read(car, 'isFinished')) then return 'FIN' end
+  if race and (bool(read(car, 'isRaceFinished')) or bool(read(car, 'isFinished'))) then return 'FIN' end
   if bool(read(car, 'isRetired')) or bool(read(car, 'isRaceRetired')) then return 'RET' end
   if isPit(car) then return 'PIT' end
   if not isLocal and read(car, 'isConnected') == false then return 'OFF' end
@@ -98,10 +106,18 @@ local function collectCars()
       for _, car in ac.iterateCars() do append(car) end
     end)
   end
+  -- The player can be absent from a timing leaderboard before posting a lap.
+  pcall(function() append(ac.getCar(0)) end)
   return cars
 end
 
-local function makeRow(car, session, settings)
+local function splitCount(source)
+  if source == nil then return nil end
+  local ok, count = pcall(function() return #source end)
+  return ok and count and count > 0 and math.min(3, count) or nil
+end
+
+local function makeRow(car, session, settings, sim)
   local index = number(read(car, 'index'))
   local isLocal = index == 0
   local connected = read(car, 'isConnected')
@@ -114,6 +130,14 @@ local function makeRow(car, session, settings)
   local speedMs = safeNumberField(car, 'speedMs') or safeNumberField(car, 'speedKmh') and safeNumberField(car, 'speedKmh') / 3.6 or 0
   local carID, carName = safeCarID(car), safeCarName(car)
   local classID, classSource = Classes.detect(carID, carName, settings.automaticClasses ~= false)
+  local currentValid
+  if read(car, 'physicsAvailable') == true then
+    currentValid = validity(read(car, 'isLapValid'))
+    if (safeNumberField(car, 'lapCutsCount') or 0) > 0 then currentValid = false end
+  end
+  local sectorCount = splitCount(read(sim, 'lapSplits'))
+    or splitCount(read(car, 'currentSplits')) or splitCount(read(car, 'lastSplits'))
+    or splitCount(read(car, 'bestLapSplits')) or 0
   local row = {
     index = index, driver = driver, number = safeNumberMethod(car, 'driverNumber'),
     carID = carID, carName = carName, classID = classID, classSource = classSource,
@@ -122,11 +146,14 @@ local function makeRow(car, session, settings)
     lapCount = lapCount, splinePosition = math.max(0, math.min(1, spline)),
     progress = lapCount + math.max(0, math.min(1, spline)), speedMs = speedMs,
     speedKmh = speedMs * 3.6, bestLapTimeMs = best, lastLapTimeMs = last,
-    currentLapTimeMs = safeNumberField(car, 'currentLapTimeMs') or safeNumberField(car, 'currentLapTime'),
+    currentLapTimeMs = safeNumberField(car, 'lapTimeMs'),
     currentSector = number(read(car, 'currentSector')) or 0,
+    sectorCount = sectorCount,
     currentSplits = cloneSplits(read(car, 'currentSplits')),
     lastSplits = cloneSplits(read(car, 'lastSplits')),
-    isLastLapValid = read(car, 'isLastLapValid'),
+    bestLapSplits = cloneSplits(read(car, 'bestLapSplits')),
+    currentLapValid = currentValid,
+    isLastLapValid = validity(read(car, 'isLastLapValid')),
     tyreCompound = tostring(read(car, 'tyreCompound') or read(car, 'tyresName') or ''),
     status = statusFor(car, isLocal, Session.isRace(session)),
     car = car
@@ -154,32 +181,46 @@ local function shouldKeep(row, session)
   return row.connected or validTime(row.bestLapTimeMs)
 end
 
-local function capturePositions(rows, target)
-  for i = 1, #rows do
-    if target[rows[i].index] == nil then target[rows[i].index] = i end
-  end
-end
-
-local function observeLapPositionDeltas(state, rows, race)
+local function observeRace(state, rows, started, now, settings)
+  local duration = math.max(1, math.min(120, number(settings.positionChangeDuration) or 40))
+  local present = {}
   for i = 1, #rows do
     local row = rows[i]
-    if not race then
-      row.lapPositionDelta = nil
-    else
-      local lap = math.max(0, math.floor(number(row.lapCount) or 0))
-      local previousLap = state.lastLapCounts[row.index]
-      if previousLap == nil or lap < previousLap then
-        state.lastLapCounts[row.index] = lap
-        state.lapStartPositions[row.index] = row.position
-        state.lapPositionDeltas[row.index] = nil
-      elseif lap > previousLap then
-        local startPosition = state.lapStartPositions[row.index] or row.position
-        state.lapPositionDeltas[row.index] = startPosition - row.position
-        state.lastLapCounts[row.index] = lap
-        state.lapStartPositions[row.index] = row.position
-      end
-      row.lapPositionDelta = state.lapPositionDeltas[row.index]
+    present[row.index] = true
+    local identity = row.driver .. '/' .. row.carID
+    local previous = state.pilots[row.index]
+    local reconnected = previous and (previous.identity ~= identity
+      or previous.connected == false and row.connected == true or previous.missing)
+    row.reconnected = reconnected == true
+    if not previous or reconnected or row.lapCount < previous.lap then
+      previous = {identity = identity, position = row.position, lap = row.lapCount,
+        startPosition = row.position, balance = 0,
+        label = started and 'CONNECTION' or 'START'}
+      state.pilots[row.index] = previous
     end
+    if not started then
+      -- Follow the grid until the start is actually observed.
+      previous.startPosition, previous.balance, previous.label = row.position, 0, 'START'
+      previous.change, previous.changeUntil = nil, nil
+    elseif not previous.finished and row.connected then
+      local delta = previous.position - row.position
+      if delta ~= 0 then previous.change, previous.changeUntil = delta, now + duration end
+      -- This is cumulative race movement, sampled at each completed lap.
+      if row.lapCount > previous.lap or row.status == 'FIN' then
+        previous.balance = previous.startPosition - row.position
+      end
+    end
+    if row.status == 'FIN' then previous.finished = true end
+    if previous.finished then row.status = 'FIN' end
+    row.lapPositionDelta, row.positionDelta = previous.balance, previous.balance
+    row.balanceLabel = previous.label
+    if previous.changeUntil and now < previous.changeUntil then
+      row.positionChangeDelta, row.positionChangeUntil = previous.change, previous.changeUntil
+    end
+    previous.position, previous.lap, previous.connected, previous.missing = row.position, row.lapCount, row.connected, false
+  end
+  for index, pilot in pairs(state.pilots) do
+    if not present[index] then pilot.missing = true end
   end
 end
 
@@ -199,8 +240,7 @@ end
 function M.new()
   return {
     sessionIndex = nil, rows = {}, shownRows = {}, localRow = nil,
-    sessionPositions = {}, racePositions = {}, raceCaptured = false,
-    lapStartPositions = {}, lastLapCounts = {}, lapPositionDeltas = {},
+    pilots = {}, sectorConnections = {}, sectors = Sectors.new(), timeline = nil,
     bestSeen = {}, improvementUntil = {}, sessionBest = nil, enteredAt = 0,
     snapshot = nil
   }
@@ -215,7 +255,7 @@ function M.empty()
 end
 
 function M.selectRows(rows, localRow, maxRows)
-  local limit = math.max(3, math.floor(tonumber(maxRows) or 6))
+  local limit = math.max(3, math.min(10, math.floor(number(maxRows) or 5)))
   if #rows <= limit then return rows end
   if localRow == nil then
     local out = {}
@@ -234,14 +274,16 @@ function M.selectRows(rows, localRow, maxRows)
   end
 
   add(1)
-  local half = math.floor((limit - 2) / 2)
-  for offset = half, 1, -1 do add(localIndex - offset) end
   add(localIndex)
-  for offset = 1, limit do add(localIndex + offset) end
-  -- Fill any remaining slots near the local driver while preserving order.
-  for i = 1, #rows do add(i) end
-  table.sort(selected, function(a, b) return a.racePosition < b.racePosition or (a.racePosition == b.racePosition and a.progress > b.progress) end)
-  return selected
+  for offset = 1, #rows do
+    add(localIndex - offset)
+    add(localIndex + offset)
+    if #selected == limit then break end
+  end
+  -- The input is already ordered for the session: preserve that order.
+  local out = {}
+  for i = 1, #rows do if seen[i] then out[#out + 1] = rows[i] end end
+  return out
 end
 
 function M.update(state, settings)
@@ -253,36 +295,71 @@ function M.update(state, settings)
   end
   local sessionIndex = number(read(sim, 'currentSessionIndex')) or 0
   local now = ui.time()
-  if state.sessionIndex ~= sessionIndex then
+  local timeline = Timeline.sample(sim)
+  local started = read(sim, 'isSessionStarted') == true
+  local historyReset = state.sessionIndex ~= sessionIndex or state.sessionType ~= (session and session.type)
+    or Timeline.discontinuous(state.timeline, timeline, sim)
+    or state.started == true and read(sim, 'isSessionStarted') == false
+      and read(sim, 'isSessionFinished') ~= true and read(session, 'isOver') ~= true
+  -- A restart can keep the same session ID and flag. Catch the player's
+  -- completed lap counter moving backwards before retaining final results.
+  local player
+  pcall(function() player = ac.getCar(0) end)
+  local playerLap = safeNumberField(player, 'lapCount')
+  if playerLap and state.playerLap and playerLap < state.playerLap then historyReset = true end
+  if historyReset then
     state.sessionIndex = sessionIndex
+    state.sessionType = session and session.type
     state.rows, state.shownRows, state.localRow = {}, {}, nil
-    state.sessionPositions, state.racePositions = {}, {}
-    state.lapStartPositions, state.lastLapCounts, state.lapPositionDeltas = {}, {}, {}
-    state.raceCaptured, state.bestSeen, state.improvementUntil = false, {}, {}
+    state.pilots, state.sectorConnections, state.bestSeen, state.improvementUntil = {}, {}, {}, {}
+    Sectors.reset(state.sectors)
+    state.finalRows = nil
     state.sessionBest, state.enteredAt = nil, now
   end
+  state.timeline, state.started, state.playerLap = timeline, started, playerLap
+  local race = Session.isRace(session)
+  local personal = Session.isPersonal(session)
 
   local rows = {}
   local flagKind, flagIndex = FlagCause.resolve(sim)
   local rawCars = collectCars()
   for i = 1, #rawCars do
-    local row = makeRow(rawCars[i], session, settings)
+    local row = makeRow(rawCars[i], session, settings, sim)
     if row.index ~= 0 and row.index == flagIndex then row.flagCauseKind = flagKind end
-    if shouldKeep(row, session) then rows[#rows + 1] = row end
+    if shouldKeep(row, session) and (not personal or row.isLocal) then rows[#rows + 1] = row end
   end
-  if Session.isRace(session) then table.sort(rows, raceSort) else table.sort(rows, practiceSort) end
+  if race then table.sort(rows, raceSort) else table.sort(rows, practiceSort) end
   for i = 1, #rows do
-    rows[i].position = i
-    if not Session.isRace(session) then rows[i].racePosition = i end
+    rows[i].position = race and rows[i].racePosition < 999 and rows[i].racePosition > 0 and rows[i].racePosition or i
+    if not race then rows[i].racePosition = i end
     observeImprovements(state, rows[i], now)
   end
-  observeLapPositionDeltas(state, rows, Session.isRace(session))
-
-  if next(state.sessionPositions) == nil then capturePositions(rows, state.sessionPositions) end
-  local raceStarted = not Session.isRace(session) or (read(sim, 'raceFlagType') ~= nil and read(ac.FlagType, 'None') ~= read(sim, 'raceFlagType'))
-  if Session.isRace(session) and raceStarted and not state.raceCaptured then
-    capturePositions(rows, state.racePositions)
-    state.raceCaptured = true
+  if race then observeRace(state, rows, started, now, settings) end
+  local final = race and (read(sim, 'isSessionFinished') == true
+    or read(session, 'isSessionFinished') == true or read(session, 'isFinished') == true or read(session, 'isOver') == true)
+  if race and #rows > 0 then
+    local allFinished, sawFinish = true, false
+    for i = 1, #rows do
+      sawFinish = sawFinish or rows[i].status == 'FIN'
+      if rows[i].connected and rows[i].active and rows[i].status ~= 'FIN' and rows[i].status ~= 'RET' then allFinished = false end
+    end
+    final = final or started and sawFinish and allFinished
+  end
+  if final and not state.finalRows then state.finalRows = rows end
+  if state.finalRows then rows, final = state.finalRows, true end
+  if not race then
+    local present = {}
+    for i = 1, #rows do
+      local row = rows[i]
+      local previous = state.sectorConnections[row.index]
+      row.reconnected = previous ~= nil and (previous.missing or previous.connected == false and row.connected)
+      state.sectorConnections[row.index] = {connected = row.connected}
+      present[row.index] = true
+    end
+    for index, connection in pairs(state.sectorConnections) do
+      if not present[index] then connection.missing = true end
+    end
+    Sectors.update(state.sectors, rows, settings)
   end
 
   local sessionBest
@@ -293,8 +370,6 @@ function M.update(state, settings)
   for i = 1, #rows do
     local row = rows[i]
     row.sessionBest = sessionBest ~= nil and row.bestLapTimeMs == sessionBest
-    local start = Session.isRace(session) and state.racePositions[row.index] or state.sessionPositions[row.index]
-    row.positionDelta = start and start - row.position or 0
   end
 
   local localRow
@@ -307,7 +382,8 @@ function M.update(state, settings)
     header = header, rows = rows, shownRows = shown, localRow = localRow,
     leaderRow = leaderRow, session = session, sim = sim, sessionBest = sessionBest,
     lapsRemaining = Session.lapsRemaining(session, sim, localRow, leaderRow, sessionBest),
-    flagLabel = header.flagLabel, flagRole = header.flagRole, enteredAt = state.enteredAt
+    flagLabel = header.flagLabel, flagRole = header.flagRole, enteredAt = state.enteredAt,
+    historyReset = historyReset, timeline = timeline, final = final, personal = personal
   }
   state.snapshot = snapshot
   return snapshot

@@ -12,6 +12,8 @@ M.values = ac.storage({
   showFlags = true,
   scrollLongNames = false,
   maxRows = 5,
+  sectorReference = 'General',
+  positionChangeDuration = 40,
   intervalRefresh = 0.25,
   showFuel = true,
   fuelReserve = 2.0,
@@ -61,6 +63,7 @@ local function resetAll()
   M.values.automaticClasses, M.values.showClass, M.values.showFlags = true, true, true
   M.values.showCompound, M.values.scrollLongNames = false, false
   M.values.maxRows, M.values.intervalRefresh = 5, 0.25
+  M.values.sectorReference, M.values.positionChangeDuration = 'General', 40
   M.values.showFuel, M.values.fuelReserve, M.values.showLapEstimate = true, 2, true
   M.values.debug = false
   return true
@@ -68,7 +71,9 @@ end
 
 function M.normalize()
   M.values.hudScale = clamp(tonumber(M.values.hudScale) or 0.84, 0.55, 1.20)
-  M.values.maxRows = math.floor(clamp(tonumber(M.values.maxRows) or 5, 3, 5) + 0.5)
+  M.values.maxRows = math.floor(clamp(tonumber(M.values.maxRows) or 5, 3, 10) + 0.5)
+  M.values.sectorReference = M.values.sectorReference == 'Class' and 'Class' or 'General'
+  M.values.positionChangeDuration = clamp(tonumber(M.values.positionChangeDuration) or 40, 1, 120)
   M.values.intervalRefresh = clamp(tonumber(M.values.intervalRefresh) or 0.25, 0.10, 1.00)
   M.values.fuelReserve = math.max(0, tonumber(M.values.fuelReserve) or 2)
   M.values.temperatureUnit = M.values.temperatureUnit == 'F' and 'F' or 'C'
@@ -82,7 +87,7 @@ function M.draw()
   ui.header('Leaderboard')
   SettingsUI.section('leaderboard', 'basics', 'Basics', true, function()
     slider('HUD scale', 'hudScale', 0.55, 1.20, '%.2fx')
-    slider('Maximum rows', 'maxRows', 3, 5, '%.0f rows')
+    slider('Maximum rows', 'maxRows', 3, 10, '%.0f rows')
     checkbox('Show fuel calculator', 'showFuel')
   end)
   SettingsUI.section('leaderboard', 'personalization', 'Personalization', false, function()
@@ -92,6 +97,10 @@ function M.draw()
     checkbox('Show flag indicator', 'showFlags')
     checkbox('Scroll long driver names', 'scrollLongNames')
     slider('Interval refresh', 'intervalRefresh', 0.10, 1.00, '%.2fs')
+    SettingsUI.choice('leaderboard', 'sectorReference', 'Sector comparison', M.values.sectorReference,
+      {{value = 'General', label = 'General'}, {value = 'Class', label = 'Class'}},
+      function(value) M.values.sectorReference = value end)
+    slider('Position change visibility', 'positionChangeDuration', 1, 120, '%.0fs')
     if M.values.showFuel then
       ui.header('Fuel calculator')
       slider('Fuel reserve', 'fuelReserve', 0, 20, '%.1f L')

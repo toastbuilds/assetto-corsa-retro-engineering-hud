@@ -22,6 +22,7 @@ function M.update(_)
   local ok, result = pcall(function()
     local snapshot = Data.update(dataState, Settings.values)
     Intervals.update(intervalState, snapshot, Settings.values)
+    if snapshot.historyReset then Fuel.reset(fuelState, snapshot.sim and snapshot.sim.currentSessionIndex or 0) end
     snapshot.fuel = Fuel.update(fuelState, snapshot, Settings.values)
     return snapshot
   end)

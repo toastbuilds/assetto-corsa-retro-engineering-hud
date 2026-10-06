@@ -3,7 +3,8 @@ local M = {}
 local function read(object, key)
   if object == nil then return nil end
   local ok, value = pcall(function() return object[key] end)
-  return ok and value or nil
+  if ok then return value end
+  return nil
 end
 
 local function number(value)
@@ -37,6 +38,12 @@ end
 
 function M.isTimed(session)
   return session ~= nil and M.isRace(session) and read(session, 'isTimedRace') == true
+end
+
+function M.isPersonal(session)
+  if not session or not ac.SessionType then return false end
+  return ac.SessionType.Hotlap ~= nil and session.type == ac.SessionType.Hotlap
+    or ac.SessionType.TimeAttack ~= nil and session.type == ac.SessionType.TimeAttack
 end
 
 function M.typeLabel(session)

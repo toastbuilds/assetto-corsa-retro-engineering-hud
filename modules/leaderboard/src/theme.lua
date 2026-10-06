@@ -21,6 +21,7 @@ Theme.palettes = {
     cyan = rgbm(0x68 / 255, 0xB7 / 255, 0xD6 / 255, 1),
     cyanDim = rgbm(0x29 / 255, 0x56 / 255, 0x5C / 255, 0.95),
     green = rgbm(0x7E / 255, 0xC8 / 255, 0x6A / 255, 1),
+    flagPurple = rgbm(0.68, 0.35, 0.90, 1),
     red = rgbm(0xD8 / 255, 0x4B / 255, 0x3E / 255, 1),
     blue = rgbm(0x46 / 255, 0x9B / 255, 0xCA / 255, 1),
     white = rgbm(0.93, 0.93, 0.90, 1),
@@ -45,6 +46,7 @@ Theme.palettes = {
     cyan = rgbm(0x0B / 255, 0x78 / 255, 0x98 / 255, 1),
     cyanDim = rgbm(0x74 / 255, 0xA9 / 255, 0xB8 / 255, 0.95),
     green = rgbm(0x2F / 255, 0x7A / 255, 0x42 / 255, 1),
+    flagPurple = rgbm(0.51, 0.18, 0.72, 1),
     red = rgbm(0xAD / 255, 0x29 / 255, 0x22 / 255, 1),
     blue = rgbm(0x1A / 255, 0x6F / 255, 0xA0 / 255, 1),
     white = rgbm(0.18, 0.17, 0.15, 1),
@@ -65,6 +67,32 @@ end
 
 function Theme.fromRgb(color, alpha)
   return GeneralSettings.color(color, math.max(0, math.min(1, alpha)))
+end
+
+local function luminance(color)
+  local function linear(channel)
+    return channel <= 0.04045 and channel / 12.92 or ((channel + 0.055) / 1.055) ^ 2.4
+  end
+  return 0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+end
+
+-- Text gets a brighter version of its semantic hue on dark panels, and a
+-- darker version on light panels. Keep the original hues for borders/dots.
+function Theme.textColor(palette, color, alpha)
+  local secondary = color == 'secondary'
+  local source = type(color) == 'string' and (palette[color] or palette.primary) or color
+  local target = palette.primary
+  local background = luminance(palette.panelRaised)
+  local mix = source == target and 0 or (background < 0.5 and (secondary and 0.65 or 0.32) or 0.25)
+  local result
+  repeat
+    result = rgbm(source.r + (target.r - source.r) * mix,
+      source.g + (target.g - source.g) * mix, source.b + (target.b - source.b) * mix, 1)
+    local light = luminance(result)
+    if (math.max(light, background) + 0.05) / (math.min(light, background) + 0.05) >= 4.5 or mix >= 1 then break end
+    mix = math.min(1, mix + 0.05)
+  until false
+  return Theme.withAlpha(result, alpha or 1)
 end
 
 return Theme

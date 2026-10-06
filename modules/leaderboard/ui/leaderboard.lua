@@ -4,6 +4,7 @@ local Classes = require('modules/leaderboard/src/classes')
 local M = {}
 local FONT = Theme.fonts.utility
 local EMPHASIS_FONT = 'Consolas;Weight=Bold'
+local ROW_HEIGHT = 56
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -24,6 +25,41 @@ local function centered(value, size, center, color)
   text(value, size, center - measured / 2, color)
 end
 
+-- Keep every column inside its own measured bounds, including custom class
+-- names, compounds and the longer labels used by personal sessions.
+local function fittedText(value, size, position, width, color)
+  value = tostring(value or '')
+  local measured = ui.measureDWriteText(value, size)
+  text(value, size * math.min(1, width / math.max(1, measured.x)), position, color)
+end
+
+local function driverText(value, size, position, width, color, scroll, now)
+  value = tostring(value or '')
+  if value == '' then value = 'UNKNOWN DRIVER' end
+  ui.pushDWriteFont(EMPHASIS_FONT)
+  local measured = ui.measureDWriteText(value, size)
+  ui.pushClipRect(position, position + vec2(width, measured.y))
+  if measured.x > width and scroll then
+    local span = measured.x + 28 * size / 24
+    local offset = (now * 32 * size / 24) % span
+    text(value, size, position - vec2(offset, 0), color)
+    text(value, size, position + vec2(span - offset, 0), color)
+  else
+    if measured.x > width then
+      -- Remove complete UTF-8 characters so truncation never splits a name.
+      while #value > 0 and ui.measureDWriteText(value .. '...', size).x > width do
+        local last = #value
+        while last > 1 and value:byte(last) >= 128 and value:byte(last) < 192 do last = last - 1 end
+        value = value:sub(1, last - 1)
+      end
+      value = value .. '...'
+    end
+    text(value, size, position, color)
+  end
+  ui.popClipRect()
+  ui.popDWriteFont()
+end
+
 local function chamferRect(tl, br, chamfer, fill, stroke, strokeWidth)
   local c = math.min(chamfer, math.min((br.x - tl.x) / 3, (br.y - tl.y) / 3))
   local function path()
@@ -39,6 +75,10 @@ end
 
 local function role(palette, name, alpha)
   return Theme.withAlpha(palette[name] or palette.primary, alpha or 1)
+end
+
+local function textRole(palette, name, alpha)
+  return Theme.textColor(palette, name, alpha)
 end
 
 local function drawScrew(center, palette, scale)
@@ -58,38 +98,31 @@ local function drawFrame(origin, width, height, palette, scale, opacity)
   drawScrew(br - vec2(14 * scale, 14 * scale), palette, scale)
 end
 
-local function formatMs(value)
+local function finiteNumber(value)
   value = tonumber(value)
+  return value and value == value and value ~= math.huge and value ~= -math.huge and value or nil
+end
+
+local function formatMs(value)
+  value = finiteNumber(value)
   if not value or value <= 0 then return '--.---' end
-  local seconds = value > 1000 and value / 1000 or value
-  return string.format('%02d:%06.3f', math.floor(seconds / 60), seconds % 60)
+  local milliseconds = math.floor(value + 0.5)
+  return string.format('%02d:%02d.%03d', math.floor(milliseconds / 60000),
+    math.floor(milliseconds / 1000) % 60, milliseconds % 1000)
 end
 
 local function formatGap(value)
-  value = tonumber(value)
-  if not value or value <= 0 then return '--.---' end
-  local seconds = value > 1000 and value / 1000 or value
-  return string.format('+%.3f', seconds)
-end
-
-local function shorten(value, maxLength, scroll, now)
-  value = tostring(value or '')
-  if #value <= maxLength then return value end
-  if scroll then
-    local span = #value + 4
-    local offset = math.floor((now or 0) * 3) % span
-    local extended = value .. '    ' .. value
-    return extended:sub(offset + 1, offset + maxLength)
-  end
-  return value:sub(1, math.max(1, maxLength - 1)) .. '…'
+  value = finiteNumber(value)
+  if value == nil then return '--.---' end
+  return string.format('%s%.3f', value >= 0 and '+' or '-', math.floor(math.abs(value) + 0.5) / 1000)
 end
 
 local function rowStateColor(row, palette)
-  if row.status == 'RET' then return role(palette, 'red', 0.90) end
-  if row.status == 'OFF' then return role(palette, 'secondary', 0.90) end
-  if row.status == 'PIT' then return role(palette, 'cyan', 0.95) end
-  if row.status == 'FIN' then return role(palette, 'green', 0.95) end
-  return role(palette, 'primary', 1)
+  if row.status == 'RET' then return textRole(palette, 'red') end
+  if row.status == 'OFF' then return textRole(palette, 'secondary') end
+  if row.status == 'PIT' then return textRole(palette, 'cyan') end
+  if row.status == 'FIN' then return textRole(palette, 'green') end
+  return textRole(palette, 'primary')
 end
 
 local function flagPulse(label, now)
@@ -100,7 +133,7 @@ local function flagPulse(label, now)
 end
 
 local function isAlertFlag(label)
-  return label ~= nil and label ~= '' and label ~= 'GREEN'
+  return label ~= nil and label ~= '' and label ~= 'GREEN' and label ~= 'CLEAR'
 end
 
 local function drawFlagAlert(origin, width, top, header, palette, scale, opacity, now)
@@ -112,7 +145,8 @@ local function drawFlagAlert(origin, width, top, header, palette, scale, opacity
   chamferRect(tl, br, 4 * scale, role(palette, colorName, 0.76 + 0.20 * pulse), role(palette, colorName, 1), 1.1 * scale)
 
   local label = tostring(header.flagLabel) .. ' FLAG   '
-  local textColor = colorName == 'flagYellow' and rgbm(0.07, 0.055, 0.025, 1) or role(palette, 'white', 1)
+  local textColor = colorName == 'white' and role(palette, 'void', 1)
+    or colorName == 'flagYellow' and rgbm(0.07, 0.055, 0.025, 1) or role(palette, 'white', 1)
   local textSize = 20 * scale
   local measured = ui.measureDWriteText(label, textSize)
   local span = (measured.x or 150 * scale) + 26 * scale
@@ -136,18 +170,23 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
     role(palette, 'void', surfaceOpacity * 0.96), role(palette, 'outlineDim', 0.90), 0.8 * scale)
 
   local h = snapshot.header or {}
-  text(h.typeLabel or 'WAIT', 29 * scale, origin + vec2(36 * scale, 34 * scale), role(palette, 'primary', textOpacity))
+  fittedText(h.typeLabel or 'WAIT', 29 * scale, origin + vec2(36 * scale, 34 * scale), 99 * scale, role(palette, 'primary', textOpacity))
   ui.drawLine(origin + vec2(145 * scale, 29 * scale), origin + vec2(145 * scale, 70 * scale), role(palette, 'outlineSoft', 0.98), 1 * scale)
-  text('TIME  ' .. (h.timeText or '--:--'), 18 * scale, origin + vec2(170 * scale, 38 * scale), role(palette, 'primary', textOpacity))
-  text('LAP  ' .. (h.currentLapText or '--'), 18 * scale, origin + vec2(365 * scale, 38 * scale), role(palette, 'primary', textOpacity))
+  fittedText('TIME  ' .. (h.timeText or '--:--'), 18 * scale, origin + vec2(170 * scale, 38 * scale), 181 * scale, role(palette, 'primary', textOpacity))
+  fittedText('LAP  ' .. (h.currentLapText or '--'), 18 * scale, origin + vec2(365 * scale, 38 * scale), 290 * scale, role(palette, 'primary', textOpacity))
+  if snapshot.final == true then
+    centered('FINAL', 13 * scale, origin + vec2(296 * scale, 87 * scale), textRole(palette, 'green', textOpacity))
+  elseif snapshot.personal == true then
+    centered('PERSONAL', 13 * scale, origin + vec2(296 * scale, 87 * scale), textRole(palette, 'secondary', labelOpacity))
+  end
   if settings.showFlags ~= false then
     local flagColors = { green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white' }
     local flagColor = flagColors[h.flagRole] or 'green'
     local pulse = flagPulse(h.flagLabel, ui.time())
     local flagTL, flagBR = origin + vec2(32 * scale, 74 * scale), origin + vec2(230 * scale, 99 * scale)
     chamferRect(flagTL, flagBR, 4 * scale, role(palette, flagColor, (0.14 + 0.26 * pulse) * surfaceOpacity), role(palette, flagColor, 0.58 + 0.40 * pulse), 0.9 * scale)
-    text('FLAG', 12 * scale, origin + vec2(42 * scale, 81 * scale), role(palette, 'secondary', labelOpacity))
-    emphasizedText(h.flagLabel or 'CLEAR', 15 * scale, origin + vec2(92 * scale, 78 * scale), role(palette, flagColor, 0.72 + 0.28 * pulse))
+    text('FLAG', 12 * scale, origin + vec2(42 * scale, 81 * scale), textRole(palette, 'secondary', labelOpacity))
+    emphasizedText(h.flagLabel or 'CLEAR', 15 * scale, origin + vec2(92 * scale, 78 * scale), textRole(palette, flagColor, 1))
   end
 
   local lapTL, lapBR = origin + vec2(360 * scale, 72 * scale), origin + vec2(665 * scale, 100 * scale)
@@ -156,7 +195,7 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
 
   local fuelX, fuelY, fuelW, fuelH = origin.x + (width - 375) * scale, origin.y + 21 * scale, 350 * scale, 80 * scale
   if settings.showFuel == false then
-    text(settings.lockWindow and 'LOCK' or 'MOVE', 9 * scale, origin + vec2((width - 54) * scale, 92 * scale), role(palette, 'secondary', opacity))
+    text(settings.lockWindow and 'LOCK' or 'MOVE', 9 * scale, origin + vec2((width - 54) * scale, 92 * scale), textRole(palette, 'secondary', opacity))
     return
   end
   chamferRect(vec2(fuelX, fuelY), vec2(fuelX + fuelW, fuelY + fuelH), 6 * scale,
@@ -185,16 +224,44 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
     local labelSize, valueSize = 16 * scale, 24 * scale
     local measured = ui.measureDWriteText(values[i], valueSize)
     valueSize = valueSize * math.min(1, 196 * scale / math.max(1, measured.x))
-    text(labels[i], labelSize, vec2(fuelX + 88 * scale, cy - ui.measureDWriteText(labels[i], labelSize).y / 2), role(palette, 'secondary', labelOpacity))
+    text(labels[i], labelSize, vec2(fuelX + 88 * scale, cy - ui.measureDWriteText(labels[i], labelSize).y / 2), textRole(palette, 'secondary', labelOpacity))
     text(values[i], valueSize, vec2(fuelX + 144 * scale, cy - ui.measureDWriteText(values[i], valueSize).y / 2), role(palette, 'primary', textOpacity))
   end
 end
 
-local function currentSectorText(row)
-  if not row.currentSplits then return '--' end
-  local index = math.max(1, (tonumber(row.currentSector) or 0) + 1)
-  local value = row.currentSplits[index]
-  return value and ('S' .. tostring(index) .. ' ' .. formatMs(value)) or '--'
+local sectorRoles = { PURPLE = 'flagPurple', GREEN = 'green', AMBER = 'amber', RED = 'red', NEUTRAL = 'secondary' }
+
+local function drawSectors(left, top, row, snapshot, palette, scale, opacity)
+  local sectors = row.sectors or {}
+  -- Track layouts can have fewer than three sectors. Only draw entries
+  -- actually presented by data, within its declared count and the UI cap.
+  local count = math.floor(clamp(finiteNumber(row.sectorCount) or #sectors, 0, math.min(3, #sectors)))
+  for i = 1, count do
+    local sector = sectors[i]
+    local colorRole = sectorRoles[sector.role] or 'secondary'
+    if colorRole == 'flagPurple' and not palette.flagPurple then colorRole = palette.purple and 'purple' or 'secondary' end
+    local color = role(palette, colorRole, opacity)
+    local x, y = left + (346 + (i - 1) * 40) * scale, top + 11 * scale
+    local active = sector.active == true and row.status ~= 'FIN' and snapshot.final ~= true
+    chamferRect(vec2(x, y), vec2(x + 36 * scale, y + 30 * scale), 3 * scale,
+      role(palette, 'panelRaised', 0.92 * opacity), active and color or role(palette, 'outlineDim', opacity), (active and 1.1 or 0.7) * scale)
+    ui.pushDWriteFont(EMPHASIS_FONT)
+    centered('S' .. i, 16 * scale, vec2(x + 18 * scale, y + 15 * scale), textRole(palette, colorRole, opacity))
+    ui.popDWriteFont()
+    if active then ui.drawCircleFilled(vec2(x + 32 * scale, y + 5 * scale), 2 * scale, color, 12) end
+  end
+end
+
+local function signedDelta(value)
+  value = finiteNumber(value)
+  if value == nil then return '--' end
+  value = math.floor(math.abs(value) + 0.5) * (value < 0 and -1 or 1)
+  return string.format(value > 0 and '+%d' or '%d', value)
+end
+
+local function deltaColor(value, palette, opacity)
+  value = finiteNumber(value) or 0
+  return textRole(palette, value > 0 and 'green' or value < 0 and 'red' or 'secondary', opacity)
 end
 
 local function drawPositionBadge(x, y, size, value, palette, scale, isLocal)
@@ -206,12 +273,12 @@ end
 
 local function drawRow(origin, scale, width, top, row, snapshot, settings, palette, opacity, now)
   local left, right = origin.x + 22 * scale, origin.x + (width - 22) * scale
-  local bottom = top + 56 * scale
+  local bottom = top + (ROW_HEIGHT - 4) * scale
   local fill = row.isLocal and role(palette, 'amberDim', 0.55 * opacity) or role(palette, 'panel', 0.92 * opacity)
   chamferRect(vec2(left, top), vec2(right, bottom), 4 * scale, fill, role(palette, 'outlineDim', 0.78), 0.75 * scale)
   local flagRole = row.flagCauseKind == 'yellow' and 'flagYellow'
     or row.flagCauseKind == 'blue' and 'blue' or nil
-  if flagRole then
+  if flagRole and settings.showFlags ~= false then
     local pulse = 0.5 + 0.5 * math.sin(now * math.pi * 2.4)
     local alpha = (palette == Theme.palettes.light and 0.18 or 0.22) + 0.08 * pulse
     chamferRect(vec2(left, top), vec2(right, bottom), 4 * scale,
@@ -220,66 +287,102 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
   end
   if row.isLocal then ui.drawRectFilled(vec2(left + 2 * scale, top + 2 * scale), vec2(left + 4 * scale, bottom - 2 * scale), role(palette, 'amber', 0.95), 1 * scale) end
 
-  drawPositionBadge(left + 10 * scale, top + 8 * scale, 40 * scale, row.position or '--', palette, scale, row.isLocal)
+  drawPositionBadge(left + 10 * scale, top + 6 * scale, 40 * scale, row.position or '--', palette, scale, row.isLocal)
   local stateColor = rowStateColor(row, palette)
-  emphasizedText(shorten(row.driver ~= '' and row.driver or 'UNKNOWN DRIVER', 25, settings.scrollLongNames, now), 24 * scale,
-    vec2(left + 104 * scale, top + 15 * scale), row.isLocal and role(palette, 'amber', 1) or stateColor)
-
-  if settings.showClass then
-    local classColor = Classes.colors[row.classID] or role(palette, 'secondary', 1)
-    text(Classes.display(row.classID), 23 * scale, vec2(left + 465 * scale, top + 16 * scale),
-      row.classID == 'UNKNOWN' and role(palette, 'secondary', opacity) or Theme.withAlpha(classColor, opacity))
-  end
-  if settings.showCompound and row.tyreCompound ~= '' then
-    text(shorten(row.tyreCompound, 7, false, now), 14 * scale, vec2(left + 535 * scale, top + 21 * scale), role(palette, 'cyan', opacity))
-  end
-
-  text(row.status or '--', 23 * scale, vec2(left + 585 * scale, top + 16 * scale), stateColor)
   local race = snapshot.header and snapshot.header.typeLabel == 'RACE'
+  driverText(row.driver, 24 * scale, vec2(left + 104 * scale, top + 13 * scale), (race and 308 or 230) * scale,
+    row.isLocal and textRole(palette, 'amber') or stateColor, settings.scrollLongNames, now)
+
+  if settings.showClass ~= false then
+    local classColor = Classes.colors[row.classID] or 'secondary'
+    fittedText(row.classID and row.classID ~= 'UNKNOWN' and Classes.display(row.classID) or '--', 23 * scale,
+      vec2(left + (race and 424 or 474) * scale, top + 14 * scale), (race and 78 or 58) * scale,
+      Theme.textColor(palette, row.classID == 'UNKNOWN' and 'secondary' or classColor, opacity))
+  end
+  if settings.showCompound and row.tyreCompound and row.tyreCompound ~= '' then
+    fittedText(row.tyreCompound, 14 * scale, vec2(left + (race and 510 or 540) * scale, top + 19 * scale),
+      (race and 80 or 50) * scale, textRole(palette, 'cyan', opacity))
+  end
+
+  fittedText(row.status or '--', 23 * scale, vec2(left + 600 * scale, top + 14 * scale), 74 * scale, stateColor)
   if race then
-    text(row.interval or '--', 23 * scale, vec2(left + 680 * scale, top + 16 * scale), role(palette, 'cyan', opacity))
-    text(formatMs(row.lastLapTimeMs), 23 * scale, vec2(left + 820 * scale, top + 16 * scale), role(palette, 'primary', opacity))
+    local change = finiteNumber(row.positionChangeDelta)
+    local untilTime = finiteNumber(row.positionChangeUntil)
+    local delta = change and change ~= 0 and untilTime and untilTime > now
+      and change or finiteNumber(row.lapPositionDelta)
+    -- One signed value beside the position: recent change first, otherwise
+    -- the completed-lap balance. No explanatory line or unchanged-position 0.
+    if delta and delta ~= 0 then
+      ui.pushDWriteFont(EMPHASIS_FONT)
+      fittedText(signedDelta(delta), 17 * scale,
+        vec2(left + 58 * scale, top + 17 * scale),
+        38 * scale, deltaColor(delta, palette, opacity))
+      ui.popDWriteFont()
+    end
+    if not row.isLocal then
+      fittedText(row.interval or '--', 23 * scale, vec2(left + 690 * scale, top + 14 * scale),
+        128 * scale, textRole(palette, 'cyan', opacity))
+    end
+    fittedText(formatMs(row.lastLapTimeMs), 23 * scale, vec2(left + 834 * scale, top + 14 * scale),
+      148 * scale, role(palette, 'primary', opacity))
   else
-    text(currentSectorText(row), 19 * scale, vec2(left + 640 * scale, top + 18 * scale), role(palette, 'cyan', opacity))
-    text(formatGap(row.bestLapTimeMs and snapshot.sessionBest and row.bestLapTimeMs - snapshot.sessionBest), 19 * scale,
-      vec2(left + 780 * scale, top + 18 * scale), role(palette, 'amber', opacity))
-    text(formatMs(row.bestLapTimeMs), 19 * scale, vec2(left + 900 * scale, top + 18 * scale), role(palette, 'primary', opacity))
+    drawSectors(left, top, row, snapshot, palette, scale, opacity)
+    local best, reference = finiteNumber(row.bestLapTimeMs), finiteNumber(snapshot.sessionBest)
+    local gap = best and best > 0 and reference and reference > 0 and best - reference or nil
+    if gap ~= 0 then
+      fittedText(formatGap(gap), 19 * scale, vec2(left + 690 * scale, top + 16 * scale),
+        128 * scale, textRole(palette, 'amber', opacity))
+    end
+    local bestRole = row.sessionBest and 'flagPurple' or row.improvement and 'green' or 'primary'
+    fittedText(formatMs(best), 19 * scale, vec2(left + 834 * scale, top + 16 * scale),
+      148 * scale, textRole(palette, bestRole, opacity))
   end
 
-  if row.lapPositionDelta and row.lapPositionDelta ~= 0 then
-    local gained = row.lapPositionDelta > 0
-    -- Keep the completed-lap movement in the open middle column, rather than
-    -- cramming it beside the position badge.  If class is enabled, shift it
-    -- just right of the class label so the two telemetry values remain legible.
-    local lapDeltaX = settings.showClass and 530 or 465
-    emphasizedText((gained and '▲' or '▼') .. tostring(math.abs(row.lapPositionDelta)), 23 * scale,
-      vec2(left + lapDeltaX * scale, top + 16 * scale), role(palette, gained and 'green' or 'red', opacity))
-  end
-
-  if row.improvement then text(row.improvement, 12 * scale, vec2(right - 50 * scale, top + 7 * scale), role(palette, 'green', opacity)) end
-  if row.sessionBest then text('SB', 12 * scale, vec2(right - 30 * scale, top + 25 * scale), role(palette, 'amber', opacity)) end
 end
 
-local function drawDataState(origin, scale, snapshot, palette, opacity)
-  local rows = snapshot.shownRows or {}
-  if #rows > 0 then return end
+local function drawDataState(origin, scale, snapshot, palette, opacity, visibleRows)
+  if visibleRows > 0 then return end
   local y = origin.y + 154 * scale
   if snapshot.error then
     text('DATA ERROR', 12 * scale, origin + vec2(38 * scale, 154 * scale), role(palette, 'red', opacity))
-    text(shorten(snapshot.error, 112, false, ui.time()), 10 * scale, origin + vec2(38 * scale, 173 * scale), role(palette, 'red', opacity))
+    fittedText(snapshot.error, 10 * scale, origin + vec2(38 * scale, 173 * scale), 964 * scale, role(palette, 'red', opacity))
   else
     local label = snapshot.session and 'NO ACTIVE CARS' or 'WAITING FOR SESSION DATA'
-    text(label, 12 * scale, vec2(origin.x + 38 * scale, y), role(palette, 'secondary', opacity))
+    text(label, 12 * scale, vec2(origin.x + 38 * scale, y), textRole(palette, 'secondary', opacity))
   end
 end
 
 function M.draw(snapshot, settings, visual)
   snapshot = snapshot or {}
-  local palette = visual.palette
+  settings, visual = settings or {}, visual or {}
+  local palette = visual.palette or Theme.get(settings.theme)
   local width, height = ui.windowWidth(), ui.windowHeight()
-  local scale = math.min(tonumber(settings.hudScale) or 0.84, width / 1040, height / 470)
-  scale = math.max(0.55, scale)
-  local contentWidth, contentHeight = 1040 * scale, 470 * scale
+  if width <= 0 or height <= 0 then return end
+  local rows = snapshot.shownRows or {}
+  if snapshot.personal == true then
+    local personalRow = snapshot.localRow
+    if not personalRow then
+      for _, row in ipairs(snapshot.rows or rows) do
+        if row.isLocal then personalRow = row break end
+      end
+    end
+    if not personalRow then
+      for _, row in ipairs(rows) do
+        if row.isLocal then personalRow = row break end
+      end
+    end
+    rows = personalRow and { personalRow } or (#rows == 1 and rows or {})
+  end
+  local limit = math.floor(clamp(finiteNumber(settings.maxRows) or 5, 3, 10) + 0.5)
+  local visibleRows = math.min(#rows, snapshot.personal == true and 1 or limit)
+  local alertActive = settings.showFlags ~= false and isAlertFlag(snapshot.header and snapshot.header.flagLabel)
+  -- Reserve the flag strip even while clear, so its appearance never changes
+  -- the centering, scale or position of the header and driver rows.
+  local layoutHeight = 115 + math.max(1, visibleRows) * ROW_HEIGHT + 64
+  -- Fit all selected rows and the alert into the available window, even when
+  -- ten rows require a scale below the normal HUD preference minimum.
+  local scale = math.min(math.max(0.55, finiteNumber(settings.hudScale) or 0.84), width / 1040, height / layoutHeight)
+  local contentWidth, contentHeight = 1040 * scale, layoutHeight * scale
   local origin = vec2((width - contentWidth) / 2, (height - contentHeight) / 2)
   local opacity = 1 -- Per-element alpha; overall opacity is applied once below.
   local backdrop = 0.72 * 0.72 -- Keep the authored material strength.
@@ -287,24 +390,21 @@ function M.draw(snapshot, settings, visual)
 
   ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
   ui.pushDWriteFont(FONT)
-  local reveal = clamp((now - (snapshot.enteredAt or now)) / 0.35, 0, 1)
+  local enteredAt = finiteNumber(snapshot.enteredAt)
+  local reveal = enteredAt and clamp((now - enteredAt) / 0.35, 0, 1) or 1
   local clipTop = origin.y + contentHeight * 0.5 - contentHeight * reveal * 0.5
   ui.pushClipRect(vec2(0, clipTop), vec2(width, clipTop + contentHeight * reveal))
   drawFrame(origin, contentWidth / scale, contentHeight / scale, palette, scale, backdrop)
   drawHeader(origin, scale, contentWidth / scale, snapshot, settings, palette, backdrop)
-  local rows = snapshot.shownRows or {}
   local rowTop = origin.y + 115 * scale
-  local rowHeight = 60 * scale
-  local alertActive = isAlertFlag(snapshot.header and snapshot.header.flagLabel)
-  local visibleRows = math.min(#rows, math.floor(tonumber(settings.maxRows) or 6))
-  visibleRows = math.min(visibleRows, 5)
+  local rowHeight = ROW_HEIGHT * scale
   for i = 1, visibleRows do
     drawRow(origin, scale, contentWidth / scale, rowTop + (i - 1) * rowHeight, rows[i], snapshot, settings, palette, opacity, now)
   end
   if alertActive then
-    drawFlagAlert(origin, contentWidth / scale, rowTop + visibleRows * rowHeight + 5 * scale, snapshot.header, palette, scale, opacity, now)
+    drawFlagAlert(origin, contentWidth / scale, rowTop + math.max(1, visibleRows) * rowHeight + 5 * scale, snapshot.header, palette, scale, opacity, now)
   end
-  drawDataState(origin, scale, snapshot, palette, opacity)
+  drawDataState(origin, scale, snapshot, palette, opacity, visibleRows)
   ui.popClipRect()
   ui.popDWriteFont()
   ui.popStyleVar(1)

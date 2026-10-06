@@ -1,143 +1,241 @@
+local Timeline = require('modules/leaderboard/src/timeline')
 local M = {}
+
+-- Shared gates every 1% of a lap. Only two actual crossings of the same
+-- unwrapped gate can produce a time interval; no lap clocks or speeds enter it.
+local POINTS, MAX_SECONDS, MAX_SAMPLE_GAP = 100, 120, 2
+local EPSILON = 0.000001
 
 local function number(value)
   value = tonumber(value)
-  return value and value == value and value or nil
+  return value and value == value and math.abs(value) < math.huge and value or nil
 end
 
 local function read(object, key)
   if object == nil then return nil end
   local ok, value = pcall(function() return object[key] end)
-  return ok and value or nil
-end
-
-local function lapDifference(delta)
-  if delta >= 1 then return 'L +' .. tostring(math.max(1, math.floor(delta + 0.1))) end
-  if delta <= -1 then return 'L -' .. tostring(math.max(1, math.floor(-delta + 0.1))) end
+  if ok then return value end
   return nil
 end
 
+local function lapDifference(delta)
+  if delta >= 1 then return 'L +' .. tostring(math.floor(delta)) end
+  if delta <= -1 then return 'L -' .. tostring(math.floor(-delta)) end
+end
+
 local function formatSeconds(value)
-  value = number(value)
-  if not value or math.abs(value) > 120 then return '--' end
+  if not value or math.abs(value) > MAX_SECONDS then return '--' end
   if math.abs(value) < 0.05 then return '0.0s' end
   return string.format('%+.1fs', value)
 end
 
-local function appendSample(carState, row, now)
-  if row == nil or row.progress == nil or row.active == false then return end
-  local previous = carState.lastProgress
-  if previous ~= nil and row.progress < previous - 0.20 then carState.history = {} end
-  carState.lastProgress = row.progress
-  carState.lastSeen = now
-  local history = carState.history
-  history[#history + 1] = { time = now, progress = row.progress }
-  while #history > 2 and (history[1].time < now - 18 or #history > 180) do table.remove(history, 1) end
-end
-
-local function crossingTime(carState, target)
-  if carState == nil then return nil end
-  local history = carState.history
-  for i = #history, 2, -1 do
-    local a, b = history[i - 1], history[i]
-    if a.progress <= target and target <= b.progress and b.progress > a.progress then
-      return a.time + (target - a.progress) * (b.time - a.time) / (b.progress - a.progress)
-    end
-  end
-  return nil
-end
-
-local function liveLapDelta(row, localRow)
-  if row.lapCount ~= localRow.lapCount then return nil end
-  local other = number(row.currentLapTimeMs)
-  local player = number(localRow.currentLapTimeMs)
-  if other and player and other > 0 and player > 0 then return (player - other) / 1000 end
-  return nil
-end
-
-local function estimate(row, localRow, state, trackLength)
-  local delta = row.progress - localRow.progress
-  -- Progress is unwrapped for lap differences, but a same-lap pair can sit
-  -- on opposite sides of the finish line. Use displayed order to choose the
-  -- physical direction in that narrow wrap-around case.
-  local direction = row.position < localRow.position and 1 or -1
-  if math.abs(delta) < 1 then
-    if direction > 0 and delta < 0 then delta = delta + 1 end
-    if direction < 0 and delta > 0 then delta = delta - 1 end
-  end
-  local laps = lapDifference(delta)
-  if laps then return laps end
-
-  local direct = liveLapDelta(row, localRow)
-  if direct then return formatSeconds(delta >= 0 and math.abs(direct) or -math.abs(direct)) end
-
-  local now = ui.time()
-  if delta > 0 then
-    local crossed = crossingTime(state.cars[row.index], localRow.progress)
-    if crossed then return formatSeconds(now - crossed) end
-  elseif delta < 0 then
-    local crossed = crossingTime(state.cars[localRow.index], row.progress)
-    if crossed then return formatSeconds(-(now - crossed)) end
-  else
-    return '0.0s'
-  end
-
-  -- Safe fallback: physical spline distance divided by a clamped speed. This
-  -- is deliberately a fallback only; lap history wins whenever available.
-  local splineDelta = math.abs(row.splinePosition - localRow.splinePosition)
-  splineDelta = math.min(splineDelta, 1 - splineDelta)
-  local speed = number(localRow.speedMs) or number(row.speedMs) or 18
-  speed = math.max(18, speed)
-  local seconds = splineDelta * (number(trackLength) or 0) / speed
-  if seconds <= 0 or seconds > 120 then return '--' end
-  return formatSeconds(delta >= 0 and seconds or -seconds)
+local function disposeSDK(state)
+  for i = 1, #(state.subscriptions or {}) do pcall(state.subscriptions[i]) end
+  state.subscriptions, state.sdkEvents = {}, {}
+  state.sdkActive, state.sdkAttempted = false, false
 end
 
 function M.new()
-  return { cars = {}, cache = {}, lastRefresh = -math.huge, sessionIndex = nil }
+  return {cars = {}, cache = {}, lastRefresh = -math.huge, sessionIndex = nil,
+    subscriptions = {}, sdkEvents = {}, generation = 0}
 end
 
 function M.reset(state, sessionIndex)
+  disposeSDK(state)
+  state.generation = (state.generation or 0) + 1
   state.cars, state.cache = {}, {}
   state.lastRefresh, state.sessionIndex = -math.huge, sessionIndex
+  state.timeline, state.localIndex, state.finalFrozen = nil, nil, false
+  state.resetToken, state.resetSnapshot = nil, nil
 end
 
-function M.update(state, snapshot, settings)
-  if snapshot == nil or snapshot.rows == nil then return end
-  local sessionIndex = number(read(snapshot.sim, 'currentSessionIndex')) or 0
-  if state.sessionIndex ~= sessionIndex then M.reset(state, sessionIndex) end
-  local now = ui.time()
-  local localRow = snapshot.localRow
-  for i = 1, #snapshot.rows do
-    local row = snapshot.rows[i]
-    local carState = state.cars[row.index] or { history = {} }
-    state.cars[row.index] = carState
-    appendSample(carState, row, now)
+local function startSDK(state, timeline)
+  if state.sdkAttempted or timeline.replay or timeline.clock == 'wall'
+    or timeline.clock == 'session' then return end
+  state.sdkAttempted = true
+  if type(read(ac, 'onTrackPointCrossed')) ~= 'function' then return end
+  local generation = state.generation
+  for point = 0, POINTS - 1 do
+    local gate = point
+    local ok, subscription = pcall(ac.onTrackPointCrossed, -1, gate / POINTS, function(index, timeMs)
+      local time = number(timeMs)
+      local car = state.cars[index]
+      if state.generation ~= generation or not state.sdkActive or not car
+        or not state.timeline or state.timeline.replay or not time then return end
+      -- Bound pending events if the app is not being updated.
+      if #state.sdkEvents >= 4096 then car.overflow = true; return end
+      state.sdkEvents[#state.sdkEvents + 1] = {car = car, index = index, gate = gate, time = time / 1000}
+    end)
+    if not ok or type(subscription) ~= 'function' then
+      disposeSDK(state)
+      state.sdkAttempted = true
+      return
+    end
+    state.subscriptions[#state.subscriptions + 1] = subscription
   end
-  for index, carState in pairs(state.cars) do
-    if carState.lastSeen and now - carState.lastSeen > 5 then state.cars[index] = nil end
-  end
+  state.sdkActive = true
+end
 
-  local refresh = math.max(0.10, number(settings.intervalRefresh) or 0.25)
-  if now - state.lastRefresh < refresh then
-    for i = 1, #snapshot.rows do snapshot.rows[i].interval = state.cache[snapshot.rows[i].index] or '--' end
+local function available(row)
+  return row.active ~= false and row.connected ~= false and row.status ~= 'OFF'
+    and row.status ~= 'RET' and row.status ~= 'PIT'
+    and read(row.car, 'isConnected') ~= false and read(row.car, 'isActive') ~= false
+    and read(row.car, 'isInPitlane') ~= true and read(row.car, 'isInPit') ~= true
+end
+
+local function identity(row)
+  return tostring(row.driver or '') .. '/' .. tostring(row.carID or '')
+end
+
+local function addCrossing(car, gate, time, source)
+  if not car.crossings[gate] then car.crossings[gate] = {time = time, source = source} end
+end
+
+local function observe(state, row, timeline)
+  local progress, now = number(row.progress), timeline.time
+  local car = state.cars[row.index]
+  if not progress or not available(row) or timeline.measuredClock == false then
+    if car then state.lastRefresh = -math.huge end
+    state.cars[row.index] = nil
     return
   end
-  state.lastRefresh = now
+  local previous = car and car.last
+  local reset = not car or car.identity ~= identity(row) or row.reconnected == true
+    or row.historyReset == true or row.justJumped == true or read(row.car, 'justJumped') == true
+    or car.overflow or (car.lastSeen and now - car.lastSeen > MAX_SAMPLE_GAP)
+  if previous and (progress < previous.progress - EPSILON
+    or progress - previous.progress > 0.25 or now < previous.time
+    or (now == previous.time and math.abs(progress - previous.progress) > EPSILON)) then reset = true end
+  if reset then
+    car = {crossings = {}, identity = identity(row), startedAt = now, startProgress = progress}
+    state.cars[row.index], state.lastRefresh = car, -math.huge
+    previous = nil
+  end
+  if previous and not state.sdkActive and now > previous.time and progress > previous.progress then
+    local first = math.floor(previous.progress * POINTS + EPSILON) + 1
+    local last = math.floor(progress * POINTS + EPSILON)
+    for gate = first, last do
+      local fraction = (gate / POINTS - previous.progress) / (progress - previous.progress)
+      if fraction >= 0 and fraction <= 1 + EPSILON then
+        addCrossing(car, gate, previous.time + math.min(1, fraction) * (now - previous.time), 'observed')
+      end
+    end
+  end
+  car.last, car.lastSeen = {progress = progress, time = now}, now
+  for gate, crossed in pairs(car.crossings) do
+    if crossed.time < now - MAX_SECONDS or gate < math.floor(progress * POINTS) - POINTS * 2 then
+      car.crossings[gate] = nil
+    end
+  end
+end
+
+local function consumeSDK(state, timeline)
+  for i = 1, #state.sdkEvents do
+    local event = state.sdkEvents[i]
+    local car = state.cars[event.index]
+    if car == event.car and event.time >= car.startedAt and event.time <= timeline.time + 0.01
+      and event.time >= timeline.time - MAX_SAMPLE_GAP then
+      -- The event can be delivered just after an observation. Locate its most
+      -- recent lap occurrence using the current unwrapped position.
+      local lap = math.floor(car.last.progress - event.gate / POINTS + EPSILON)
+      local gate = lap * POINTS + event.gate
+      if gate / POINTS > car.startProgress + EPSILON then
+        addCrossing(car, gate, event.time, 'sdk')
+      end
+    end
+  end
+  state.sdkEvents = {}
+end
+
+local function measured(row, localRow, state)
+  local other, player = state.cars[row.index], state.cars[localRow.index]
+  if not other or not player then return '--' end
+  local delta = other.last.progress - player.last.progress
+  local laps = lapDifference(delta)
+  if laps then return laps end
+  local latest, seconds, source
+  for gate, crossing in pairs(player.crossings) do
+    local otherCrossing = other.crossings[gate]
+    if otherCrossing and (not latest or gate > latest) then
+      latest, seconds = gate, crossing.time - otherCrossing.time
+      source = crossing.source == 'sdk' and otherCrossing.source == 'sdk' and 'sdk' or 'observed'
+    end
+  end
+  -- After an overtake the latest common gate can still describe the old
+  -- order. Wait for a new pair instead of reversing a measured timestamp.
+  if not seconds or delta * seconds < -EPSILON or math.abs(seconds) > MAX_SECONDS then return '--' end
+  return formatSeconds(seconds), seconds, source
+end
+
+local function applyCache(state, rows)
+  for i = 1, #rows do
+    local row, cached = rows[i], state.cache[rows[i].index]
+    row.interval = cached and cached.display or '--'
+    row.intervalSeconds = cached and cached.seconds or nil
+    row.intervalSource = cached and cached.source or nil
+  end
+end
+
+-- Snapshot contract: historyReset/resetIntervals clear immediately; a changed
+-- resetToken also clears history. Optional timeline is Timeline.sample(sim).
+-- row.interval is the existing display API. intervalSeconds/intervalSource are
+-- populated only for a measured time (source is 'sdk' or 'observed'). final
+-- computes once and freezes that cache until a reset or return to live data.
+function M.update(state, snapshot, settings)
+  if snapshot == nil or snapshot.rows == nil then M.reset(state); return end
+  local sessionIndex = number(read(snapshot.sim, 'currentSessionIndex')) or 0
+  local timeline = snapshot.timeline or Timeline.sample(snapshot.sim)
+  local resetFlag = snapshot.historyReset == true or snapshot.resetIntervals == true
+  local reset = state.sessionIndex ~= sessionIndex
+    or (resetFlag and state.resetSnapshot ~= snapshot) or state.resetToken ~= snapshot.resetToken
+    or Timeline.discontinuous(state.timeline, timeline, snapshot.sim)
+  if reset then M.reset(state, sessionIndex) end
+  state.resetSnapshot = resetFlag and snapshot or nil
+  state.resetToken, state.timeline = snapshot.resetToken, timeline
+  if snapshot.final == true and state.finalFrozen then applyCache(state, snapshot.rows); return end
+  if state.finalFrozen then
+    -- Never join newly moving telemetry to the frozen finishing observations.
+    M.reset(state, sessionIndex)
+    state.resetToken, state.timeline = snapshot.resetToken, timeline
+    state.resetSnapshot = resetFlag and snapshot or nil
+  end
+  local localRow = snapshot.localRow
+  local localIndex = localRow and localRow.index
+  if state.localIndex ~= localIndex or snapshot.final == true then state.lastRefresh = -math.huge end
+  state.localIndex = localIndex
+
+  local seen = {}
   for i = 1, #snapshot.rows do
     local row = snapshot.rows[i]
-    if localRow == nil then
-      state.cache[row.index] = '--'
-    elseif row.index == localRow.index then
-      state.cache[row.index] = '-'
-    elseif snapshot.header and snapshot.header.isTimed and row.status == 'FIN' then
-      state.cache[row.index] = '--'
-    elseif row.status == 'OFF' or row.status == 'RET' then
-      state.cache[row.index] = '--'
-    else
-      state.cache[row.index] = estimate(row, localRow, state, read(snapshot.sim, 'trackLengthM'))
+    seen[row.index] = true
+    observe(state, row, timeline)
+  end
+  for index in pairs(state.cars) do
+    if not seen[index] then state.cars[index] = nil; state.cache[index] = nil; state.lastRefresh = -math.huge end
+  end
+  consumeSDK(state, timeline)
+  startSDK(state, timeline)
+
+  local refresh = math.max(0.10, number(settings and settings.intervalRefresh) or 0.25)
+  local now = timeline.time
+  if now - state.lastRefresh >= refresh then
+    state.lastRefresh = now
+    state.cache = {}
+    for i = 1, #snapshot.rows do
+      local row = snapshot.rows[i]
+      local display, seconds, source = '--', nil, nil
+      if localRow and row.index == localRow.index then
+        display = '-'
+      elseif localRow then
+        display, seconds, source = measured(row, localRow, state)
+      end
+      state.cache[row.index] = {display = display, seconds = seconds, source = source}
     end
-    row.interval = state.cache[row.index]
+  end
+  applyCache(state, snapshot.rows)
+  if snapshot.final == true then
+    state.finalFrozen = true
+    disposeSDK(state)
   end
 end
 
