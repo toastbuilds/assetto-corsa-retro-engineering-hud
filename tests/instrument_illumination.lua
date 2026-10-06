@@ -159,6 +159,6 @@ for _, mode in ipairs({'analog','digital'}) do
   local calls = draw(mode,'dark',1)
   local labels = {}
   for _, c in ipairs(calls) do if c.kind == 'text' then labels[c.text]=true end end
-  assert(labels['N/A'] and labels['NAT ASP'])
+  assert(labels['N/A'] and labels['AERO'])
 end
 print('Backlight: timing, reversal, cached styles, hierarchy, color identity, unchanged geometry/controls, inactive faces and missing readings passed')

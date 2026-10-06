@@ -13,10 +13,11 @@ finite=function(value)
   return type(value)=='number' and value==value and value~=math.huge and value~=-math.huge
 end
 
-local function loadCurve(config, axle, shortName)
+local function loadCurve(config, axle, shortName, compound)
   local sections=safe(config,'sections')
   if type(sections)~='table' then
-    local suffix = tostring(shortName or '')
+    if type(compound) ~= 'number' or compound < 0 then return nil end
+    local suffix = compound > 0 and tostring(compound) or ''
     local ok,lut=pcall(function() return config:tryGetLut(axle .. (suffix~='' and '_' .. suffix or ''),'WEAR_CURVE') end)
     return ok and lut or nil
   end
@@ -51,11 +52,10 @@ local function readCurves(car)
     local ok,config=pcall(ac.INIConfig.carData,index,'tyres.ini')
     if ok and config then
       for _,axle in ipairs({'FRONT','REAR'}) do
-        local lut=loadCurve(config,axle,shortName)
+        local lut=loadCurve(config,axle,shortName,compound)
         if lut then
           local points={}
-          local firstInput=lut:getPointInput(0)
-          local lastGrip=finite(firstInput) and firstInput or 0
+          local lastGrip=math.huge
           for i=0,1023 do
             local readOK,x,y=pcall(function() return lut:getPointInput(i),lut:getPointOutput(i) end)
             if not readOK or not finite(x) or not finite(y) then break end

@@ -98,27 +98,28 @@ assert(state.condition.wheels[1].optimumTemperatureMin == nil,
 assert(state.condition.wheels[1].temperatureMiddle == nil,
   'disconnecting must clear previous surface readings')
 assert(state.condition.wheels[1].temperatureCore == nil, 'disconnecting must clear the previous core reading')
--- GT3 uses the requested 75-85 C profile even if the compound curve is wider.
+-- Real GT3 compound physics takes priority over the generic profile.
 carId, car.compoundIndex = 'cf_bentley_continental_gt3_2018', 0
 local previousLoads = loads
 windows = Temperatures.windows(car)
-assert(windows.front.minimum == 75 and windows.front.maximum == 85
-  and windows.rear.minimum == 75 and windows.rear.maximum == 85,
-  'GT3 working window must be 75-85 C on both axles')
-assert(loads == previousLoads, 'GT3 profile must override the broad physics curve')
+assert(windows.front.minimum == 78 and windows.front.maximum == 102
+  and windows.rear.minimum < 75 and windows.rear.maximum > 95,
+  'GT3 working window must follow the real front and rear compound curves')
+assert(loads == previousLoads + 1, 'GT3 must read the compound physics curve')
 ac.getCar = function() return car end
 car.wheels[0].tyreCoreTemperature = 90
 Telemetry.update(state, 1 / 60, settings)
 assert(state.condition.wheels[1].temperature == 90
-  and state.condition.wheels[1].optimumTemperatureMax == 85,
-  '90 C GT3 telemetry must be above the optimal window')
+  and state.condition.wheels[1].optimumTemperatureMax == 102,
+  'GT3 telemetry must retain the actual compound working window')
 -- Metadata identifies race cars whose IDs do not include their class.
 ac.FolderID = { ContentCars = 1 }
 ac.getFolder = function() return 'cars' end
 io.load = function() return 'metadata' end
 JSON = { parse = function() return { name = 'Audi R8 LMS', class = 'race', tags = { 'GT3' } } end }
 carId = 'ks_audi_r8_lms_2016'
-assert(Temperatures.windows(car).front.maximum == 85, 'GT3 metadata tags must select the profile')
+assert(Temperatures.isGT3(car), 'metadata tags must still identify GT3 for fallback references')
+assert(Temperatures.windows(car).front.maximum == 102, 'metadata must not override real compound curves')
 JSON.parse = function() return { name = 'Porsche 911 GT3', class = 'street', tags = { 'street' } } end
 carId = 'ks_porsche_991_gt3'
 assert(Temperatures.windows(car).front.maximum == 102,

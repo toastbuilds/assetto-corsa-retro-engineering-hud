@@ -201,7 +201,7 @@ end
 state.fuel, state.maxFuel = nil, nil
 assert(contains(harness.draw('classic'), 'N/A'), 'missing fuel must be distinct from an empty tank')
 state.turboAvailable = false
-assert(contains(harness.draw('classic'), 'NAT ASP'))
+assert(contains(harness.draw('classic'), 'AERO'))
 state.fuel, state.maxFuel, state.fuelNormalized = 5, 50, 0.1
 state.turboAvailable = true
 local cases = 0

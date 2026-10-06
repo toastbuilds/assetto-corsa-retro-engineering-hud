@@ -3,6 +3,7 @@ local Theme = require('src/theme')
 local Layout = require('src/car_condition_layout')
 local U = require('src/utils')
 local TyreTemperature = require('src/tyre_temperature')
+local Readouts = require('src/tyre_readouts')
 
 local M = {}
 local C = Theme.colors
@@ -124,16 +125,9 @@ local function thermalColor(position)
   return thermalStops[#thermalStops].color
 end
 
-local function temperatureWindow(wheel)
-  local minimum, maximum = wheel.optimumTemperatureMin, wheel.optimumTemperatureMax
-  if not minimum or not maximum then
-    local optimum = wheel.optimumTemperature
-      or (wheel.temperatureRatio and wheel.temperatureRatio > 0
-        and wheel.temperature and wheel.temperature / wheel.temperatureRatio)
-      or Layout.tyreFallbackOptimumTemperature
-    minimum, maximum = optimum - 5, optimum + 5
-  end
-  return minimum, maximum
+local function temperatureWindow(wheel, settings, gt3, front)
+  local reference = Readouts.references(wheel, gt3, settings, front)
+  return reference.minimum, reference.maximum
 end
 
 local function temperaturePosition(temperature, minimum, maximum)
@@ -296,7 +290,7 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
   local bottomRight = point(origin, scale, x + halfWidth, y + halfHeight)
   local colorLeft, colorMiddle, colorRight = C.metalDim, C.metalDim, C.metalDim
   if wheel and wheel.available then
-    local minimum, maximum = temperatureWindow(wheel)
+    local minimum, maximum = temperatureWindow(wheel, settings, state.condition.isGT3, y == Layout.frontWheelY)
     local temperature
     if settings.temperatureDisplay == 'surface' then temperature = wheel.temperature
     else temperature = TyreTemperature.generalTemperature(wheel, settings.temperatureCoreWeight) end
@@ -345,23 +339,23 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
   local fillTop = y + halfHeight - Layout.tyreHeight * remaining
   ui.drawRectFilled(point(origin, scale, railX, fillTop), railBottom, C.primary)
   local lifeX = x < Layout.carCenterX and 34 or Layout.width - 34
-  local life = wheel and wheel.available and wheel.wearAvailable
-    and string.format('%d', U.round(remaining * 100)) or '--'
-  ui.pushDWriteFont(lifeFonts[settings.lifeTextWeight] or lifeFonts.Regular)
-  local lifeSize = U.clamp(settings.lifeTextSize or 24, 12, 36) * scale
-  local measured = ui.measureDWriteText(life, lifeSize)
-  local availableWidth = 60 * scale
-  if measured.x > availableWidth then lifeSize = lifeSize * availableWidth / measured.x end
-  outlinedLife(life, lifeSize, point(origin, scale, lifeX, y), scale)
-  ui.popDWriteFont()
+  local value, unit = Readouts.wheel(wheel, settings, state.condition.isGT3, y == Layout.frontWheelY)
+  if value then
+    ui.pushDWriteFont(lifeFonts[settings.lifeTextWeight] or lifeFonts.Regular)
+    local size = U.clamp(settings.lifeTextSize or 24, 12, 36) * scale
+    local measured = ui.measureDWriteText(value, size)
+    local availableWidth = 60 * scale
+    if measured.x > availableWidth then size = size * availableWidth / measured.x end
+    outlinedLife(value, size, point(origin, scale, lifeX, y), scale)
+    ui.popDWriteFont()
+    centeredText(unit, 9 * scale, point(origin, scale, lifeX, y + 22), C.secondary)
+  end
 
   if wheel and wheel.isBlown then
     drawLine(point(origin, scale, x - 7, y - 13), point(origin, scale, x + 7, y + 13), C.primary, 2 * scale)
     drawLine(point(origin, scale, x + 7, y - 13), point(origin, scale, x - 7, y + 13), C.primary, 2 * scale)
   end
 
-  -- Temperature is communicated by the tyre fill color; keep the compact
-  -- condition app free of a numeric temperature readout.
   centeredText(name, 11 * scale,
     point(origin, scale, x, y - halfHeight - 12), C.primary)
 end
@@ -438,7 +432,7 @@ local function drawLegend(origin, scale, condition, settings)
     if settings.temperatureDisplay == 'surface' then temperature = wheel.temperature
     else temperature = TyreTemperature.generalTemperature(wheel, settings.temperatureCoreWeight) end
     if temperature == nil then return end
-    local minimum, maximum = temperatureWindow(wheel)
+    local minimum, maximum = temperatureWindow(wheel,settings,condition.isGT3,i<=2)
     position = position + U.clamp(temperaturePosition(temperature, minimum, maximum), 0, 5) / 4
   end
   drawStateDrop(origin, scale, position <= 2 and position / 4 or 0.5 + (position - 2) / 6)
@@ -459,66 +453,123 @@ local function stageColor(stage)
   return C.red
 end
 
-local function drawGripPanel(origin,scale,grip)
-  drawPolygon(origin,scale,{
-    {16,32},{Layout.width-16,32},{Layout.width-8,40},{Layout.width-8,264},
-    {Layout.width-16,272},{16,272},{8,264},{8,40}
-  },C.panel,C.outline,1)
-  -- Match the Leaderboard's regular text and bold emphasis, measuring each
-  -- column independently so larger numbers never collide with stage names.
-  local function detailText(value,size,x,centerY,color,rightAligned,bold)
+local function drawGripPanel(origin, scale, condition, settings, detailHeight)
+  local grip = condition.gripDetails
+  drawPolygon(origin, scale, {
+    {16,32},{Layout.width-16,32},{Layout.width-8,40},{Layout.width-8,detailHeight+24},
+    {Layout.width-16,detailHeight+32},{16,detailHeight+32},{8,detailHeight+24},{8,40}
+  }, C.panel, C.outline, 1)
+  local function detailText(value, size, x, centerY, color, rightAligned, bold)
     if bold then ui.pushDWriteFont(lifeFonts.Bold) end
-    size=size*scale
-    local measured=ui.measureDWriteText(value,size)
-    local position=point(origin,scale,x,centerY)-vec2(rightAligned and measured.x or 0,measured.y/2)
-    ui.dwriteDrawText(value,size,position,color)
+    size = size * scale
+    local measured = ui.measureDWriteText(value, size)
+    local maximum = (rightAligned and 162 or Layout.width-48) * scale
+    if measured.x > maximum then
+      size = size * maximum / measured.x
+      measured = ui.measureDWriteText(value, size)
+    end
+    local position = point(origin, scale, x, centerY)
+      - vec2(rightAligned and measured.x or 0, measured.y/2)
+    ui.dwriteDrawText(value, size, position, color)
     if bold then ui.popDWriteFont() end
   end
-  detailText('TYRE GRIP PROFILE',20,24,55,C.primary,false,true)
-  local compound=grip.compound or 'Compound unavailable'
-  if ui.measureDWriteText(compound,18*scale).x>(Layout.width-48)*scale then
-    local truncated=compound
-    repeat truncated=truncated:sub(1,-2)
-    until #truncated==0 or ui.measureDWriteText(truncated..'...',18*scale).x<=(Layout.width-48)*scale
-    compound=truncated..'...'
-  end
-  detailText(compound,18,24,81,C.primary)
-  detailText('STAGE',16,38,105,C.secondary)
-  detailText('KM',16,186,105,C.secondary,true)
-  detailText('LAPS',16,296,105,C.secondary,true)
-  drawLine(point(origin,scale,24,117),point(origin,scale,296,117),C.outlineSoft,scale)
-  for index,threshold in ipairs(grip.details) do
-    local y=132+(index-1)*30
-    ui.drawRectFilled(point(origin,scale,24,y-4),point(origin,scale,30,y+4),stageColor(threshold.name))
-    detailText(threshold.name,16,38,y,C.primary)
-    if grip.wearDisabled then
-      detailText('No tyre wear',20,296,y,C.primary,true)
-    else
-      detailText(string.format('%.1f',threshold.km),20,186,y,C.primary,true)
-      detailText(threshold.laps and string.format('%.1f',threshold.laps) or '--',20,296,y,C.primary,true)
+  detailText('TYRE DETAIL',20,24,55,C.primary,false,true)
+  local compound = condition.compound or (grip and grip.compound)
+  if compound then
+    if ui.measureDWriteText(compound,18*scale).x > (Layout.width-48)*scale then
+      local truncated = compound
+      repeat truncated=truncated:sub(1,-2)
+      until #truncated==0 or ui.measureDWriteText(truncated..'...',18*scale).x <= (Layout.width-48)*scale
+      compound=truncated..'...'
     end
+    detailText(compound,18,24,81,C.primary)
   end
-  drawLine(point(origin,scale,24,238),point(origin,scale,296,238),C.outlineSoft,scale)
-  detailText('AVG GRIP',16,24,254,C.primary)
-  detailText(string.format('%.1f%%',grip.average),24,296,254,C.primary,true,true)
+  local stint = condition.stint
+  if stint then
+    local prefix = stint.approximate and '~' or ''
+    detailText('STINT',16,24,108,C.secondary)
+    if stint.laps ~= nil and stint.km ~= nil then
+      detailText(string.format('%s%d L / %s%.1f KM', prefix, stint.laps, prefix, stint.km),
+        18,296,108,C.primary,true,true)
+    end
+    if stint.observedOnly then detailText('FROM OBSERVATION',13,24,130,C.amber)
+    elseif stint.approximate then detailText('~ ESTIMATED STINT',13,24,130,C.amber) end
+  end
+  local function axleReference(front)
+    local name, index = front and 'front' or 'rear', front and 1 or 3
+    local wheel = condition.wheels[index]
+    if not wheel or not wheel.available then wheel = condition.wheels[index+1] end
+    wheel = wheel or {}
+    local window = condition.temperatureWindows and condition.temperatureWindows[name]
+    return Readouts.references({
+      optimumTemperatureMin = window and window.minimum or wheel.optimumTemperatureMin,
+      optimumTemperatureMax = window and window.maximum or wheel.optimumTemperatureMax,
+      optimumTemperature = wheel.optimumTemperature,
+      idealPressure = condition.idealPressures and condition.idealPressures[name] or wheel.idealPressure
+    },condition.isGT3,settings,front)
+  end
+  local front, rear = axleReference(true), axleReference(false)
+  detailText('IDEAL PRESSURE',16,24,157,C.secondary)
+  for i,reference in ipairs({front,rear}) do
+    local y = 179+(i-1)*23
+    detailText(i==1 and 'FRONT' or 'REAR',14,24,y,C.secondary)
+    detailText((reference.pressureEstimated and '~' or '')
+      ..Readouts.formatPressure(reference.idealPressure,settings.pressureUnit)
+      ..' '..(settings.pressureUnit or 'psi'),18,296,y,C.primary,true)
+  end
+  for i,reference in ipairs({front,rear}) do
+    local y = 229+(i-1)*23
+    detailText(i==1 and 'THERMAL F' or 'THERMAL R',14,24,y,C.secondary)
+    local unit = settings.temperatureUnit == 'F' and 'F' or 'C'
+    local minimum = Readouts.temperature(reference.minimum,settings.temperatureUnit)
+    local maximum = Readouts.temperature(reference.maximum,settings.temperatureUnit)
+    detailText(string.format('%s%.0f-%.0f %s',reference.thermalEstimated and '~' or '',minimum,maximum,unit),
+      18,296,y,C.primary,true)
+  end
+  if front.pressureEstimated or rear.pressureEstimated or front.thermalEstimated or rear.thermalEstimated then
+    detailText('~ ESTIMATED REFERENCE',12,24,274,C.amber)
+  end
+  if grip and grip.details then
+    detailText('STAGE',16,38,298,C.secondary)
+    detailText('KM',16,186,298,C.secondary,true)
+    detailText('LAPS',16,296,298,C.secondary,true)
+    drawLine(point(origin,scale,24,310),point(origin,scale,296,310),C.outlineSoft,scale)
+    for index,threshold in ipairs(grip.details) do
+      local y=325+(index-1)*30
+      ui.drawRectFilled(point(origin,scale,24,y-4),point(origin,scale,30,y+4),stageColor(threshold.name))
+      detailText(threshold.name,16,38,y,C.primary)
+      if grip.wearDisabled then detailText('No tyre wear',20,296,y,C.primary,true)
+      else
+        if threshold.km then detailText(string.format('%.1f',threshold.km),20,186,y,C.primary,true) end
+        detailText(threshold.laps and string.format('%.1f',threshold.laps) or '--',20,296,y,C.primary,true)
+      end
+    end
+    drawLine(point(origin,scale,24,431),point(origin,scale,296,431),C.outlineSoft,scale)
+    detailText('AVG GRIP',16,24,447,C.primary)
+    if grip.average then detailText(string.format('%.1f%%',grip.average),24,296,447,C.primary,true,true) end
+  end
 end
 
-local function drawGripDetails(origin,scale,grip)
-  if not ui.mouseLocalPos or not grip or not grip.details
-    or not ui.transparentWindow or not ui.windowPos then return end
-  local mouse=ui.mouseLocalPos()
-  local inside=mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
-    and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
-  if not inside then return end
-  -- Use an independent overlay so the panel can extend above the compact app
-  -- without being clipped by its window or covering its car diagram.
-  local size=vec2((Layout.width-14)*scale,242*scale)
+local function drawGripDetails(origin,scale,condition,settings)
+  if not ui.transparentWindow or not ui.windowPos then return end
+  local inside = false
+  if ui.mouseLocalPos then
+    local mouse = ui.mouseLocalPos()
+    inside = mouse.x>=origin.x+16*scale and mouse.x<=origin.x+(Layout.width-16)*scale
+      and mouse.y>=origin.y+(legendY-8)*scale and mouse.y<=origin.y+(legendY+16)*scale
+  end
+  if not inside and not settings.keepDetailsOpen and not condition.detailOpen then return end
+  local screen = ac.getUI and U.read(ac.getUI(),'windowSize',nil) or nil
+  local detailHeight = condition.gripDetails and condition.gripDetails.details and 438 or 260
+  -- Keep the whole overlay visible even with a large parent or a small screen.
+  local panelScale = scale
+  if screen then panelScale=math.min(scale,screen.x/(Layout.width-14),screen.y/detailHeight) end
+  local size=vec2((Layout.width-14)*panelScale,detailHeight*panelScale)
   local position=ui.windowPos()+origin+vec2(7*scale,(legendY-14)*scale-size.y)
-  local screen=ac.getUI and U.read(ac.getUI(),'windowSize',nil) or nil
   position.x=math.max(0,screen and math.min(position.x,screen.x-size.x) or position.x)
-  position.y=math.max(0,position.y)
+  position.y=math.max(0,screen and math.min(position.y,screen.y-size.y) or position.y)
   ui.transparentWindow('##condition-grip-profile',position,size,true,false,function()
-    drawGripPanel(vec2(-7*scale,-31*scale),scale,grip)
+    drawGripPanel(vec2(-7*panelScale,-32*panelScale),panelScale,condition,settings,detailHeight)
   end)
 end
 
@@ -545,7 +596,6 @@ local function drawGrip(origin,scale,grip)
   if remaining then
     drawStateDrop(origin,scale,1-remaining/100)
   end
-  drawGripDetails(origin,scale,grip)
 end
 
 function M.draw(state, settings)
@@ -572,6 +622,7 @@ function M.draw(state, settings)
     local mode = settings.legendMode or (settings.showTemperatureLegend == false and 'none' or 'temperature')
     if mode == 'temperature' then drawLegend(origin,scale,condition,settings)
     elseif mode == 'grip' then drawGrip(origin,scale,condition.gripDetails) end
+    drawGripDetails(origin,scale,condition,settings)
   end
 
   ui.popDWriteFont()

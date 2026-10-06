@@ -122,13 +122,14 @@ wheel.wearAvailable = false
 draw()
 local missing = false
 for _, item in ipairs(texts) do if item.text == '--' then missing = true end end
-assert(missing, 'missing wear telemetry must not appear as a measured zero')
+assert(not missing, 'missing wear telemetry must hide the readout')
 wheel.wearAvailable = true
 wheel.remaining = 1
 draw() -- The widest label, 100, must also fit.
 
 local function surface(temperature, ratio)
   wheel.temperature, wheel.temperatureRatio = temperature, ratio
+  wheel.optimumTemperature = ratio and ratio > 0 and temperature / ratio or nil
   draw()
   return rectangles[1].color
 end
@@ -235,13 +236,13 @@ draw()
 assert(#centralHalves() == 6 and rectangles[1].color.g > rectangles[1].color.r * 1.5,
   'an incomplete surface must use the uniform core temperature')
 -- All zone colors share the wheel reference, not a reference inferred per zone.
-wheel.optimumTemperatureMin, wheel.optimumTemperatureMax, wheel.optimumTemperature = nil, nil, nil
+wheel.optimumTemperatureMin, wheel.optimumTemperatureMax, wheel.optimumTemperature = nil, nil, 80
 wheel.temperature, wheel.temperatureRatio = 80, 1
 wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 90, 80, 55
 draw()
 halves = centralHalves()
 assert(halves[1].left.b > halves[1].left.r and halves[2].right.r > halves[2].right.g * 1.45,
-  'all zones must use the optimum inferred from the core reading')
+  'all zones must use the same optimum provided by the SDK')
 wheel.optimumTemperatureMin, wheel.optimumTemperatureMax = 75, 85
 wheel.temperatureInside, wheel.temperatureMiddle, wheel.temperatureOutside = 80, 65, 50
 wheel.dirty = 1
@@ -397,14 +398,14 @@ for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
   state.condition.gripDetails=gripDetails
   ui.mouseLocalPos=function() return origin+vec2(160*scale,15*scale) end
   draw(theme,{legendMode='grip'})
-  assert(findText('TYRE GRIP PROFILE') and findText('AVG GRIP') and findText('98.0%'),
+  assert(findText('TYRE DETAIL') and findText('AVG GRIP') and findText('98.0%'),
     'the new top bar must open its detailed grip panel')
-  assert(#overlays==1 and overlays[1].position.y+overlays[1].size.y
-    < windowPosition.y+origin.y+12*scale,
-    'grip hover must float entirely above the bar rather than cover the car')
-  assert(findText('TYRE GRIP PROFILE').overlay==overlays[1].id,
+  assert(#overlays==1 and (overlays[1].position.y+overlays[1].size.y
+    < windowPosition.y+origin.y+12*scale or overlays[1].position.y==0),
+    'detail should float above the bar or clamp to the screen when it cannot fit above')
+  assert(findText('TYRE DETAIL').overlay==overlays[1].id,
     'hover content must draw in its own window so the parent cannot clip it')
-  local title=findText('TYRE GRIP PROFILE')
+  local title=findText('TYRE DETAIL')
   assert(title.font=='Consolas;Weight=Bold' and title.size==20*scale,
     'hover title must match Leaderboard emphasis with larger type')
   local stage,distance,laps=findText('MEDIUM'),findText('40.0'),findText('8.0')
@@ -418,7 +419,7 @@ for _,dimensions in ipairs({{240,210},{240,260},{320,280},{640,560}}) do
     'average grip must have the same value emphasis as the Leaderboard header')
   ui.mouseLocalPos=function() return origin+vec2(160*scale,260*scale) end
   draw(theme,{legendMode='grip'})
-  assert(not findText('TYRE GRIP PROFILE'),'the old bottom area must no longer open grip details')
+  assert(not findText('TYRE DETAIL'),'the old bottom area must no longer open grip details')
   assert(#overlays==0,'hover window must close when the pointer leaves the bar')
   ui.mouseLocalPos=nil
  end
@@ -499,3 +500,53 @@ for _,mode in ipairs({'temperature','grip','none'}) do
    'the settings selector must remain persistent')
 end
 print('Condition legends: upward floating hover, droplet state markers, unavailable data, themes, sizes, screen edges and persistent settings passed')
+
+windowPosition=vec2(500,700)
+state.condition.gripDetails=nil
+state.condition.stint={laps=8,km=45.2,approximate=true,observedOnly=false}
+state.condition.compound='Medium'
+for _,tyre in ipairs(state.condition.wheels) do
+  tyre.pressure,tyre.idealPressure=27,26
+  tyre.temperatureCore=80
+  tyre.temperatureInside,tyre.temperatureMiddle,tyre.temperatureOutside=60,70,80
+end
+for _,dimensions in ipairs({{240,210},{320,280},{640,560}}) do
+  width,height=dimensions[1],dimensions[2]
+  for _,theme in ipairs({'dark','light'}) do
+    draw(theme,{numericMetric='pressure',pressureUnit='bar',legendMode='none'})
+    assert(findText('1.86') and findText('bar') and not findText('96'), 'pressure replaces the life number')
+    draw(theme,{numericMetric='pressure',pressureReadout='delta',legendMode='none'})
+    assert(findText('+1.0') and findText('DELTA psi'), 'delta pressure must retain its sign and unit')
+    state.condition.wheels[1].idealPressure=nil
+    draw(theme,{numericMetric='pressure',pressureReadout='delta',legendMode='none'})
+    assert(findText('~+1.0'), 'generic ideal pressure must mark the delta as estimated')
+    state.condition.wheels[1].idealPressure=26
+    draw(theme,{numericMetric='temperature',temperatureReadout='core',temperatureUnit='F',legendMode='none'})
+    assert(findText('176') and findText('F'), 'numeric core readout uses General Fahrenheit')
+    draw(theme,{numericMetric='temperature',temperatureReadout='surface',legendMode='none'})
+    assert(findText('70'), 'surface mode uses measured zone average')
+    draw(theme,{numericMetric='temperature',temperatureReadout='blend',temperatureCoreWeight=0.8,legendMode='none'})
+    assert(findText('78'), 'numeric blend follows the selected core weight')
+    draw(theme,{keepDetailsOpen=true,legendMode='none'})
+    assert(#overlays==1 and findText('TYRE DETAIL') and findText('~8 L / ~45.2 KM'),
+      'Settings can pin the stint panel without a grip curve or legend')
+    assert(findText('IDEAL PRESSURE') and findText('THERMAL F'), 'detail contains physical reference information')
+    state.condition.detailOpen=true
+    draw(theme,{legendMode='none'})
+    assert(#overlays==1, 'automatic pit detail does not require mouse input')
+    state.condition.detailOpen=false
+    draw(theme,{legendMode='none'})
+    assert(#overlays==0, 'automatic detail closes when telemetry releases it')
+  end
+end
+state.condition.wheels[1].pressure=nil
+draw('dark',{numericMetric='pressure',legendMode='none'})
+local measuredCount=0
+for _,item in ipairs(texts) do
+  if item.text=='27.0' and item.color.r~=0 then measuredCount=measuredCount+1 end
+end
+assert(measuredCount==3, 'missing wheel pressure hides only that measurement')
+state.condition.stint.approximate,state.condition.stint.observedOnly=false,true
+draw('light',{keepDetailsOpen=true,legendMode='none'})
+assert(findText('FROM OBSERVATION'), 'an incomplete stint identifies its observation baseline')
+print('Condition additions: single metric, units, pin/automatic detail, no grip curves and missing readings passed')

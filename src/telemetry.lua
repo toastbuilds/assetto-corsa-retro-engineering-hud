@@ -4,6 +4,8 @@ local Gt7Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
 local TyreTemperature = require('src/tyre_temperature')
 local TyreGrip = require('src/tyre_grip')
+local TyreReadouts = require('src/tyre_readouts')
+local TyreStint = require('src/tyre_stint')
 local Hybrid = require('src/hybrid')
 
 local M = {}
@@ -72,6 +74,26 @@ local function blankState()
     turboDisplayMax = 1,
     boostNeedleNormalized = 0,
     boostNeedleVelocity = 0,
+    aeroLoadNormalized = 0,
+    aeroLoadPercent = 0,
+    aeroSource = 'visual',
+    aeroDirectAvailable = false,
+    aeroWheelLoadAvailable = false,
+    aeroLiftFront = nil,
+    aeroLiftRear = nil,
+    aeroDrag = nil,
+    aeroCoefficient = nil,
+    aeroCoefficientPeak = 0,
+    aeroDownforceKN = nil,
+    aeroDownforcePeakKN = 0,
+    aeroFrontShare = nil,
+    _aeroLoadScale = nil,
+    _aeroStaticFrontShare = nil,
+    _aeroFilteredForceN = 0,
+    _aeroRawForce1 = nil,
+    _aeroRawForce2 = nil,
+    _aeroLastSpeedKmh = nil,
+    _aeroCarKey = nil,
     rpmWarningFraction = 0.86,
     rpmRedlineFraction = 0.96,
     rpmWarning = false,
@@ -134,6 +156,7 @@ local function blankState()
     raceFlagType = nil,
     pitLane = false,
     pitLimiter = nil,
+    tyreStint = TyreStint.new(),
     condition = {
       available = false,
       body = { front = 0, rear = 0, left = 0, right = 0 },
@@ -271,6 +294,175 @@ local function finiteNumber(value, fallback)
   return value
 end
 
+local function resetAero(state)
+  state.aeroLoadNormalized = 0
+  state.aeroLoadPercent = 0
+  state.aeroSource = 'visual'
+  state.aeroDirectAvailable = false
+  state.aeroWheelLoadAvailable = false
+  state.aeroLiftFront = nil
+  state.aeroLiftRear = nil
+  state.aeroDrag = nil
+  state.aeroCoefficient = nil
+  state.aeroCoefficientPeak = 0
+  state.aeroDownforceKN = nil
+  state.aeroDownforcePeakKN = 0
+  state.aeroFrontShare = nil
+  state._aeroLoadScale = nil
+  state._aeroStaticFrontShare = nil
+  state._aeroFilteredForceN = 0
+  state._aeroRawForce1 = nil
+  state._aeroRawForce2 = nil
+  state._aeroLastSpeedKmh = nil
+  state._aeroCarKey = nil
+end
+
+local function updateAero(state, car, speedKmh, settings, dt)
+  local carKey = false
+  if type(ac.getCarID) == 'function' then
+    local ok, value = pcall(ac.getCarID, U.read(car, 'index', 0))
+    if ok and type(value) == 'string' then carKey = value end
+  end
+  if state._aeroCarKey ~= carKey then
+    resetAero(state)
+    state._aeroCarKey = carKey
+  end
+
+  local referenceKmh = state.speedGaugeTopSpeedKmh
+    or (settings.speedUnit == 'mph' and state.speedGaugeMaximum / 0.621371 or state.speedGaugeMaximum)
+    or 300
+  local speedFraction = U.clamp(speedKmh / math.max(referenceKmh, 1), 0, 1)
+  local visualNormalized = speedFraction * speedFraction
+
+  local liftFront = finiteNumber(U.read(car, 'aeroLiftFront', nil), nil)
+  local liftRear = finiteNumber(U.read(car, 'aeroLiftRear', nil), nil)
+  local drag = finiteNumber(U.read(car, 'aeroDrag', nil), nil)
+  local frontMagnitude = liftFront and math.abs(liftFront) or 0
+  local rearMagnitude = liftRear and math.abs(liftRear) or 0
+  local coefficient = frontMagnitude + rearMagnitude
+  local directAvailable = coefficient > 0.0001
+
+  state.aeroLiftFront = liftFront
+  state.aeroLiftRear = liftRear
+  state.aeroDrag = drag
+  state.aeroDirectAvailable = directAvailable
+  state.aeroCoefficient = directAvailable and coefficient or nil
+  if directAvailable then
+    state.aeroCoefficientPeak = math.max(state.aeroCoefficientPeak or 0, coefficient)
+    state.aeroFrontShare = frontMagnitude / coefficient
+  end
+
+  -- Wheel loads are the only Lua-side source here that can yield force units.
+  -- Detect whether a mod reports N or kg-equivalent values, then subtract the
+  -- static vehicle weight. Median conditioning plus a speed-aware slew limiter
+  -- keeps kerbs and suspension compression from appearing as aero flicker.
+  local mass = finiteNumber(U.read(car, 'mass', nil), nil)
+  local wheels = U.read(car, 'wheels', nil)
+  local rawLoads, rawFront, validLoads = 0, 0, 0
+  for index = 0, 3 do
+    local wheel = U.read(wheels, index, nil)
+    local load = finiteNumber(U.read(wheel, 'load', nil), nil)
+      or finiteNumber(U.read(wheel, 'tyreLoad', nil), nil)
+      or finiteNumber(U.read(wheel, 'wheelLoad', nil), nil)
+    if load and load > 0 then
+      rawLoads = rawLoads + load
+      if index < 2 then rawFront = rawFront + load end
+      validLoads = validLoads + 1
+    end
+  end
+
+  local wheelForceN, wheelFrontShare = nil, nil
+  if validLoads == 4 and mass and mass > 100 then
+    local staticN = mass * 9.80665
+    if not state._aeroLoadScale then
+      local ratioN = rawLoads / staticN
+      local ratioKg = rawLoads / mass
+      if ratioN > 0.55 and ratioN < 1.55 then state._aeroLoadScale = 1
+      elseif ratioKg > 0.55 and ratioKg < 1.55 then state._aeroLoadScale = 9.80665 end
+    end
+    local scale = state._aeroLoadScale
+    if scale then
+      local totalN = rawLoads * scale
+      local frontN = rawFront * scale
+      local plausible = totalN > staticN * 0.45 and totalN < staticN * 8
+      if plausible then
+        state.aeroWheelLoadAvailable = true
+        local rawForceN = math.max(0, totalN - staticN)
+        local step = U.clamp(dt or 0, 0, 0.05)
+
+        local conditionedForceN = rawForceN
+        if state._aeroRawForce1 ~= nil and state._aeroRawForce2 ~= nil then
+          local a, b, c = rawForceN, state._aeroRawForce1, state._aeroRawForce2
+          if a > b then a, b = b, a end
+          if b > c then b, c = c, b end
+          if a > b then a, b = b, a end
+          conditionedForceN = b
+        end
+        state._aeroRawForce2 = state._aeroRawForce1
+        state._aeroRawForce1 = rawForceN
+
+        if step <= 0 then
+          state._aeroFilteredForceN = conditionedForceN
+        else
+          local currentForceN = state._aeroFilteredForceN or conditionedForceN
+          local alpha = 1 - math.exp(-step / 0.22)
+          local candidateForceN = currentForceN + (conditionedForceN - currentForceN) * alpha
+
+          -- Real aerodynamic load follows speed squared and cannot jump as fast
+          -- as a tyre load does on a kerb. Allow ordinary aero response plus the
+          -- extra rate implied by a genuine speed change, while clipping shocks.
+          local previousSpeedKmh = state._aeroLastSpeedKmh or speedKmh
+          local speedDeltaFraction = math.abs(speedKmh - previousSpeedKmh)
+            / math.max(speedKmh, previousSpeedKmh, 30)
+          local speedDrivenDelta = 2 * math.max(currentForceN, staticN * 0.08) * speedDeltaFraction
+          local maxDelta = staticN * 0.6 * step + speedDrivenDelta * 1.5
+          state._aeroFilteredForceN = U.clamp(candidateForceN,
+            math.max(0, currentForceN - maxDelta), currentForceN + maxDelta)
+        end
+        state._aeroLastSpeedKmh = speedKmh
+        wheelForceN = math.max(0, state._aeroFilteredForceN)
+
+        if speedKmh < 35 and math.abs(totalN - staticN) < staticN * 0.18 then
+          local observedShare = U.clamp(frontN / math.max(totalN, 1), 0.2, 0.8)
+          state._aeroStaticFrontShare = state._aeroStaticFrontShare
+            and state._aeroStaticFrontShare + (observedShare - state._aeroStaticFrontShare) * 0.08
+            or observedShare
+        end
+        if state._aeroStaticFrontShare then
+          local frontAero = math.max(0, frontN - staticN * state._aeroStaticFrontShare)
+          local rearAero = math.max(0, totalN - frontN - staticN * (1 - state._aeroStaticFrontShare))
+          if frontAero + rearAero > 100 then wheelFrontShare = frontAero / (frontAero + rearAero) end
+        end
+      end
+    end
+  end
+  if wheelForceN == nil then state.aeroWheelLoadAvailable = false end
+
+  -- Some CSP builds/mods expose these fields as forces despite the Lua docs
+  -- calling them coefficients. Treat only clearly force-sized values that way.
+  local directForceN = directAvailable and coefficient > 20 and coefficient or nil
+  local forceN = directForceN or wheelForceN
+  if forceN then
+    state.aeroDownforceKN = forceN / 1000
+    state.aeroDownforcePeakKN = math.max(state.aeroDownforcePeakKN or 0, state.aeroDownforceKN)
+    state.aeroLoadNormalized = mass and mass > 100
+      and U.clamp(forceN / (mass * 9.80665), 0, 1)
+      or U.clamp(forceN / math.max((state.aeroDownforcePeakKN or 0) * 1000, 1), 0, 1)
+    state.aeroSource = directForceN and 'csp-force' or (directAvailable and 'wheel-load+csp' or 'wheel-load')
+    if not directAvailable and wheelFrontShare then state.aeroFrontShare = wheelFrontShare end
+  elseif directAvailable then
+    local peak = math.max(state.aeroCoefficientPeak or coefficient, 0.0001)
+    state.aeroDownforceKN = nil
+    state.aeroLoadNormalized = U.clamp((coefficient / peak) * visualNormalized, 0, 1)
+    state.aeroSource = 'csp-coefficient'
+  else
+    state.aeroDownforceKN = nil
+    state.aeroLoadNormalized = visualNormalized
+    state.aeroSource = 'visual'
+  end
+  state.aeroLoadPercent = U.round(state.aeroLoadNormalized * 100)
+end
+
 local function updateFuelNeedle(state, car, dt)
   if state.fuel == nil or state.maxFuel == nil or state.maxFuel <= 0.1 then
     state.fuelNeedleNormalized = 0
@@ -320,6 +512,13 @@ local function resetCondition(state)
   condition.grip = nil
   condition.gripMeter = nil
   condition.gripDetails = nil
+  condition.stint = nil
+  condition.compound = nil
+  condition.idealPressures = nil
+  condition.temperatureWindows = nil
+  condition.detailOpen = false
+  condition.detailPit = false
+  condition.detailAfterPit = 0
   condition.body.front = 0
   condition.body.rear = 0
   condition.body.left = 0
@@ -337,6 +536,8 @@ local function resetCondition(state)
     wheel.optimumTemperatureMin = nil
     wheel.optimumTemperatureMax = nil
     wheel.temperatureRatio = nil
+    wheel.pressure = nil
+    wheel.idealPressure = nil
     wheel.wear = 0
     wheel.remaining = 1
     wheel.wearAvailable = false
@@ -354,7 +555,7 @@ local function normalizedDamage(value)
   return U.clamp(finiteNumber(value, 0) / 100, 0, 1)
 end
 
-local function updateCondition(state, car)
+local function updateCondition(state, car, dt)
   local condition = state.condition
   condition.available = true
   local simOk,sim=pcall(ac.getSim)
@@ -362,6 +563,25 @@ local function updateCondition(state, car)
   condition.grip = grip and grip.average or nil
   condition.gripMeter = grip and grip.remaining or nil
   condition.gripDetails = grip
+  condition.isGT3 = TyreTemperature.isGT3(car)
+  local simState = simOk and sim or nil
+  local stint = TyreStint.update(state.tyreStint, car, simState, dt)
+  if not condition.stint or condition.stint.resetGeneration ~= stint.resetGeneration then
+    condition.detailPit, condition.detailAfterPit = false, 0
+  end
+  condition.stint = stint
+  local pit = U.read(car, 'isInPitlane', false) == true
+  if condition.detailPit and not pit then condition.detailAfterPit = 10 end
+  if pit then condition.detailAfterPit = 10
+  elseif U.read(simState, 'isPaused', false) ~= true then
+    condition.detailAfterPit = math.max(0, (condition.detailAfterPit or 0) - math.max(dt or 0, 0))
+  end
+  condition.detailPit, condition.detailOpen = pit, pit or condition.detailAfterPit > 0
+  local nameFunction = ac.getTyresLongName or ac.getTyresName
+  local nameOk, name = pcall(function() return nameFunction and nameFunction(U.read(car, 'index', 0)) end)
+  condition.compound = nameOk and type(name) == 'string' and name ~= '' and name or (grip and grip.compound)
+  local pressures = TyreReadouts.idealPressures(car)
+  condition.idealPressures = pressures
 
   local damage = U.read(car, 'damage', nil)
   condition.body.front = normalizedDamage(U.read(damage, 0, 0))
@@ -375,6 +595,7 @@ local function updateCondition(state, car)
 
   local sourceWheels = U.read(car, 'wheels', nil)
   local temperatureWindows = TyreTemperature.windows(car)
+  condition.temperatureWindows = temperatureWindows
   for sourceIndex = 0, 3 do
     local source = U.read(sourceWheels, sourceIndex, nil)
     local wheel = condition.wheels[sourceIndex + 1]
@@ -396,6 +617,10 @@ local function updateCondition(state, car)
       end
       wheel.optimumTemperatureMin = window and window.minimum or nil
       wheel.optimumTemperatureMax = window and window.maximum or nil
+      local pressure = finiteNumber(U.read(source, 'tyrePressure', nil), nil)
+      wheel.pressure = pressure and pressure > 0 and pressure or nil
+      if sourceIndex < 2 then wheel.idealPressure = pressures.front
+      else wheel.idealPressure = pressures.rear end
       wheel.temperatureRatio = wheel.temperature and optimum and optimum > 1
         and U.clamp(wheel.temperature / optimum, 0, 2) or nil
 
@@ -422,6 +647,8 @@ local function updateCondition(state, car)
       wheel.optimumTemperatureMin = nil
       wheel.optimumTemperatureMax = nil
       wheel.temperatureRatio = nil
+      wheel.pressure = nil
+      wheel.idealPressure = nil
       wheel.wear = 0
       wheel.remaining = 1
       wheel.wearAvailable = false
@@ -748,12 +975,14 @@ function M.update(state, dt, settings, sampleCar)
     state.gt7RpmNeedleVelocity = 0
     state.boostNeedleNormalized = 0
     state.boostNeedleVelocity = 0
+    resetAero(state)
     state.proximityRadarAvailable = false
     state.radarLeftLevel = 0
     state.radarRightLevel = 0
     state.radarLeftLevel9 = 0
     state.radarRightLevel9 = 0
     PedalHistory.clear(state.pedalHistory)
+    TyreStint.update(state.tyreStint, nil, SIM, dt)
     resetCondition(state)
     return
   end
@@ -765,6 +994,7 @@ function M.update(state, dt, settings, sampleCar)
   formattedSpeed(state, speedValue, settings.speedUnit)
   state.speedKmh = speedKmh
   updateSpeedGauge(state, settings)
+  updateAero(state, car, speedKmh, settings, dt)
 
   state.rpm = math.max(U.number(U.read(car, 'rpm', 0), 0), 0)
   local carLimiter = U.number(U.read(car, 'rpmLimiter', nil), nil)
@@ -818,7 +1048,7 @@ function M.update(state, dt, settings, sampleCar)
   PedalHistory.update(state.pedalHistory, dt, state.throttle, state.brake)
   state.engineLifeLeft = U.number(U.read(car, 'engineLifeLeft', nil), nil)
   state.engineWarning = state.engineLifeLeft ~= nil and state.engineLifeLeft < 850
-  updateCondition(state, car)
+  updateCondition(state, car, dt)
   updateFfb(state, car, dt)
   updateLimit(state, car, dt)
 

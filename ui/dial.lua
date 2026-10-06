@@ -328,12 +328,24 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
   end
 
   local useTurbo = requestedMode == 'turbo' or (requestedMode == 'auto' and state.turboAvailable)
-  local available = useTurbo and state.turboAvailable or state.fuel ~= nil and state.maxFuel ~= nil
-  local label = useTurbo and 'TURBO' or 'FUEL'
+  local aero = requestedMode == 'turbo' and not state.turboAvailable
+  local available = aero or (useTurbo and state.turboAvailable)
+    or (not useTurbo and state.fuel ~= nil and state.maxFuel ~= nil)
+  local label = aero and 'AERO' or (useTurbo and 'TURBO' or 'FUEL')
   local value = 'N/A'
   local normalized = 0
   local accent = C.secondary
-  if useTurbo and state.turboAvailable then
+  if aero then
+    normalized = U.clamp(state.aeroLoadNormalized or 0, 0, 1)
+    if state.aeroDownforceKN ~= nil then
+      value = string.format('%.1f kN', state.aeroDownforceKN)
+    elseif state.aeroCoefficient ~= nil then
+      value = string.format('CL %.2f', state.aeroCoefficient)
+    else
+      value = string.format('%d%%', U.round(normalized * 100))
+    end
+    accent = normalized >= 0.82 and C.amber or C.cyan
+  elseif useTurbo and state.turboAvailable then
     value = string.format('%.2f BAR', state.turboBoost)
     normalized = U.clamp(state.turboBoost / state.turboDisplayMax, 0, 1)
     accent = C.cyan

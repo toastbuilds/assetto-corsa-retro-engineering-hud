@@ -659,6 +659,73 @@ Telemetry.update(boostTelemetry, 1 / 60, Settings.current())
 assert(boostTelemetry.boostNeedleNormalized == 0 and boostTelemetry.boostNeedleVelocity == 0,
   'naturally aspirated cars must park the hidden boost needle')
 
+local coefficientAero = Telemetry.new()
+car = makeCar({ speedKmh = 220, aeroLiftFront = -0.8, aeroLiftRear = -1.2, aeroDrag = 0.9 })
+Telemetry.update(coefficientAero, 0, Settings.current(), car)
+assert(coefficientAero.aeroSource == 'csp-coefficient'
+  and math.abs((coefficientAero.aeroCoefficient or 0) - 2.0) < 0.0001
+  and math.abs((coefficientAero.aeroFrontShare or 0) - 0.4) < 0.0001
+  and coefficientAero.aeroDownforceKN == nil,
+  'CSP lift coefficients must drive the AERO gauge when force telemetry is unavailable')
+assert(math.abs(coefficientAero.aeroLoadNormalized - 0.64) < 0.001,
+  'coefficient-only AERO must retain speed-squared scaling against the car top speed')
+
+local wheelAero = Telemetry.new()
+local staticLoad = 1000 * 9.80665 / 4
+car = makeCar({ speedKmh = 10, mass = 1000, wheels = {
+  [0] = { load = staticLoad }, [1] = { load = staticLoad },
+  [2] = { load = staticLoad }, [3] = { load = staticLoad }
+} })
+Telemetry.update(wheelAero, 0, Settings.current(), car)
+car.speedKmh = 220
+car.wheels[0].load, car.wheels[1].load = staticLoad + 1500, staticLoad + 1500
+car.wheels[2].load, car.wheels[3].load = staticLoad + 2500, staticLoad + 2500
+Telemetry.update(wheelAero, 0, Settings.current(), car)
+assert(wheelAero.aeroSource == 'wheel-load'
+  and math.abs((wheelAero.aeroDownforceKN or 0) - 8.0) < 0.001
+  and math.abs((wheelAero.aeroFrontShare or 0) - 0.375) < 0.001,
+  'wheel loads must expose actual downforce in kN and its front/rear distribution')
+assert(math.abs(wheelAero.aeroLoadNormalized - (8000 / 9806.65)) < 0.001,
+  'wheel-load AERO must normalize force against static vehicle weight')
+
+-- A kerb can briefly add several vehicle weights to one or more wheel loads.
+-- That suspension shock must not become a visible downforce spike.
+Telemetry.update(wheelAero, 1 / 60, Settings.current(), car)
+local settledAeroKN = wheelAero.aeroDownforceKN
+for _ = 1, 4 do
+  car.wheels[0].load, car.wheels[1].load = staticLoad + 7000, staticLoad + 7000
+  car.wheels[2].load, car.wheels[3].load = staticLoad + 9000, staticLoad + 9000
+  Telemetry.update(wheelAero, 1 / 60, Settings.current(), car)
+end
+assert(wheelAero.aeroDownforceKN < settledAeroKN + 0.5,
+  'kerb load spikes must be rejected instead of flickering the AERO gauge')
+car.wheels[0].load, car.wheels[1].load = staticLoad + 1500, staticLoad + 1500
+car.wheels[2].load, car.wheels[3].load = staticLoad + 2500, staticLoad + 2500
+for _ = 1, 6 do Telemetry.update(wheelAero, 1 / 60, Settings.current(), car) end
+assert(math.abs(wheelAero.aeroDownforceKN - settledAeroKN) < 0.35,
+  'AERO must settle back quickly after a kerb transient')
+
+local visualAero = Telemetry.new()
+car = makeCar({ speedKmh = 137.5 })
+Telemetry.update(visualAero, 0, Settings.current(), car)
+assert(visualAero.aeroSource == 'visual' and visualAero.aeroDownforceKN == nil
+  and math.abs(visualAero.aeroLoadNormalized - 0.25) < 0.001,
+  'AERO must fall back to the previous visual speed-squared estimate when CSP data is absent')
+
+carId = 'replacement_car'
+car = makeCar({ speedKmh = 100, aeroLiftFront = -0.5, aeroLiftRear = -0.5 })
+Telemetry.update(coefficientAero, 0, Settings.current(), car)
+assert(coefficientAero.aeroCoefficientPeak == 1
+  and coefficientAero.aeroSource == 'csp-coefficient',
+  'AERO learned peaks must reset when the active car changes')
+carId = 'test_car'
+
+car = nil
+Telemetry.update(wheelAero, 0, Settings.current())
+assert(wheelAero.aeroSource == 'visual' and wheelAero.aeroLoadNormalized == 0
+  and wheelAero.aeroDownforceKN == nil and wheelAero.aeroCoefficient == nil,
+  'disconnecting must clear AERO source, force and learned values')
+
 local scenarios = {
   { mode = 'digital', width = 460, height = 460, car = makeCar({ gear = 0, rpm = 2000 }), unit = 'km/h' },
   { mode = 'analog', width = 740, height = 420, car = makeCar({ gear = -1, rpm = 7000 }), unit = 'mph' },

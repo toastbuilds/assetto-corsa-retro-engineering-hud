@@ -1,7 +1,7 @@
 local SettingsUI = require('src/settings_ui')
 local M = {}
 local defaults = {
-  version = 0, theme = 'dark', speedUnit = 'km/h', temperatureUnit = 'C',
+  version = 0, theme = 'dark', speedUnit = 'km/h', temperatureUnit = 'C', pressureUnit = 'psi',
   opacity = 1, backgroundOpacity = 0.72,
   rpmWarningFraction = 0.86, rpmRedlineFraction = 0.96, fallbackRpm = 8000,
   animateIndicators = true, animateFlagAlert = true,
@@ -39,6 +39,7 @@ function M.normalize()
   v.theme = v.theme == 'light' and 'light' or 'dark'
   v.speedUnit = v.speedUnit == 'mph' and 'mph' or 'km/h'
   v.temperatureUnit = v.temperatureUnit == 'F' and 'F' or 'C'
+  v.pressureUnit = (v.pressureUnit == 'bar' or v.pressureUnit == 'kPa') and v.pressureUnit or 'psi'
   v.opacity = clamp(v.opacity, 0, 1, 1)
   v.backgroundOpacity = clamp(v.backgroundOpacity, 0, 1, 0.72)
   v.rpmRedlineFraction = clamp(v.rpmRedlineFraction, 0.82, 1, 0.96)
@@ -104,6 +105,8 @@ function M.draw()
       {{label='km/h', value='km/h'}, {label='mph', value='mph'}}, function(v) M.values.speedUnit=v end)
     SettingsUI.choice('general', 'temperature', 'Temperature unit', M.values.temperatureUnit,
       {{label='Celsius', value='C'}, {label='Fahrenheit', value='F'}}, function(v) M.values.temperatureUnit=v end)
+    SettingsUI.choice('general', 'pressure', 'Pressure unit', M.values.pressureUnit,
+      {{label='psi', value='psi'}, {label='bar', value='bar'}, {label='kPa', value='kPa'}}, function(v) M.values.pressureUnit=v end)
     percent('Content opacity', 'opacity', 0, 1)
     percent('Background opacity', 'backgroundOpacity', 0, 1)
   end)

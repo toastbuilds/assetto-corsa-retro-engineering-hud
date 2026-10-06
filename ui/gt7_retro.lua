@@ -370,22 +370,6 @@ end
 local function drawFfb(origin, scale, state)
   local center = point(origin, scale, Layout.ffbCenterX, Layout.ffbCenterY)
   local fraction = state.ffbAvailable and U.clamp(state.ffbNeedle or 0, 0, 1) or 0
-  local filled = math.floor(fraction * Layout.ffbSegments + 0.5)
-  local span = (Layout.ffbEnd - Layout.ffbStart) / Layout.ffbSegments
-  for i = 1, Layout.ffbSegments do
-    local a1 = Layout.ffbStart + (i - 1) * span + 0.014
-    local a2 = Layout.ffbStart + i * span - 0.014
-    local active = i <= filled
-    local fraction = i / Layout.ffbSegments
-    local color = C.inactive
-    if active then
-      color = fraction >= 0.9 and (state.ffbClipping and C.red or C.amber) or C.cyan
-    elseif fraction >= 0.9 then
-      color = C.redDim
-    end
-    drawEllipseSegment(center, Layout.ffbRadiusX * scale, Layout.ffbRadiusY * scale,
-      a1, a2, color, 12 * scale, 5)
-  end
 
   local angle = Layout.ffbStart + (Layout.ffbEnd - Layout.ffbStart) * fraction
   local pivot = center + vec2(0, Layout.ffbNeedlePivotOffsetY * scale)
@@ -404,24 +388,7 @@ end
 local function drawLimit(origin, scale, state)
   local center = point(origin, scale, Layout.ffbCenterX, Layout.ffbCenterY)
   local fraction = state.limitAvailable and U.clamp(state.limitNeedle or 0, 0, 1) or 0
-  local filled = math.floor(fraction * Layout.ffbSegments + 0.5)
-  local span = (Layout.ffbEnd - Layout.ffbStart) / Layout.ffbSegments
   local assistColor = state.limitAbsWarning and C.red or (state.limitTcWarning and C.amber or nil)
-  for i = 1, Layout.ffbSegments do
-    local a1 = Layout.ffbStart + (i - 1) * span + 0.014
-    local a2 = Layout.ffbStart + i * span - 0.014
-    local active = i <= filled
-    local segmentFraction = i / Layout.ffbSegments
-    local color = C.inactive
-    if active then
-      color = segmentFraction >= Layout.limitRedFraction and C.red
-        or (segmentFraction >= Layout.limitAmberFraction and C.amber or C.cyan)
-    elseif segmentFraction >= Layout.limitRedFraction then
-      color = C.redDim
-    end
-    drawEllipseSegment(center, Layout.ffbRadiusX * scale, Layout.ffbRadiusY * scale,
-      a1, a2, color, 12 * scale, 5)
-  end
 
   local angle = Layout.ffbStart + (Layout.ffbEnd - Layout.ffbStart) * fraction
   local pivot = center + vec2(0, Layout.ffbNeedlePivotOffsetY * scale)
@@ -437,20 +404,6 @@ local function drawLimit(origin, scale, state)
   ui.drawCircleFilled(pivot, 10 * scale, C.panelRaised, 20)
   ui.drawCircle(pivot, 10 * scale, C.outlineSoft, 20, 2 * scale)
   ui.drawCircleFilled(pivot, 3.5 * scale, needleColor, 16)
-
-  local titleColor = assistColor or (state.limitAvailable and C.secondary or C.outlineSoft)
-  centeredText('LIMIT', 11 * scale, center + vec2(0, -61 * scale), titleColor)
-  if state.limitAvailable then
-    centeredText(string.format('%02d%%', U.round(fraction * 100)), 13 * scale,
-      center + vec2(0, -43 * scale), needleColor)
-  else
-    centeredText('NO GRIP DATA', 9 * scale, center + vec2(0, -43 * scale), C.outlineSoft)
-  end
-  if state.limitAbsWarning then
-    centeredText('ABS', 9 * scale, center + vec2(0, 48 * scale), C.red)
-  elseif state.limitTcWarning then
-    centeredText('TC', 9 * scale, center + vec2(0, 48 * scale), C.amber)
-  end
 end
 
 local function drawPedalTrace(origin, scale, history, key, color, width, top, bottom)
@@ -848,7 +801,7 @@ function M.draw(state, settings)
   drawRpmDial(origin, scale, state, settings, backdropOpacity)
   drawPedals(origin, scale, state)
   drawSideIndicators(origin, scale, state, settings)
-  if Layout.lowerFrame and settings.gt7LowerPanelMode ~= 'invisible' then
+  if Layout.lowerFrame and settings.gt7LowerPanelMode == 'pedal_history' then
     drawLowerFrame(origin, scale, backdropOpacity)
   end
   if settings.gt7LowerPanelMode == 'pedal_history' then

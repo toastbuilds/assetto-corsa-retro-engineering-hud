@@ -14,6 +14,8 @@ local Grip=require('src/tyre_grip')
 local car={index=0,compoundIndex=0,wheels={}}
 for i=0,3 do car.wheels[i]={tyreVirtualKM=i+1,tyreWear=0} end
 assert(math.abs(Grip.average(car)-95.75)<0.001,'mean must evaluate each axle at CMRT virtual distance')
+local profile=assert(Grip.snapshot(car,{tyreConsumptionRate=1,trackLengthM=5000}))
+assert(profile.details[1].km==0 and profile.details[1].laps==0, 'the 100% grip point must retain the zero-distance curve origin')
 Grip.average(car); assert(loads==1)
 car.wheels[3].tyreVirtualKM=nil
 assert(Grip.average(car)==nil,'one missing wheel makes grip unavailable')

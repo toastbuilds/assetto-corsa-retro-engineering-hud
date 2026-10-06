@@ -102,6 +102,18 @@ function M.boostIcon(center, scale, color, spread)
   ui.drawLine(p(8, -14), p(14, -14), color, (1.7 + extra) * scale)
 end
 
+function M.aeroIcon(center, scale, color, spread)
+  local extra = 2 * (spread or 0)
+  local function p(x, y) return center + vec2(x * scale, y * scale) end
+  local width = (1.7 + extra) * scale
+  ui.drawLine(p(-12, 3), p(12, 3), color, width)
+  ui.drawLine(p(-12, 3), p(-9, -3), color, width)
+  ui.drawLine(p(12, 3), p(9, -3), color, width)
+  ui.drawLine(p(-7, 0), p(7, 0), color, (1.2 + extra) * scale)
+  ui.drawLine(p(0, 3), p(0, 10), color, width)
+  ui.drawLine(p(-4, 10), p(4, 10), color, width)
+end
+
 local function icon(draw, center, scale, base, style)
   local halo = Light.halo(base, style)
   if halo then draw(center, scale, halo, style.radius) end
@@ -124,19 +136,21 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local pressure, minimum, maximum
   if visual then pressure, minimum, maximum = visual.boostValue, visual.boostMinimum, visual.boostMaximum
   else pressure, minimum, maximum = Presentation.boost(state, settings) end
-  local available = rpm and state.turboAvailable or (not rpm and state.fuel ~= nil and state.maxFuel ~= nil)
-  if rpm and not available then
-    icon(M.boostIcon, subCenter + vec2(0, -12 * scale), scale * S.iconScale, C.outlineSoft, L.inner)
-    text('NAT ASP', S.labelSize * scale, subCenter + vec2(0, 20 * scale), C.secondary, nil, L.label, scale)
-    return
-  end
+  local aero = rpm and not state.turboAvailable
+  local available = aero or (rpm and state.turboAvailable)
+    or (not rpm and state.fuel ~= nil and state.maxFuel ~= nil)
   local displayedPressure = visual and visual.boostNeedleValue or pressure
-  local fraction = rpm and U.clamp((displayedPressure - minimum) / (maximum - minimum), 0, 1)
-    or U.clamp(state.fuelNormalized or 0, 0, 1)
-  local zero = rpm and -minimum / (maximum - minimum) or 0
+  local fraction = aero and U.clamp(state.aeroLoadNormalized or 0, 0, 1)
+    or (rpm and U.clamp((displayedPressure - minimum) / (maximum - minimum), 0, 1)
+    or U.clamp(state.fuelNormalized or 0, 0, 1))
+  local zero = rpm and not aero and -minimum / (maximum - minimum) or 0
   local low = not rpm and available and fraction < Config.fuelWarning
   local function zone(f, active)
     if not available then return C.outlineDim end
+    if aero then
+      if not active then return C.inactive end
+      return f >= 0.82 and C.amber or C.cyan
+    end
     if not rpm and f <= Config.fuelWarning then return active and C.red or C.redDim end
     if rpm and f >= (Config.boostWarning * maximum - minimum) / (maximum - minimum) then
       return active and C.red or C.redDim
@@ -161,19 +175,21 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     -- Printed calibration and LED fill occupy the same arc, rather than two rings.
     local span = S.analogEnd - S.analogStart
     if available then
-      local warning = rpm and (Config.boostWarning * maximum - minimum) / (maximum - minimum)
+      local warning = rpm and not aero and (Config.boostWarning * maximum - minimum) / (maximum - minimum)
         or Config.fuelWarning
-      arc(subCenter, S.analogRadius * scale,
-        S.analogStart + (rpm and warning or 0) * span,
-        S.analogStart + (rpm and 1 or warning) * span,
-        Light.color(low and C.red or C.redDim, low and L.subSegment or L.printedWarning), 2 * scale)
+      if not aero then
+        arc(subCenter, S.analogRadius * scale,
+          S.analogStart + (rpm and warning or 0) * span,
+          S.analogStart + (rpm and 1 or warning) * span,
+          Light.color(low and C.red or C.redDim, low and L.subSegment or L.printedWarning), 2 * scale)
+      end
     end
     for i = 0, S.divisions do
       local f = i / S.divisions
       local a = S.analogStart + span * f
       local major = i % S.majorEvery == 0
       local tint = not available and C.outlineDim or (major and C.primary or C.secondary)
-      if available and ((not rpm and f <= Config.fuelWarning)
+      if available and not aero and ((not rpm and f <= Config.fuelWarning)
           or (rpm and f >= (Config.boostWarning * maximum - minimum) / (maximum - minimum))) then tint = C.red end
       Light.line(U.polar(subCenter, (S.analogRadius - (major and S.tickMajor or S.tickMinor)) * scale, a),
         U.polar(subCenter, S.analogRadius * scale, a), tint, (major and S.tickWidth or S.minorWidth) * scale,
@@ -191,7 +207,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     end
     local needleFraction = rpm and fraction
       or U.clamp(state.fuelNeedleNormalized or state.fuelNormalized or 0, 0, 1)
-    if rpm then
+    if rpm and not aero then
       local value = visual and visual.boostNeedleValue or (state.boostNeedleNormalized or 0) * maximum
       needleFraction = U.clamp((value - minimum) / (maximum - minimum), 0, 1)
     end
@@ -201,7 +217,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     end
     ui.popStyleVar(1)
   end
-  if rpm then
+  if rpm and not aero then
     local first = S.analogStart + (S.startAngle - S.analogStart) * digital
     local last = S.analogEnd + (S.endAngle - S.analogEnd) * digital
     local radius = S.analogRadius + (S.radius - S.analogRadius) * digital
@@ -214,15 +230,16 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   -- Move icons below the pivot in Analog, keeping them centered in Digital.
   iconCenter = iconCenter + vec2(0, (1 - digital) * 11 * scale)
   local tint = not available and C.outlineSoft or (low and C.red or C.primary)
-  icon(rpm and M.boostIcon or M.fuelIcon, iconCenter, S.iconScale * scale, tint, available and L.icon or L.inner)
+  icon(aero and M.aeroIcon or (rpm and M.boostIcon or M.fuelIcon),
+    iconCenter, S.iconScale * scale, tint, available and L.icon or L.inner)
   local labelFirst = S.analogStart + (S.startAngle - S.analogStart) * digital
   local labelLast = S.analogEnd + (S.endAngle - S.analogEnd) * digital
   local labelRadius = S.analogRadius - 20 + (S.radius - 16 - S.analogRadius + 20) * digital
-  text(rpm and string.format('%.1f', minimum) or 'E', S.endSize * scale,
+  text(aero and '0' or (rpm and string.format('%.1f', minimum) or 'E'), S.endSize * scale,
     U.polar(subCenter, labelRadius * scale, labelFirst) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
-  text(rpm and string.format('%.1f', maximum) or 'F', S.endSize * scale,
+  text(aero and '100' or (rpm and string.format('%.1f', maximum) or 'F'), S.endSize * scale,
     U.polar(subCenter, labelRadius * scale, labelLast) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
-  text(not available and 'N/A' or (rpm and 'BOOST' or 'FUEL'), S.labelSize * scale,
+  text(not available and 'N/A' or (aero and 'AERO' or (rpm and 'BOOST' or 'FUEL')), S.labelSize * scale,
     subCenter + vec2(0, S.labelY * scale), low and C.red or C.secondary, nil, L.label, scale)
 end
 

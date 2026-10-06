@@ -109,13 +109,6 @@ function M.windows(car)
   local key = tostring(carId) .. ':' .. tostring(compound)
   if cacheKey == key then return cachedWindows end
   cacheKey, cachedWindows = key, nil
-  if M.isGT3(carId) then
-    cachedWindows = {
-      front = { minimum = Layout.gt3TyreOptimumMin, maximum = Layout.gt3TyreOptimumMax },
-      rear = { minimum = Layout.gt3TyreOptimumMin, maximum = Layout.gt3TyreOptimumMax }
-    }
-    return cachedWindows
-  end
   if not ac.INIConfig or not ac.INIConfig.carData then return nil end
   local ok, windows = pcall(function()
     local config = ac.INIConfig.carData(index, 'tyres.ini')
