@@ -27,10 +27,17 @@ def main():
         return
     suites = [
         "tests/leaderboard.lua",
+        "tests/leaderboard_data.lua",
+        "tests/leaderboard_sectors.lua",
+        "tests/leaderboard_intervals.lua",
+        "tests/map.lua",
         "tests/window_anchor.lua",
         "tests/runtime_smoke.lua",
         "tests/relative.lua",
         "tests/car_condition.lua",
+        "tests/tyre_readouts.lua",
+        "tests/tyre_condition_data.lua",
+        "tests/tyre_stint.lua",
         "tests/tyre_temperature.lua",
         "tests/tyre_grip.lua",
         "tests/timer_final_lap.lua",

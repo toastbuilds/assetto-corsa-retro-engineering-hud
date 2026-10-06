@@ -55,6 +55,37 @@ La retirada mueve las carpetas antiguas a `_RetroUI-Backups`; no borra sus
 preferencias CSP ni los récords. Para revertirla, mueve las carpetas
 `retired-*` del último respaldo de nuevo a `apps/lua/`.
 
+## Mapa, neumáticos y clasificación (2.5)
+
+Las mejoras están disponibles en Free y Premium, con los temas retro claro y
+oscuro. Los ajustes existentes y las cinco filas iniciales se conservan.
+
+- **Map:** numeración de coches seleccionados o de todos. Jugador ámbar,
+  líder morado, rivales de carrera verde y doblados/dobladores cian con distinta
+  intensidad, según vueltas completadas. El aro ámbar señala cuatro ruedas
+  fuera de pista y no se activa en el pitlane.
+- **General:** unidades de presión psi, bar o kPa, además de °C/°F.
+- **Condition > Wheel readout:** vida, presión actual/delta ideal o temperatura
+  core/superficie/mezcla. El selector aplica a las cuatro ruedas. Si no existe
+  una medición, se oculta el número correspondiente.
+- **Condition > Keep tyre detail open:** fija el detalle aun con el HUD bloqueado.
+  También se abre por hover en la zona superior o al entrar en pitlane, y permanece
+  diez segundos después de salir. Funciona con cualquier leyenda, incluida None.
+- El detalle presenta stint en vueltas/km, compuesto, presión ideal por eje,
+  rango térmico y perfil de grip cuando está disponible. Las referencias de la
+  física tienen prioridad, también en GT3. **Estimated references** permite
+  editar los valores de respaldo; `~` identifica referencias y stints estimados.
+  **FROM OBSERVATION** indica que no se ha podido reconstruir el uso anterior.
+- **Leaderboard:** permite 3–10 filas. Práctica/clasificación muestran sectores,
+  mejor vuelta y gap; carrera muestra cambios de posición, intervalos medidos
+  respecto al jugador y última vuelta. Los sectores de validez desconocida quedan
+  neutros. Las vueltas inválidas no actualizan récords de sectores.
+  Las filas son compactas y no repiten etiquetas bajo los datos; los cambios de
+  posición aparecen junto al puesto y se ocultan los ceros redundantes.
+- Las repeticiones reconstruyen el estado al cambiar de momento. No se añade
+  un registro propio al archivo: algunos datos pueden faltar o ser aproximados,
+  y los intervalos quedan en `—` hasta observar cruces comparables.
+
 ## Ajustes
 
 Los híbridos sin turbo sustituyen automáticamente el indicador de boost por
