@@ -1,5 +1,6 @@
 local Geometry = require('modules/map/src/geometry')
 local Settings = require('modules/map/src/settings')
+local Markers = require('modules/map/src/markers')
 local Theme = require('src/theme')
 local GlobalSettings = require('src/general_settings')
 
@@ -22,8 +23,10 @@ local function pointInRect(point, tl, br, margin)
 end
 
 local function markerPadding(values)
-  return math.max(18, 16 * values.markerScale + 4,
-    values.carDotSize + 4, 3.5 * values.pathWidth + 3)
+  local markerExtent = values.showOffTrack and 21 or 16
+  local dotPadding = values.showOffTrack and 5 * values.markerScale or 4
+  return math.max(18, markerExtent * values.markerScale + 4,
+    values.carDotSize + dotPadding, 3.5 * values.pathWidth + 3)
 end
 
 local function keepMarkerInside(point, tl, br, padding)
@@ -226,95 +229,9 @@ local function drawSectors(geometry, transform, palette, tl, br)
   end
 end
 
-local function cars()
-  local result = {}
-  local seen = {}
-  local function append(car)
-    if not car then return end
-    local ok, index = pcall(function() return tonumber(car.index) end)
-    if not ok or not index or seen[index] then return end
-    local connectedOk, connected = pcall(function() return car.isConnected end)
-    local activeOk, active = pcall(function() return car.isActive end)
-    if index == 0 or (connectedOk and connected ~= false) or (activeOk and active == true) then
-      seen[index] = true
-      result[#result + 1] = car
-    end
-  end
-  local leaderboardOk = pcall(function()
-    for _, car in ac.iterateCars.leaderboard() do append(car) end
-  end)
-  if not leaderboardOk or #result == 0 then
-    pcall(function()
-      for _, car in ac.iterateCars() do append(car) end
-    end)
-  end
-  if not seen[0] then
-    pcall(function() append(ac.getCar(0)) end)
-  end
-  return result
-end
-
-local function playerFrom(list)
-  for _, car in ipairs(list) do
-    if car.index == 0 then return car end
-  end
-  local ok, player = pcall(ac.getCar, 0)
-  return ok and player or nil
-end
-
 local function isRace(sim)
   local ok, session = pcall(ac.getSession, sim.currentSessionIndex)
   return ok and session and session.type == ac.SessionType.Race
-end
-
-local function localCarIndex(car)
-  if not car then return nil end
-  local ok, index = pcall(function() return tonumber(car.index) end)
-  return ok and index or nil
-end
-
-local function racePositions(list, race)
-  local ordered = {}
-  for i, car in ipairs(list) do ordered[i] = car end
-  if race then
-    table.sort(ordered, function(a, b)
-      local aPos = tonumber(a.racePosition) or math.huge
-      local bPos = tonumber(b.racePosition) or math.huge
-      if aPos ~= bPos then return aPos < bPos end
-      local aProgress = (tonumber(a.lapCount) or 0) + (tonumber(a.splinePosition) or 0)
-      local bProgress = (tonumber(b.lapCount) or 0) + (tonumber(b.splinePosition) or 0)
-      if aProgress ~= bProgress then return aProgress > bProgress end
-      return (tonumber(a.index) or math.huge) < (tonumber(b.index) or math.huge)
-    end)
-  end
-  local result = {}
-  for rank, car in ipairs(ordered) do
-    local index = localCarIndex(car)
-    if index ~= nil then result[index] = rank end
-  end
-  return result, ordered
-end
-
-local function highlightedCars(list, player, race)
-  local ranks, ordered = racePositions(list, race)
-  local localIndex = localCarIndex(player)
-  local localRank = localIndex and ranks[localIndex] or nil
-  local selected = {}
-  local function selectCar(car)
-    local index = localCarIndex(car)
-    if index ~= nil then selected[index] = ranks[index] end
-  end
-  if #ordered > 0 then
-    selectCar(ordered[1])
-    selectCar(ordered[#ordered])
-  end
-  if localIndex ~= nil then selected[localIndex] = ranks[localIndex] end
-  if localRank then
-    for rank = math.max(1, localRank - 2), math.min(#ordered, localRank + 2) do
-      selectCar(ordered[rank])
-    end
-  end
-  return selected
 end
 
 local function centeredText(value, size, center, textColor)
@@ -331,37 +248,48 @@ local function drawPlayer(center, position, palette, markerScale)
   centeredText(position, 13 * markerScale, center, color(palette.void, 1))
 end
 
+local function drawOffTrackRing(car, center, radius, palette, values, now)
+  local pulse = Markers.offTrackPulse(car, values.showOffTrack, now)
+  if pulse == nil then return end
+  ui.drawCircle(center, radius + (2 + 1.5 * pulse) * values.markerScale,
+    color(palette.amber, 0.45 + 0.45 * pulse), 32, 1.5 * values.markerScale)
+end
+
 local function drawCars(list, player, transform, palette, tl, br, race,
-    markerScale, carDotSize, padding)
-  local selected = highlightedCars(list, player, race)
+    values, padding)
+  local markerScale, carDotSize = values.markerScale, values.carDotSize
+  local positions, ordered = Markers.positions(list, race)
+  local selected = Markers.numbered(positions, ordered, player, values.numberMode)
+  local now = ui.time()
   local markers = {}
   local ownCenter, ownPosition
-  for index, car in ipairs(list) do
+  for _, car in ipairs(list) do
     local world = Geometry.carPosition(car)
-    if world and (car.index == 0 or car.isConnected ~= false or car.isActive == true) then
+    if world and Markers.visible(car) then
       local ok, screen = pcall(transform, world)
-      local isLocal = car.index == 0
+      local isLocal = Markers.index(car) == 0
       local visible = ok and screen and pointInRect(screen, tl, br, 5)
       if visible then
         screen = keepMarkerInside(screen, tl, br, padding)
-        local position = selected[localCarIndex(car)]
+        local position = selected[Markers.index(car)]
         if isLocal then
           ownCenter, ownPosition = screen, position
         else
           markers[#markers + 1] = {
             center = screen, position = position,
-            highlighted = position ~= nil
+            highlighted = position ~= nil, car = car,
+            accent = palette[Markers.colorRole(car, player, positions, race)]
           }
         end
       end
     end
   end
-  if not ownCenter and player then
+  if not ownCenter and Markers.visible(player) then
     local playerWorld = Geometry.carPosition(player)
     local ok, screen = pcall(transform, playerWorld)
     if ok and screen and pointInRect(screen, tl, br, 5) then
       ownCenter = keepMarkerInside(screen, tl, br, padding)
-      ownPosition = selected[localCarIndex(player)]
+      ownPosition = selected[Markers.index(player)]
     end
   end
 
@@ -370,13 +298,18 @@ local function drawCars(list, player, transform, palette, tl, br, race,
     local highlighted = marker.highlighted
     if highlighted then
       ui.drawCircleFilled(center, 10.5 * markerScale, color(palette.void, 0.92), 20)
-      ui.drawCircleFilled(center, 7.5 * markerScale, color(palette.cyan, 1), 20)
+      ui.drawCircleFilled(center, 7.5 * markerScale, color(marker.accent, 1), 20)
       centeredText(marker.position, 11 * markerScale, center, color(palette.void, 1))
     else
-      ui.drawCircleFilled(center, carDotSize, color(palette.cyan, 1), 12)
+      ui.drawCircleFilled(center, carDotSize, color(marker.accent, 1), 12)
     end
+    drawOffTrackRing(marker.car, center, highlighted and 10.5 * markerScale or carDotSize,
+      palette, values, now)
   end
-  if ownCenter then drawPlayer(ownCenter, ownPosition, palette, markerScale) end
+  if ownCenter then
+    drawPlayer(ownCenter, ownPosition, palette, markerScale)
+    drawOffTrackRing(player, ownCenter, 16 * markerScale, palette, values, now)
+  end
 end
 
 local function drawWindow()
@@ -401,8 +334,8 @@ local function drawWindow()
     ui.dwriteDrawText('MAP UNAVAILABLE', 12, tl + vec2(15, side / 2), color(palette.primary, 0.9))
     return
   end
-  local list = cars()
-  local player = playerFrom(list)
+  local list = Markers.collect()
+  local player = Markers.player(list)
   local padding = markerPadding(values)
   local transform = viewFor(geometry, values, tl, br, player, padding)
   ui.pushClipRect(tl, br)
@@ -411,7 +344,7 @@ local function drawWindow()
       values.backgroundMode == 'surface' and flagColor or nil)
     drawSectors(geometry, transform, palette, tl, br)
     drawCars(list, player, transform, palette, tl, br, isRace(sim),
-      values.markerScale, values.carDotSize, padding)
+      values, padding)
   end)
   ui.popClipRect()
   if not ok then error(err) end

@@ -6,6 +6,8 @@ M.values = ac.storage({
   mode = 'full',
   miniOrientation = 'heading',
   miniRadius = 500,
+  numberMode = 'selected',
+  showOffTrack = true,
   backgroundMode = 'dots',
   dotThickness = 1.15,
   radialDotTaper = true,
@@ -15,6 +17,8 @@ M.values = ac.storage({
 }, 'retro-ui.map.')
 
 local function resetAppearance()
+  M.values.numberMode = 'selected'
+  M.values.showOffTrack = true
   M.values.backgroundMode = 'dots'
   M.values.dotThickness = 1.15
   M.values.radialDotTaper = true
@@ -34,6 +38,8 @@ function M.current()
   local values = M.values
   if values.mode ~= 'mini' then values.mode = 'full' end
   if values.miniOrientation ~= 'fixed' then values.miniOrientation = 'heading' end
+  if values.numberMode ~= 'all' then values.numberMode = 'selected' end
+  values.showOffTrack = values.showOffTrack ~= false
   if values.backgroundMode ~= 'surface' then values.backgroundMode = 'dots' end
   values.miniRadius = math.max(200, math.min(1200, tonumber(values.miniRadius) or 500))
   values.dotThickness = math.max(0.50, math.min(4.00, tonumber(values.dotThickness) or 1.15))
@@ -61,6 +67,14 @@ function M.draw()
     end
   end)
   SettingsUI.section('map', 'personalization', 'Personalization', false, function()
+    SettingsUI.choice('map', 'numberMode', 'Position numbers', values.numberMode,
+      { { label = 'Selected cars', value = 'selected' }, { label = 'All cars', value = 'all' } },
+      function(value) values.numberMode = value end)
+    ui.textWrapped('Selected numbers show your car, the leader, last place and two positions ahead and behind. Applies to both map modes.')
+    if ui.checkbox('Off-track warning rings', values.showOffTrack) then
+      values.showOffTrack = not values.showOffTrack
+    end
+    ui.textWrapped('Pulse amber when all four wheels are outside the track, except in the pit lane.')
     SettingsUI.choice('map', 'backgroundMode', 'Background', values.backgroundMode,
       { { label = 'Dots', value = 'dots' }, { label = 'Surface', value = 'surface' } },
       function(value) values.backgroundMode = value end)
