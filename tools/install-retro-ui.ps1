@@ -1,6 +1,5 @@
 param(
   [string]$AssettoCorsaRoot,
-  [ValidateSet('free', 'premium')][string]$Edition = 'premium',
   [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments')][string]$App,
   [string[]]$SharedFiles = @(),
   [switch]$Finalize,
@@ -63,9 +62,6 @@ if ($App) {
   $files += $SharedFiles
   foreach ($file in $files | Select-Object -Unique) {
     $source = Join-Path $project $file
-    if ($App -eq 'instruments' -and $Edition -eq 'free' -and $file -eq 'ui/gt7_retro.lua') {
-      $source = Join-Path $project ('free-edition/' + $file)
-    }
     $destination = Join-Path $target $file
     Assert-ChildPath $project $source
     Assert-ChildPath $target $destination
@@ -102,7 +98,7 @@ if ($Finalize) {
 }
 
 $build = Join-Path $PSScriptRoot 'build-package.ps1'
-$zip = & $build -Edition $Edition
+$zip = & $build
 $backup = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
 $legacyBackup = Join-Path $backup 'legacy-apps'
 New-Item -ItemType Directory -Path $legacyBackup -Force | Out-Null
@@ -142,8 +138,10 @@ foreach ($pair in @(
 
 if (Test-Path -LiteralPath $target) {
   $previous = Join-Path $backup 'previous-RetroUI'
+  Assert-ChildPath $backupRoot $previous
   Move-Item -LiteralPath $target -Destination $previous
 }
+Assert-ChildPath $backupRoot $stagedApp
 Move-Item -LiteralPath $stagedApp -Destination $target
 # CSP can notice the brief gap while the old folder is moved away. Touch the
 # entry script after installation so a running game retries loading the app.
@@ -151,6 +149,6 @@ Move-Item -LiteralPath $stagedApp -Destination $target
 @{ backupPath = $backup; installedAt = (Get-Date).ToString('o'); gameRoot = $game } |
   ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding UTF8
 
-Write-Output "Installed Retro UI ($Edition edition) at $target"
+Write-Output "Installed Retro UI at $target"
 Write-Output "Backup: $backup"
 Write-Output 'Validate all panels in Assetto Corsa. Then run this script with -Finalize -Validated to retire old apps.'

@@ -1,10 +1,11 @@
-name: Check and release Retro UI
+name: Check and prepare Retro UI release
 
 on:
   pull_request:
   push:
     branches: [main]
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,9 +21,17 @@ jobs:
           cache: npm
       - name: Install check dependencies
         run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install regression dependencies
+        run: python -m pip install -r requirements-dev.txt
       - name: Check Lua files and CSP callbacks
         run: npm run check:lua
-      - name: Build free and premium Content Manager ZIPs
+      - name: Run regression suites
+        run: python tools/test-lua.py
+      - name: Build and verify Content Manager ZIP
         shell: pwsh
         run: |
           $line = Select-String -Path manifest.ini -Pattern '^VERSION = (\d+\.\d+\.\d+)$'
@@ -31,14 +40,16 @@ jobs:
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
             throw "Tag $env:GITHUB_REF_NAME does not match manifest version $version."
           }
-          & ./tools/build-package.ps1 -Version $version -Edition free
-          & ./tools/build-package.ps1 -Version $version -Edition premium
-      - name: Upload release package
-        if: startsWith(github.ref, 'refs/tags/v')
+          & ./tools/build-package.ps1 -Version $version
+          python tools/check-package.py "dist/RetroUI-v$version.zip"
+          if ($LASTEXITCODE -ne 0) { throw 'Package verification failed.' }
+      - name: Upload package and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: retro-ui-packages
-          path: dist/RetroUI-*-v*.zip
+          name: retro-ui-package
+          path: |
+            dist/RetroUI-v*.zip
+            dist/RetroUI-v*.zip.sha256
           if-no-files-found: error
 
   release:
@@ -48,15 +59,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: retro-ui-packages
+          name: retro-ui-package
           path: dist
-      - name: Publish GitHub Release
+      - name: Prepare draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          gh release create "$GITHUB_REF_NAME" "dist/RetroUI-FREE-v$version.zip" "dist/RetroUI-PREMIUM-v$version.zip" \
-            --title "Retro UI $GITHUB_REF_NAME" --generate-notes --verify-tag
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "dist/RetroUI-v$version.zip" "dist/RetroUI-v$version.zip.sha256" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "dist/RetroUI-v$version.zip" "dist/RetroUI-v$version.zip.sha256" \
+              --title "Retro UI $GITHUB_REF_NAME" --notes-file "docs/releases/v$version.md" --verify-tag --draft
+          fi

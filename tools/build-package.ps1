@@ -1,10 +1,12 @@
-param(
-  [string]$Version = '2.5.0',
-  [ValidateSet('free', 'premium')][string]$Edition = 'premium'
-)
+param([string]$Version)
 
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
+$versionLine = Select-String -LiteralPath (Join-Path $project 'manifest.ini') -Pattern '^VERSION = (\d+\.\d+\.\d+)$'
+if (-not $versionLine) { throw 'manifest.ini has no semantic version.' }
+$manifestVersion = $versionLine.Matches[0].Groups[1].Value
+if (-not $Version) { $Version = $manifestVersion }
+if ($Version -ne $manifestVersion) { throw "Package version $Version does not match manifest version $manifestVersion." }
 $dist = Join-Path $project 'dist'
 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('retro-ui-' + [guid]::NewGuid().ToString('N'))
 # Resolve and constrain the staging target before the recursive cleanup below.
@@ -15,34 +17,35 @@ if (-not $stage.StartsWith($stageRoot, [System.StringComparison]::OrdinalIgnoreC
   throw 'Package staging directory must be a generated child of the temporary directory.'
 }
 $app = Join-Path $stage 'apps\lua\RetroUI'
-$package = Join-Path $dist "RetroUI-$($Edition.ToUpperInvariant())-v$Version.zip"
+$package = Join-Path $dist "RetroUI-v$Version.zip"
 
 New-Item -ItemType Directory -Path $app, $dist -Force | Out-Null
 try {
-  foreach ($name in @('src', 'ui', 'modules', 'assets')) {
-    Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app -Recurse
-  }
-  foreach ($name in @('app.lua', 'RetroUI.lua', 'manifest.ini', 'LICENSE', 'THIRD_PARTY_NOTICES.md')) {
-    Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app
-  }
-  if ($Edition -eq 'free') {
-    foreach ($name in @('src/edition.lua', 'src/gt7_retro_layout.lua', 'src/gt7_settings.lua', 'src/theme.lua', 'ui/gt7_retro.lua')) {
-      $snapshot = Join-Path $project ('free-edition/' + $name)
-      Copy-Item -LiteralPath $snapshot -Destination (Join-Path $app $name) -Force
+  # Git ignores do not control Copy-Item: distribute only runtime files.
+  foreach ($name in @('src', 'ui', 'modules')) {
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $project $name) -Recurse -File -Filter '*.lua') {
+      $relative = $file.FullName.Substring($project.Length + 1)
+      $destination = Join-Path $app $relative
+      New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+      Copy-Item -LiteralPath $file.FullName -Destination $destination
     }
   }
-  $editionLabel = if ($Edition -eq 'free') { 'Free' } else { 'Premium' }
-  Set-Content -LiteralPath (Join-Path $app 'EDITION.txt') -Value @(
-    "Retro UI $editionLabel edition v$Version"
-    if ($Edition -eq 'free') { 'Includes the Classic GT7 layout.' }
-    else { 'Includes the Premium GT7 component editor with Classic, Modern, Outer Pedals, and Steering Dial presets.' }
-  ) -Encoding UTF8
+  foreach ($relative in @('modules/relative/classes.ini', 'modules/leaderboard/classes.ini',
+      'assets/notification-qqv87.wav', 'assets/notification-d4s3s.wav', 'docs/settings.md')) {
+    $destination = Join-Path $app $relative
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $project $relative) -Destination $destination
+  }
+  foreach ($name in @('app.lua', 'RetroUI.lua', 'manifest.ini', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'CHANGELOG.md')) {
+    Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app
+  }
+  Copy-Item -LiteralPath (Join-Path $project 'docs/user-guide.md') -Destination (Join-Path $app 'README.md')
   Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }
   $archive = [System.IO.Compression.ZipFile]::Open($package, [System.IO.Compression.ZipArchiveMode]::Create)
   try {
-    foreach ($file in Get-ChildItem -LiteralPath $stage -Recurse -File) {
+    foreach ($file in Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName) {
       $entry = $file.FullName.Substring($stage.Length + 1).Replace('\', '/')
       [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
         $archive, $file.FullName, $entry, [System.IO.Compression.CompressionLevel]::Optimal
@@ -52,6 +55,8 @@ try {
   finally {
     $archive.Dispose()
   }
+  $hash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
+  Set-Content -LiteralPath "$package.sha256" -Value "$hash  $(Split-Path -Leaf $package)" -Encoding ASCII
   Write-Output $package
 }
 finally {
