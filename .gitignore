@@ -1,2 +1,20 @@
 /dist/
 /node_modules/
+
+# Local automation and Python caches
+/.playwright-cli/
+__pycache__/
+*.py[cod]
+
+# Generated previews, exports and local video references
+/output/
+/brag-output/
+/brag-output-*/
+/launch-trailer-*/
+/*.mp4
+/assets/*.mp4
+
+# Keep promotional sources; regenerate media, reports and packages locally
+/promo/*
+!/promo/README.md
+!/promo/scripts/
