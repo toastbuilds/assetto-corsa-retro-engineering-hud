@@ -1,0 +1,921 @@
+{
+  "schemaVersion": 2,
+  "source": "Current original Lua draw functions, recorded through the reused CSP harness",
+  "status": "exported",
+  "dataKind": "DEMO",
+  "disclaimer": "All widget inputs, timing, gaps, car markers and results are demonstrative. Background footage is supplied racing POV without telemetry; no verified real-world motorsport claim is made.",
+  "root": "D:\\.DEV\\AC Hud",
+  "fps": 30,
+  "frames": 1133,
+  "duration": 37.766666667,
+  "sampledDuration": 37.766666666666666,
+  "lightsOn": 26.2,
+  "firstLightsOnFrame": 786,
+  "warmupFrames": 90,
+  "warmupSeconds": 3,
+  "sourceDigest": "5d9e651d55c81df66554b874c9768495100d52dc303bc95421ba322db958e938",
+  "sourceDigestRecipe": "SHA256 of sorted UTF-8 relative path + NUL + raw per-file SHA256, concatenated",
+  "productSources": [
+    {
+      "path": "modules/delta/main.lua",
+      "sha256": "629022fa519eb82ec228695dc99defb7b7ac5bf167725092996c2f7bf72153ba",
+      "bytes": 7213
+    },
+    {
+      "path": "modules/delta/src/constants.lua",
+      "sha256": "afc47ac9fdc56592655e8149611b38119fa3a69b039ed1613ab8c70ef99d30fe",
+      "bytes": 974
+    },
+    {
+      "path": "modules/delta/src/display.lua",
+      "sha256": "f4ce64f01540af59bdaab3255df270d2b7c00c143ffa6ed29f41e74730837654",
+      "bytes": 17459
+    },
+    {
+      "path": "modules/delta/src/lap_data.lua",
+      "sha256": "2bd8cf72584c96d0aeb9c86926ddc0f3b2010d4714cb0a307a8e87c410f19ad5",
+      "bytes": 4191
+    },
+    {
+      "path": "modules/delta/src/settings.lua",
+      "sha256": "1d223c74ed655173a27f7dc7e801ecd0cdc4e7371f7e8e28c2c42a5e037ce23b",
+      "bytes": 5038
+    },
+    {
+      "path": "modules/delta/src/state.lua",
+      "sha256": "b89a41f76441fd0d6a20244362a3d3df9cee833175ddab6ebcf50da678975ff7",
+      "bytes": 18417
+    },
+    {
+      "path": "modules/delta/src/storage.lua",
+      "sha256": "140ab5efc4404aa1e1ac07d5f7bebf26768eeba3bfea82e3ffd36a50aef6dcd0",
+      "bytes": 3230
+    },
+    {
+      "path": "modules/delta/src/theme.lua",
+      "sha256": "45115bf1b8f3a791c1fc187e241b6084093f4ba6116663adddabddef4592c8c6",
+      "bytes": 3693
+    },
+    {
+      "path": "modules/delta/src/theme_sync.lua",
+      "sha256": "8f49137a554909c9b315e2edbe2bd0bb4c5109f0dd5f301371220280b5e79d0f",
+      "bytes": 305
+    },
+    {
+      "path": "modules/delta/src/timing.lua",
+      "sha256": "0f17456e0cd91aef4396f46a895e204e9770a8d5820e62da420282b8c8f3fd74",
+      "bytes": 5589
+    },
+    {
+      "path": "modules/laps/main.lua",
+      "sha256": "a63d5f8c9e2ac0c8c52ca2cf1e971492da025cae08a93c3c8a76e83de0563d4c",
+      "bytes": 1528
+    },
+    {
+      "path": "modules/laps/src/display.lua",
+      "sha256": "3c7b7684d385f72792fb3300de9cf189c432c737a37b5171209b9d07b11e9953",
+      "bytes": 5240
+    },
+    {
+      "path": "modules/laps/src/settings.lua",
+      "sha256": "8bd2b2b802b987bb5132412987a10901df81bbe621425a6b29455a5a3ee12eb2",
+      "bytes": 2441
+    },
+    {
+      "path": "modules/laps/src/state.lua",
+      "sha256": "e8ca4a860d874215fd4a9ecc7a87cadb265e9668f85a882dcc23f76194591f6c",
+      "bytes": 6911
+    },
+    {
+      "path": "modules/leaderboard/main.lua",
+      "sha256": "afd3ec6a7b84540f696ccc99b94a5baaa4d39494b3b04d88fc9703f386ae6d2b",
+      "bytes": 2600
+    },
+    {
+      "path": "modules/leaderboard/src/classes.lua",
+      "sha256": "9350a84e02b06c58031548b9c88cd5107b1b86d9f812ff5f92b3e8c7787ff519",
+      "bytes": 2268
+    },
+    {
+      "path": "modules/leaderboard/src/fuel.lua",
+      "sha256": "b2f13b9f8dae38e78231f5fff2a5fdeffae64b78dc7ec97bce4f324fff9b0939",
+      "bytes": 4721
+    },
+    {
+      "path": "modules/leaderboard/src/intervals.lua",
+      "sha256": "29e78c645ff0af8e7cc8326e46d861c45e9e4ef6cbbbc35e1fe8748e5fa22f0b",
+      "bytes": 5471
+    },
+    {
+      "path": "modules/leaderboard/src/leaderboard_data.lua",
+      "sha256": "fc0aa6c2f6430854b16970700c11d23d90c92c3a5a98fe9d523c38c198d998ba",
+      "bytes": 12047
+    },
+    {
+      "path": "modules/leaderboard/src/session.lua",
+      "sha256": "17bfe8947c150cf63638f2d71935359883b0fecff4be994c3402d94189ff314e",
+      "bytes": 7673
+    },
+    {
+      "path": "modules/leaderboard/src/settings.lua",
+      "sha256": "df53a8437b4b2202a79cda9ec93bac1d740e6fa7a5e3b549788ad6afdcd9b236",
+      "bytes": 3513
+    },
+    {
+      "path": "modules/leaderboard/src/theme.lua",
+      "sha256": "d35c283168c72317c60381575e74d422cc73292989fa1e0749ea3e5afb18c60e",
+      "bytes": 3169
+    },
+    {
+      "path": "modules/leaderboard/src/theme_sync.lua",
+      "sha256": "0080fea2b7b48526319bf4ba7dc2141186a66c9739521f93c89f9a01a1e76165",
+      "bytes": 379
+    },
+    {
+      "path": "modules/leaderboard/ui/leaderboard.lua",
+      "sha256": "1db631e993333ebe86bdfea33e9c61844ce33aaad826778e84f3253f4932ec9d",
+      "bytes": 18609
+    },
+    {
+      "path": "modules/map/main.lua",
+      "sha256": "263a9309a2d9cddc4584c376828306b012a8da47dda0a851e7f72157205ed46e",
+      "bytes": 15745
+    },
+    {
+      "path": "modules/map/src/geometry.lua",
+      "sha256": "a4c8fd9e5f0095c27a1015558a76a18793efa136c4511c7ee7c28f25c46e9888",
+      "bytes": 5215
+    },
+    {
+      "path": "modules/map/src/settings.lua",
+      "sha256": "93564e8a4bbc32ccc2342f404326a4b1bf6628f6b9f67eddd72373acdb7c39ad",
+      "bytes": 3877
+    },
+    {
+      "path": "modules/relative/main.lua",
+      "sha256": "0588f82358754d5b5786f087f958abc28f04a7d53eb567d7ffb20166fd83e96f",
+      "bytes": 33448
+    },
+    {
+      "path": "modules/relative/src/classes.lua",
+      "sha256": "b572b9a9455909d00dcb7d88a7e663eacb46895cd119b461b2bd5708a63bd516",
+      "bytes": 2463
+    },
+    {
+      "path": "modules/relative/src/display.lua",
+      "sha256": "0baeb922ef82904c803ebdacb24db801903afcde4aebd6ae5d73b1b84bca498b",
+      "bytes": 2943
+    },
+    {
+      "path": "modules/relative/src/records.lua",
+      "sha256": "d22cb991a9b21b8a919bae2e97f988faf8f73f5af1466049b244e02df333090d",
+      "bytes": 2364
+    },
+    {
+      "path": "modules/relative/src/relative.lua",
+      "sha256": "64fee593c4e5cf546b99c632ca41064404a2a9227a197272d4a662717462a5af",
+      "bytes": 3090
+    },
+    {
+      "path": "modules/relative/src/sectors.lua",
+      "sha256": "655b0ac076a6ad57fdb77f5cd87a9d36e88e9e5af37457b7db17fea7f1f14376",
+      "bytes": 5227
+    },
+    {
+      "path": "modules/relative/src/theme.lua",
+      "sha256": "09a022f8fa2f395f874f1922b5e97c2c22880c47c9c5695235a417a967c31af7",
+      "bytes": 2672
+    },
+    {
+      "path": "modules/relative/src/timing.lua",
+      "sha256": "a03a05f6e1b7e858721d78c94631309e76ce95056ebd5bf99216210294e36b11",
+      "bytes": 3146
+    },
+    {
+      "path": "modules/relative/src/weather.lua",
+      "sha256": "3870e804acdc292af48da223097c0bc29ac3ca84ecf4169f30c5744fe62c7b68",
+      "bytes": 3452
+    },
+    {
+      "path": "modules/telemetry/main.lua",
+      "sha256": "a1b22a002d17a79c8e055a92b119e5894802e1d49f06da9e59917c2b63e7f63b",
+      "bytes": 1569
+    },
+    {
+      "path": "modules/telemetry/src/history.lua",
+      "sha256": "caa5608cdb3861abf18d35f0f8d25dd57ee86976e768db44c64c9a31c12b57af",
+      "bytes": 1958
+    },
+    {
+      "path": "modules/telemetry/src/settings.lua",
+      "sha256": "6fc64ad5cdbcb7bda6be32765b76faffadc899bf03a2765374894167c95d45d3",
+      "bytes": 3740
+    },
+    {
+      "path": "modules/telemetry/src/telemetry.lua",
+      "sha256": "51e92c671f021bfaa336780b9bda9d134a1bae922ab965d957f6b4324d40e0c0",
+      "bytes": 3431
+    },
+    {
+      "path": "modules/telemetry/src/theme.lua",
+      "sha256": "1466ff51204ba075516841c2f71a60a0aecddc6031c14ec0e1ee877c30251a9f",
+      "bytes": 3016
+    },
+    {
+      "path": "modules/telemetry/src/utils.lua",
+      "sha256": "d209e350470d4dc5cf5aada6274cadf935e93c7e52065212e652ae69d271b02c",
+      "bytes": 918
+    },
+    {
+      "path": "modules/telemetry/ui/telemetry_panel.lua",
+      "sha256": "69b4089be3a03fe5ff08980b7b857077c4801039386234de6a52e1f288db5f08",
+      "bytes": 12862
+    },
+    {
+      "path": "modules/timer/main.lua",
+      "sha256": "b54015fed231b6b52ec57113e9db1e9f5894856cbe66843dc5023b8ca0dbf79f",
+      "bytes": 2088
+    },
+    {
+      "path": "modules/timer/src/audio.lua",
+      "sha256": "d69768973e56108d17690d60b4b21ed137b4d922f9d061d1142f1f5263f66700",
+      "bytes": 1388
+    },
+    {
+      "path": "modules/timer/src/display.lua",
+      "sha256": "522716245a7b6a817f0b08f234c0b0a17f968284d979db5af1d81b2e3cb46cd6",
+      "bytes": 5893
+    },
+    {
+      "path": "modules/timer/src/settings.lua",
+      "sha256": "ff38e19f24b01c3ef4f2cabb850c6a3ef844fca8661d0c113655c53778443ca4",
+      "bytes": 3416
+    },
+    {
+      "path": "modules/timer/src/state.lua",
+      "sha256": "504c0c9f27ac11a72924cb5867b4b17c1be3ae41d9c972f86c2b82e666d62a0e",
+      "bytes": 11694
+    },
+    {
+      "path": "modules/timing/src/theme.lua",
+      "sha256": "73d8f688de3fb37fa6b14443e14b6b0da58166b507188627497da044d28abb2e",
+      "bytes": 708
+    },
+    {
+      "path": "modules/timing/src/ui.lua",
+      "sha256": "14efa28470222cfc3332e3def8187878fbb5c9d5f4a1651101338a8c7344f645",
+      "bytes": 2143
+    },
+    {
+      "path": "modules/timing/src/window.lua",
+      "sha256": "d69f513cc8fbd26a33a7744207e65e159c4f82a1f47a15aefcc406010d4644d4",
+      "bytes": 3739
+    },
+    {
+      "path": "src/car_condition_layout.lua",
+      "sha256": "efcce3178de69de26715467c6b0a637a8789d24f962ab501edc9c333b5975eab",
+      "bytes": 810
+    },
+    {
+      "path": "src/class_reset.lua",
+      "sha256": "e7794ac8cb2ab7227f0831adeccd0c5f6aa7e070dfb7f1d34cde67bf3313d3a2",
+      "bytes": 2128
+    },
+    {
+      "path": "src/condition_settings.lua",
+      "sha256": "5df178454660dcf000b7183679a6337f9c6c565b436644b6c79dd878ac07b130",
+      "bytes": 2895
+    },
+    {
+      "path": "src/edition.lua",
+      "sha256": "fbe0c21822312821a1919a23f3c8c5da324d780cf4d1f29bf1853f9bbef96bc9",
+      "bytes": 26
+    },
+    {
+      "path": "src/flag_cause.lua",
+      "sha256": "9dba6aa10fc361a3bcd9874e857226d8fdbbc581cb5a19a344494e868ac025ec",
+      "bytes": 793
+    },
+    {
+      "path": "src/general_settings.lua",
+      "sha256": "3630e350459778d98b53e55c0b39fb04f14d02dd29def005fb42b158f2ddf3a9",
+      "bytes": 6051
+    },
+    {
+      "path": "src/gt7_retro_layout.lua",
+      "sha256": "b948bc895e52a36e6fa0c931ec6e4e37a51b0d16465115a8fc46e03309ff255a",
+      "bytes": 15783
+    },
+    {
+      "path": "src/gt7_settings.lua",
+      "sha256": "505833e22e78f9a57265ea635f3fca731eaf32fe224829170a521c34d3c7959f",
+      "bytes": 11355
+    },
+    {
+      "path": "src/instrument_config.lua",
+      "sha256": "29d4b87840ce9cdb2db61fcc48c5b58faf3e2ce53c82d2b145130fcf091be9ba",
+      "bytes": 9547
+    },
+    {
+      "path": "src/instrument_layout.lua",
+      "sha256": "414fba94767b89e82bb974dc2d100c9634a08efc6e69a668df2ab343ae009eb1",
+      "bytes": 2285
+    },
+    {
+      "path": "src/instrument_needle_geometry.lua",
+      "sha256": "f49225980a9608719039b5508238bb09416dcd3c84060ee717b67301770c3522",
+      "bytes": 9033
+    },
+    {
+      "path": "src/instrument_state.lua",
+      "sha256": "dca7de162da46967e8d9472088e2ecc649f4887c37347cfb0f036301d73a2026",
+      "bytes": 3868
+    },
+    {
+      "path": "src/layout.lua",
+      "sha256": "aa6ec9d2cd242f17f36c9afcb7f1d6efcbf153a1691951dab09a86516522d9ef",
+      "bytes": 2682
+    },
+    {
+      "path": "src/pedal_history.lua",
+      "sha256": "bbb1c5421c94b5b15d00e784a4429a6227cd52a7e0df4f6f32cf762c9c06d38a",
+      "bytes": 1350
+    },
+    {
+      "path": "src/settings.lua",
+      "sha256": "ee5a8d3b1228c304fd063f7f058a5bb54316bfe72ef3d9a51e7cdec4ca885926",
+      "bytes": 6912
+    },
+    {
+      "path": "src/settings_ui.lua",
+      "sha256": "84c18f0b1226db956bc3b83ef17cc444b52dda98f01c619dc3b11ce2dcf22492",
+      "bytes": 2729
+    },
+    {
+      "path": "src/telemetry.lua",
+      "sha256": "5d3ed56c1578ff59fe3580ce70af83909a7dc498ebecdc8384179b4b2b25176e",
+      "bytes": 32063
+    },
+    {
+      "path": "src/theme.lua",
+      "sha256": "960f4970a9729035ff6acc61a65734645623ea733d00576c5e0d2ca3113fcded",
+      "bytes": 5007
+    },
+    {
+      "path": "src/tyre_temperature.lua",
+      "sha256": "2159499edfdb7cd1a623fafe1f9fae4f75a65ac972340e3a8bc5cf16529761c4",
+      "bytes": 5314
+    },
+    {
+      "path": "src/utils.lua",
+      "sha256": "afccab428decad8cb89ebce199423684aa7d48c3f6198c49a4efba815e44263c",
+      "bytes": 774
+    },
+    {
+      "path": "ui/car_condition.lua",
+      "sha256": "c85ad579e64d832f042d97d2495a0cce9b871407326a36107486295b0cba3370",
+      "bytes": 18996
+    },
+    {
+      "path": "ui/dial.lua",
+      "sha256": "425ccdedfdbe77547322e8abb0bfa626ac901977899906b0307b005825142174",
+      "bytes": 38486
+    },
+    {
+      "path": "ui/gt7_retro.lua",
+      "sha256": "f0d05fbc493e0fd0472a09451427b49f423152df735e9a489ce3bc9b2ef2b23a",
+      "bytes": 40616
+    },
+    {
+      "path": "ui/instrument_illumination.lua",
+      "sha256": "1cb1aca0dc25a810e623a12f6bff4b6e73c7094ccad36e3e459257f7e74bf595",
+      "bytes": 4744
+    },
+    {
+      "path": "ui/instrument_needle.lua",
+      "sha256": "705652e8c1b1fdfbcfcca1bd93873678f735bc5a0d79257a7f3d120e31737b72",
+      "bytes": 6824
+    },
+    {
+      "path": "ui/side_instruments.lua",
+      "sha256": "d30f5edd94e51cc1c8e8758b3e81a1d3cb4088ed277cb63afcda6cc4244d9a6d",
+      "bytes": 17607
+    }
+  ],
+  "pipelineSources": [
+    {
+      "path": "brag-output/composition/scripts/render-ui-motion.py",
+      "sha256": "24aeb46d47ebc2b482afb3c54824f6df1a3cb7b35079bdfc03cc6bd1f34bf03f",
+      "bytes": 11887
+    },
+    {
+      "path": "launch-trailer-2026-10-03/composition/scripts/condition-bridge.lua",
+      "sha256": "4f462ebe3bf2e24e0ff70c6c6061fbb9a655df2e87b50e9d9e67e800a5848c7a",
+      "bytes": 374
+    },
+    {
+      "path": "launch-trailer-2026-10-03/composition/scripts/demo-state.py",
+      "sha256": "d14c8324c329422d9da0993686c3c66e7903ea8b292e5935fbf0e818f87054b4",
+      "bytes": 12052
+    },
+    {
+      "path": "launch-trailer-2026-10-03/composition/scripts/export-ui.py",
+      "sha256": "efbbdec7c389286440b2b36b1c6f50ac6bca0edb316aab28501bdd19e158d115",
+      "bytes": 33624
+    },
+    {
+      "path": "launch-trailer-2026-10-03/composition/scripts/race-panels.lua",
+      "sha256": "1e206b83c298f2b0988abb0065318889fb360b43ffc890013ab588c35389564e",
+      "bytes": 13814
+    },
+    {
+      "path": "tests/gt7_layouts.lua",
+      "sha256": "c4c6716b7e6579417e41615e3cda5d989b2d906dccd39cac0befbe5e5c38b59a",
+      "bytes": 38312
+    },
+    {
+      "path": "tools/preview-instruments.py",
+      "sha256": "60f04e07d21aa7db4850a0aca9e3d291fffeeab3c9c1e376d6afff839960f638",
+      "bytes": 13938
+    }
+  ],
+  "pipelineDigest": "b9a9f521266ab5f46ba6074a9dbfabc6ab6f9621cd24e325be3799bef32550ee",
+  "assetSha256": "305e23d4fbd8c7acf19ae3662e9b15c7de88c3e799247f2c69333153b884561e",
+  "bytes": 39649278,
+  "schedule": {
+    "path": "D:\\.DEV\\AC Hud\\launch-trailer-2026-10-03\\composition\\demo-schedule.json",
+    "sha256": "68c92384d812d7fdfe2207b6835a87292905e6c843a6789918815781c9ddd5dc",
+    "shots": [],
+    "controlledFields": [
+      "brake",
+      "gas",
+      "gear",
+      "nearbyCars",
+      "rpm",
+      "speedKmh",
+      "steer"
+    ],
+    "contract": "See scripts/demo-state.py docstring; central 30fps clock. No default pass/best event."
+  },
+  "track": {
+    "label": "DEMO CIRCUIT",
+    "geometry": "Installed Daytona Road Course AI centreline",
+    "dataFidelity": "Demonstrative markers and timing; no relationship to footage telemetry",
+    "trackName": "Daytona Road Course",
+    "pointCount": 3600,
+    "lengthM": 5702.961450456601,
+    "declaredLengthM": 5729.0,
+    "closureM": 1.745630144100594,
+    "mapBounds": {
+      "width": 1634.0,
+      "height": 820.0,
+      "xOffset": 825.242919921875,
+      "zOffset": 450.559539794922,
+      "scale": 1.0
+    },
+    "validation": [
+      "AC v7 header and point IDs",
+      "finite coordinates",
+      "monotonic distances",
+      "closed loop within 50m",
+      "length within 5% of local metadata",
+      "coordinates within local map.ini bounds"
+    ],
+    "sources": [
+      {
+        "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\ai\\fast_lane.ai",
+        "sha256": "5d6d38f80ac08a85d55ffaf38c920dc2ccb03039bdfed2cc293bded615fea898"
+      },
+      {
+        "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\ui\\sportscar\\ui_track.json",
+        "sha256": "ba7005dd97b054a8f794fa4e00ae79cbb415a2cc39d321e154d6716a479680b9"
+      },
+      {
+        "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\data\\map.ini",
+        "sha256": "3f5af5cf657d66c10c292efaeb698edaf095e052be7b6fb5a8c1cb39ca4611e2"
+      },
+      {
+        "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\map.png",
+        "sha256": "d750773dd19ec74fc1c854f1d1ddfbed927d7363e9bc5d394648d9c8924d8a77"
+      }
+    ]
+  },
+  "palette": "Original dark palettes, backgroundOpacity 0.72, opacity 1; no color grading or artificial glow",
+  "replay": {
+    "api": "NATIVE_UI.replay(ctx,name,frame,x=0,y=0,scale=1,clip=null,opacity=1)",
+    "seek": "frame=min(frames-1,max(0,floor(time*fps+1e-6))); no render-time clock or mutable simulation",
+    "coordinates": "Native component pixels; crop rectangles are [x,y,width,height] before editorial transforms",
+    "opcodes": {
+      "0": "text + original font descriptor",
+      "1": "line",
+      "2": "circle stroke",
+      "3": "circle fill",
+      "4": "arc radians",
+      "5": "rounded rectangle stroke",
+      "6": "rounded rectangle fill",
+      "7": "convex polygon, either winding",
+      "8": "open/closed path",
+      "9": "multicolor rectangle TL/TR/BR/BL",
+      "10": "clip push",
+      "11": "clip pop",
+      "12": "compound line/arc path"
+    },
+    "precision": "xy/radius/size 0.001px; angles 0.00001rad; RGB 0.001/255; alpha 0.000001 including exact zero",
+    "limitations": "Canvas antialiasing/font rasterization differs from CSP; bold descriptor uses host NativeUI font. Unsupported primitive kinds/corner flags fail export."
+  },
+  "radar": {
+    "arc": {
+      "component": "gt7_arc",
+      "presentation": "arcs",
+      "sourceCrop": [
+        974,
+        192,
+        86,
+        103
+      ],
+      "leftSourceCrop": [
+        380,
+        192,
+        86,
+        103
+      ],
+      "rightSourceCrop": [
+        974,
+        192,
+        86,
+        103
+      ]
+    },
+    "classicLateral": {
+      "component": "gt7_classic",
+      "presentation": "classic_lights",
+      "sourceCrop": [
+        1054,
+        240,
+        54,
+        44
+      ],
+      "leftSourceCrop": [
+        332,
+        240,
+        54,
+        44
+      ],
+      "rightSourceCrop": [
+        1054,
+        240,
+        54,
+        44
+      ],
+      "geometry": "Original drawRadarLights: direction triangle plus two proximity lamps",
+      "leftFocal": [
+        359,
+        262
+      ],
+      "rightFocal": [
+        1081,
+        262
+      ],
+      "fullSourceLeftCrop": [
+        332,
+        240,
+        54,
+        44
+      ],
+      "fullSourceRightCrop": [
+        1054,
+        240,
+        54,
+        44
+      ],
+      "cropIncludes": "Complete original triangle, both lamps and all native active halos, in source component pixels"
+    },
+    "historicalModernBars": {
+      "presentation": "modern_bars",
+      "sourceCrop": [
+        1026,
+        136,
+        52,
+        153
+      ],
+      "leftSourceCrop": [
+        362,
+        136,
+        52,
+        153
+      ],
+      "rightSourceCrop": [
+        1026,
+        136,
+        52,
+        153
+      ],
+      "exported": false
+    },
+    "wholeNative": {
+      "components": [
+        "gt7_arc",
+        "gt7_classic"
+      ],
+      "sourceCrop": [
+        0,
+        0,
+        1440,
+        500
+      ]
+    },
+    "recommendation": "Prefer whole native radar/HUD assembly in readable close framing; never recreate lamps/arcs. Supplied detail crops retain original source coordinates."
+  },
+  "components": {
+    "analog": {
+      "renderer": "ui/dial.lua",
+      "function": "draw",
+      "mode": "analog",
+      "size": [
+        620,
+        620
+      ],
+      "primitives": 7711,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8
+      ]
+    },
+    "digital": {
+      "renderer": "ui/dial.lua",
+      "function": "draw",
+      "mode": "digital",
+      "size": [
+        620,
+        620
+      ],
+      "primitives": 2199,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8
+      ]
+    },
+    "condition": {
+      "renderer": "ui/car_condition.lua",
+      "function": "draw",
+      "size": [
+        620,
+        620
+      ],
+      "primitives": 9710,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    "gt7_arc": {
+      "renderer": "ui/gt7_retro.lua",
+      "function": "draw",
+      "frame": "classic",
+      "radarPresentation": "arcs",
+      "size": [
+        1440,
+        500
+      ],
+      "primitives": 30569,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    "gt7_classic": {
+      "renderer": "ui/gt7_retro.lua",
+      "function": "draw",
+      "frame": "classic",
+      "radarPresentation": "classic_lights",
+      "size": [
+        1440,
+        500
+      ],
+      "primitives": 30570,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    "relative": {
+      "renderer": "modules/relative/main.lua",
+      "function": "windowMain",
+      "size": [
+        820,
+        620
+      ],
+      "primitives": 223,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        3,
+        6,
+        7,
+        8,
+        10,
+        11
+      ]
+    },
+    "board": {
+      "renderer": "modules/leaderboard/ui/leaderboard.lua",
+      "function": "draw",
+      "size": [
+        1300,
+        620
+      ],
+      "primitives": 260,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        6,
+        7,
+        8,
+        10,
+        11
+      ]
+    },
+    "circuit": {
+      "renderer": "modules/map/main.lua",
+      "function": "windowMain",
+      "size": [
+        640,
+        640
+      ],
+      "primitives": 34032,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        3,
+        8,
+        10,
+        11
+      ]
+    },
+    "delta_native": {
+      "renderer": "modules/delta/src/display.lua",
+      "function": "draw",
+      "size": [
+        1100,
+        240
+      ],
+      "primitives": 2291,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        6,
+        7,
+        8,
+        10,
+        11
+      ]
+    },
+    "timer_native": {
+      "renderer": "modules/timer/src/display.lua",
+      "function": "draw",
+      "size": [
+        1200,
+        185
+      ],
+      "primitives": 10201,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        7,
+        8,
+        10,
+        11
+      ]
+    },
+    "laps_native": {
+      "renderer": "modules/laps/src/display.lua",
+      "function": "draw",
+      "size": [
+        700,
+        300
+      ],
+      "primitives": 12579,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        6,
+        7,
+        8,
+        10,
+        11
+      ]
+    },
+    "inputs_native": {
+      "renderer": "modules/telemetry/ui/telemetry_panel.lua",
+      "function": "draw",
+      "size": [
+        1150,
+        290
+      ],
+      "primitives": 7510,
+      "frames": 1133,
+      "opcodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        10,
+        11
+      ]
+    }
+  },
+  "fidelityAudit": {
+    "standaloneAnalog": {
+      "renderer": "ui/dial.lua",
+      "headlightFlag": "state.headlights == true",
+      "lightsAvailable": true,
+      "offFrame": 785,
+      "onFrame": 786,
+      "offCalls": 147,
+      "onCalls": 212,
+      "nativeAddedCalls": 65,
+      "numberHalo": "Original centeredBacklitText adds four offsets, alpha 0.26",
+      "needleTint": "Original preset.glow=0.08; RGB 242,219,174 becomes 243.04,218.84,171.12",
+      "ticks": "Standalone tick colors do not depend on headlights; no export correction is warranted",
+      "gt7Lighting": "ui/side_instruments.lua natively illuminates major/minor ticks, numbers and needle using state.gt7Instruments.light",
+      "offRpmNumeralCalls": 9,
+      "onRpmNumeralCalls": 45
+    },
+    "radar": {
+      "standaloneProductCarBattleWidget": false,
+      "productWidgetDirectories": [
+        "src",
+        "ui",
+        "modules"
+      ],
+      "nativeClassicFunction": "ui/gt7_retro.lua: drawRadarLights via M.draw",
+      "externalInstalledRadar": "Separate CSP Radar app uses GeometryShot, meshes and shaders; not substituted for Retro UI"
+    }
+  },
+  "partialRefresh": {
+    "components": [
+      "gt7_classic"
+    ],
+    "previousAssetSha256": "e06e4921ebc020767084c4d0ec4bbc7acba35fd909594002f705d101cdb9ec33",
+    "preservedComponents": [
+      "analog",
+      "board",
+      "circuit",
+      "condition",
+      "delta_native",
+      "digital",
+      "gt7_arc",
+      "inputs_native",
+      "laps_native",
+      "relative",
+      "timer_native"
+    ],
+    "telemetryIdentical": true
+  }
+}

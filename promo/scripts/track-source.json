@@ -1,0 +1,43 @@
+{
+  "label": "DEMO CIRCUIT",
+  "geometry": "Installed Daytona Road Course AI centreline",
+  "dataFidelity": "Demonstrative markers and timing; no relationship to footage telemetry",
+  "trackName": "Daytona Road Course",
+  "pointCount": 3600,
+  "lengthM": 5702.961450456601,
+  "declaredLengthM": 5729.0,
+  "closureM": 1.745630144100594,
+  "mapBounds": {
+    "width": 1634.0,
+    "height": 820.0,
+    "xOffset": 825.242919921875,
+    "zOffset": 450.559539794922,
+    "scale": 1.0
+  },
+  "validation": [
+    "AC v7 header and point IDs",
+    "finite coordinates",
+    "monotonic distances",
+    "closed loop within 50m",
+    "length within 5% of local metadata",
+    "coordinates within local map.ini bounds"
+  ],
+  "sources": [
+    {
+      "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\ai\\fast_lane.ai",
+      "sha256": "5d6d38f80ac08a85d55ffaf38c920dc2ccb03039bdfed2cc293bded615fea898"
+    },
+    {
+      "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\ui\\sportscar\\ui_track.json",
+      "sha256": "ba7005dd97b054a8f794fa4e00ae79cbb415a2cc39d321e154d6716a479680b9"
+    },
+    {
+      "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\data\\map.ini",
+      "sha256": "3f5af5cf657d66c10c292efaeb698edaf095e052be7b6fb5a8c1cb39ca4611e2"
+    },
+    {
+      "path": "D:\\Games\\steam dota\\steamapps\\common\\assettocorsa\\content\\tracks\\rt_daytona\\sportscar\\map.png",
+      "sha256": "d750773dd19ec74fc1c854f1d1ddfbed927d7363e9bc5d394648d9c8924d8a77"
+    }
+  ]
+}
