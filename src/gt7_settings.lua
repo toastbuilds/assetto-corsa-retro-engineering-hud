@@ -25,8 +25,7 @@ M.values = ac.storage({
   opacity = 1,
   backgroundOpacity = 0.72,
   speedUnit = 'km/h',
-  -- Kept as legacy/last-preset metadata so older Premium installs can migrate
-  -- once and Free can continue reading its own familiar value.
+  -- Kept as legacy/last-preset metadata so older installs can migrate once.
   gt7Layout = 'classic',
   gt7SpeedStyle = 'classic',
   gt7GearStyle = 'classic',
@@ -45,8 +44,7 @@ M.values = ac.storage({
   gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
   gt7ProximityRadar = true,
-  -- Legacy Free-compatible preference. Premium 2.2 never stores new
-  -- presentation values in this field.
+  -- Legacy preference. Versions 2.2 and later store presentation separately.
   gt7RadarStyle = 'arcs',
   rpmWarningFraction = 0.86,
   rpmRedlineFraction = 0.96,
@@ -164,7 +162,7 @@ local function resetAppearance()
 end
 
 function M.draw()
-  ui.header('GT7 Premium')
+  ui.header('GT7')
   SettingsUI.section('gt7', 'basics', 'Basics', true, function()
     local width = ui.availableSpaceX()
     local columns = width >= 540 and 4 or (width >= 280 and 2 or 1)

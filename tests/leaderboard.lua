@@ -38,9 +38,6 @@ snap.sim.currentSessionIndex=1; Fuel.update(state,snap,{fuelReserve=1})
 assert(state.average==nil)
 -- Reuse the instrument drawing doubles for the real leaderboard header.
 dofile('tests/runtime_smoke.lua')
-if TEST_EDITION == 'free' then
-  package.loaded['src/theme'] = assert(loadfile('free-edition/src/theme.lua'))()
-end
 local Display = require('modules/leaderboard/ui/leaderboard')
 local Theme = require('modules/leaderboard/src/theme')
 ui.pushClipRect=function() end
@@ -73,7 +70,7 @@ end
 print('Leaderboard: leader references, missing times, countdown, fuel, reset and 8 header drawings passed')
 
 -- Preserve all header regressions above and exercise actual row content at
--- every supported count, in both shared edition palettes and window sizes.
+-- every supported count, in shared palettes and window sizes.
 local General = require('src/general_settings')
 General.values.theme = 'dark'
 General.values.monochrome = false
@@ -85,8 +82,7 @@ assert(Settings.values.maxRows == 8, 'normalization must preserve a stored row p
 Settings.values.maxRows = 20; Settings.normalize(); assert(Settings.values.maxRows == 10)
 Settings.values.maxRows = 1; Settings.normalize(); assert(Settings.values.maxRows == 3)
 local SharedTheme = require('src/theme')
-local FreeTheme = assert(loadfile('free-edition/src/theme.lua'))()
-local palettes = {Theme, SharedTheme, FreeTheme}
+local palettes = {Theme, SharedTheme}
 local drawCases = 0
 local clips, circles = {}, {}
 local windowW, windowH
@@ -227,9 +223,9 @@ assert(#circles == 1, 'one-sector track must have exactly one active sector indi
 personal.status = 'FIN'
 texts, circles = {}, {}
 Display.draw({header = {typeLabel = 'TA'}, personal = true, localRow = personal, shownRows = personalRows},
-  {hudScale = 0.84, maxRows = 10, showFuel = false, showClass = false}, {palette = FreeTheme.get('light')})
+  {hudScale = 0.84, maxRows = 10, showFuel = false, showClass = false}, {palette = SharedTheme.get('light')})
 assert(has('TA') and has('FIN') and #circles == 0)
-print('Leaderboard: stored settings, ' .. drawCases .. ' row drawings, premium/free shared palettes and personal one-sector cases passed')
+print('Leaderboard: stored settings, ' .. drawCases .. ' row drawings, shared palettes and personal one-sector cases passed')
 
 -- Compact race rows retain one meaningful gain/loss beside the position.
 windowW,windowH=1040,470

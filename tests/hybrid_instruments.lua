@@ -125,34 +125,4 @@ assert(labels['TURBO'] and labels['0.70 BAR'] and not labels['CHG'],
 labels=texts(harness.drawDial({analogAuxiliaryMode='electric',hudScale=1},drawState))
 assert(labels['ERS N/A'] and not labels['FUEL'],'explicit Electric without data must not silently display fuel')
 
--- Free packages use a separate GT7 renderer and palette. Reload the shared
--- hybrid view against that palette, which has no Premium backlight targets.
-package.loaded['src/theme']=assert(loadfile('free-edition/src/theme.lua'))()
-package.loaded['src/gt7_retro_layout']=assert(loadfile('free-edition/src/gt7_retro_layout.lua'))()
-package.loaded['ui/instrument_illumination']=nil
-package.loaded['ui/hybrid_gauge']=nil
--- Free's original mirrored indicator triangles use both path windings. The
--- Premium harness's clockwise-only polygon assertion is not a Free contract;
--- these checks capture text and arcs, not the unchanged Free triangle paths.
-ui.pathFillConvex=function() end
-local freeRenderer=assert(loadfile('free-edition/ui/gt7_retro.lua'))()
-local freeDial=assert(loadfile('ui/dial.lua'))()
-local options=require('src/gt7_settings').current()
-drawState.hybrid={powerKw=120,needle=0.8,charge=0.84}
-for _,turbo in ipairs({false,true}) do
-  drawState.turboAvailable=turbo
-  for _,theme in ipairs({'dark','light'}) do
-    options.theme,options.hudScale=theme,1
-    for _,mode in ipairs({'analog','digital'}) do
-      options.gt7SpeedNeedleMode,options.gt7RpmNeedleMode=mode,mode
-      labels=texts(harness.drawRenderer(freeRenderer,drawState,options,{1440,500}))
-      assert(labels['120 kW'] and labels['84%'] and not labels['NAT ASP'] and not labels['BOOST'],
-        'Free GT7 must also replace boost with electric power and battery charge')
-    end
-    local dialOptions=require('src/settings').current()
-    dialOptions.theme,dialOptions.instrumentMode,dialOptions.analogAuxiliaryMode=theme,'analog','auto'
-    labels=texts(harness.drawRenderer(freeDial,drawState,dialOptions,{620,620}))
-    assert(labels['120 kW'] and labels['84%'],'the Free palette must support the standalone electric gauge')
-  end
-end
 print('Hybrid instruments: mechanical kW, regeneration, zero/missing data, car changes, telemetry integration, hybrid priority with/without turbo, themes, sizes and all GT7 compositions passed')

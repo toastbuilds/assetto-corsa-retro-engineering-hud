@@ -172,7 +172,7 @@ for index, id in ipairs(ids) do
     and Settings.values.gt7SpeedNeedleMode == 'analog' and Settings.values.gt7RadarStyle == 'lights',
     'applying presets must preserve independent settings')
   assert(comboCalls['##gt7.radarPresentation'] and comboCalls['##gt7.flagPresentation'],
-    'Premium must always expose independent radar and flag selectors')
+    'GT7 must always expose independent radar and flag selectors')
 end
 
 Settings.applyPreset('modern')

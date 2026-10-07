@@ -1,7 +1,4 @@
 package.path = './?.lua;./?/init.lua;' .. package.path
-if TEST_EDITION == 'free' then
-  package.preload['src/edition'] = assert(loadfile('free-edition/src/edition.lua'))
-end
 
 local now = 0
 ui = {
@@ -543,7 +540,6 @@ for _, progress in ipairs({ 0, 0.5, 1 }) do
   assert(activeCount == progress * 16, 'empty, half and full tracks must light zero, eight and sixteen segments')
 end
 
-local Edition = require('src/edition')
 local playedSounds = {}
 local playedVolumes = {}
 local playbackPositions = {}
@@ -598,33 +594,25 @@ local settledRow, settledHistory = drawTransition(10.50, true)
 assert(settledRow.position.y == restingRow.position.y and settledRow.alpha == restingRow.alpha,
   'the completed transition must restore exact resting geometry and opacity')
 assert(settledHistory.position.y == restingHistory.position.y)
-if Edition.premium then
-  assert(enteringHistory.position.y == restingRow.position.y,
-    'the completed lap must start at its previous current-row position instead of jumping')
-  assert(enteringHistory.position.y < halfwayHistory.position.y
-    and halfwayHistory.position.y < settledHistory.position.y)
-  assert(enteringRow.alpha == 0 and halfwayRow.alpha == 0
-    and arrivingRow.alpha > 0 and arrivingRow.alpha < settledRow.alpha,
-    'the new progress row must fade in only after the completed row clears it')
-else
-  assert(enteringRow.position.y == restingRow.position.y and enteringRow.alpha == restingRow.alpha,
-    'Free must update the lap rows immediately without Premium motion')
-  assert(enteringHistory.position.y == restingHistory.position.y)
-end
+assert(enteringHistory.position.y == restingRow.position.y,
+  'the completed lap must start at its previous current-row position instead of jumping')
+assert(enteringHistory.position.y < halfwayHistory.position.y
+  and halfwayHistory.position.y < settledHistory.position.y)
+assert(enteringRow.alpha == 0 and halfwayRow.alpha == 0
+  and arrivingRow.alpha > 0 and arrivingRow.alpha < settledRow.alpha,
+  'the new progress row must fade in only after the completed row clears it')
 local disabledRow = drawTransition(10, false)
 assert(disabledRow.position.y == restingRow.position.y and disabledRow.alpha == restingRow.alpha,
   'disabling lap motion must display final geometry immediately')
-if Edition.premium then
-  for _, frameRate in ipairs({ 30, 60, 144 }) do
-    local previousY = enteringHistory.position.y
-    for frame = 1, math.ceil(0.48 * frameRate) do
-      local _, historicalRow = drawTransition(10 + frame / frameRate, true)
-      assert(historicalRow.position.y >= previousY and historicalRow.position.y <= restingHistory.position.y,
-        'row motion must remain monotonic and settle without overshoot at different frame rates')
-      previousY = historicalRow.position.y
-    end
-    assert(previousY == restingHistory.position.y)
+for _, frameRate in ipairs({ 30, 60, 144 }) do
+  local previousY = enteringHistory.position.y
+  for frame = 1, math.ceil(0.48 * frameRate) do
+    local _, historicalRow = drawTransition(10 + frame / frameRate, true)
+    assert(historicalRow.position.y >= previousY and historicalRow.position.y <= restingHistory.position.y,
+      'row motion must remain monotonic and settle without overshoot at different frame rates')
+    previousY = historicalRow.position.y
   end
+  assert(previousY == restingHistory.position.y)
 end
 
 -- Limits and transitions must keep exactly one fade on the last historical row.
@@ -760,11 +748,9 @@ ui.checkbox = function(label)
 end
 local LapsSettings = require('modules/laps/src/settings')
 LapsSettings.draw()
-assert((visibleCheckboxes['Animate lap changes'] == true) == Edition.premium,
-  'the lap transition switch must be offered only in Premium')
-if Edition.premium then
-  assert(LapsSettings.values.animateLapChanges == false, 'the Premium switch must persist disabled motion')
-end
+assert(visibleCheckboxes['Animate lap changes'] == true,
+  'lap transitions must always be configurable')
+assert(LapsSettings.values.animateLapChanges == false, 'the lap transition switch must persist disabled motion')
 
 local TimerSettings = require('modules/timer/src/settings')
 TimerSettings.values.audioEnabled = false
@@ -798,5 +784,4 @@ TimerSettings.draw()
 assert(previewNotice == nil, 'a successful preview must clear the previous failure notice')
 
 print('Timing apps: transitions, records, audio, validity, pits, freeze, final lap, resets and '
-  .. drawingCases .. ' segmented Laps and ' .. timerDrawingCases .. ' Timer drawings; '
-  .. (Edition.premium and 'Premium motion' or 'Free immediate updates') .. ' passed')
+  .. drawingCases .. ' segmented Laps and ' .. timerDrawingCases .. ' Timer drawings; lap motion passed')

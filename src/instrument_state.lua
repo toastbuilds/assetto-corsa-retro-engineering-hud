@@ -27,7 +27,7 @@ end
 
 -- A presentation state belongs to a telemetry instance, never to a renderer.
 -- Both modes use this same state. Existing telemetry and spring targets remain
--- intact, including the unipolar boost needle used by Free/the standalone dial.
+-- intact, including the unipolar boost needle used by the standalone dial.
 function M.update(state, settings, dt)
   local visual = state.gt7Instruments
   if not visual then visual = {}; state.gt7Instruments = visual end

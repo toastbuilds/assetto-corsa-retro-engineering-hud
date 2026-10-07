@@ -11,7 +11,6 @@ def main():
     os.chdir(root)
     parser = argparse.ArgumentParser()
     parser.add_argument("--suite", action="append")
-    parser.add_argument("--edition", choices=("premium", "free"), default="premium")
     args = parser.parse_args()
     syntax = LuaRuntime()
     for folder in ("modules", "src", "ui"):
@@ -22,7 +21,6 @@ def main():
         for suite in args.suite:
             print(f"Running {suite}", flush=True)
             runtime = LuaRuntime()
-            runtime.globals().TEST_EDITION = args.edition
             runtime.execute((root / suite).read_text(encoding="utf-8-sig"))
         return
     suites = [
@@ -41,6 +39,7 @@ def main():
         "tests/tyre_temperature.lua",
         "tests/tyre_grip.lua",
         "tests/timer_final_lap.lua",
+        "tests/dial_electronics.lua",
         "tests/instrument_illumination.lua",
         "tests/hybrid_instruments.lua",
         "tests/hybrid_regeneration.lua",
@@ -48,14 +47,10 @@ def main():
     for suite in suites:
         print(f"Running {suite}", flush=True)
         LuaRuntime().execute((root / suite).read_text(encoding="utf-8-sig"))
-    for edition in ("premium", "free"):
-        print(f"Running tests/timing_apps.lua ({edition})", flush=True)
-        timing_runtime = LuaRuntime()
-        timing_runtime.globals().TEST_EDITION = edition
-        timing_runtime.execute((root / "tests/timing_apps.lua").read_text(encoding="utf-8-sig"))
-        runtime = LuaRuntime()
-        runtime.globals().TEST_EDITION = edition
-        runtime.execute((root / "tests/settings.lua").read_text(encoding="utf-8-sig"))
+    for suite in ("tests/timing_apps.lua", "tests/settings.lua"):
+        print(f"Running {suite}", flush=True)
+        LuaRuntime().execute((root / suite).read_text(encoding="utf-8-sig"))
+
 
 
 if __name__ == "__main__":

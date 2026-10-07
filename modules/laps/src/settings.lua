@@ -1,5 +1,4 @@
 local SettingsUI = require('src/settings_ui')
-local Edition = require('src/edition')
 
 local Settings = {}
 
@@ -55,7 +54,7 @@ function Settings.draw()
   SettingsUI.section('laps', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
     checkbox('Stay visible when mouse leaves', 'locked')
-    if Edition.premium then checkbox('Animate lap changes', 'animateLapChanges') end
+    checkbox('Animate lap changes', 'animateLapChanges')
   end)
   SettingsUI.section('laps', 'advanced', 'Advanced', false, function()
     ui.textWrapped('The first row shows track progress, colored by projected lap pace. Completed laps show their times, newest first.')

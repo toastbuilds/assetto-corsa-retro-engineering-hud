@@ -2,7 +2,7 @@ local DialLayout = require('src/layout')
 
 -- Classic remains the public source of GT7 telemetry constants. Keep these
 -- values stable so existing consumers such as src/telemetry.lua do not depend
--- on whichever visual composition Premium currently resolves.
+-- on whichever visual composition GT7 currently resolves.
 local Classic = {
   id = 'classic',
   frameStyle = 'classic',
@@ -54,7 +54,7 @@ local Classic = {
   rightEngineStatusOffset = 132,
 
   -- Side radar thresholds are telemetry constants, independent from the
-  -- selected Premium radar presentation.
+  -- selected GT7 radar presentation.
   radarRange = 18,
   radarNearRange = 10,
   radarAlongsideRange = 8,

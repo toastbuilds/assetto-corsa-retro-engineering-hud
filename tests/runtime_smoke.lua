@@ -197,7 +197,7 @@ pendingCombos['##gt7.radarPresentation'] = 1
 Gt7Settings.draw()
 assert(Gt7Settings.values.gt7RadarPresentation == 'classic_lights'
   and Gt7Settings.values.gt7RadarStyle == 'arcs',
-  'Premium radar selector must use its own storage and preserve the Free-compatible legacy field')
+  'GT7 radar selector must use its own storage and preserve the legacy field')
 pendingCombos['##gt7.radarPresentation'] = 0
 Gt7Settings.draw()
 assert(Gt7Settings.values.gt7RadarPresentation == 'arcs', 'radar selector must restore arcs')

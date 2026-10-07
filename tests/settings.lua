@@ -105,13 +105,6 @@ ui = {
   pathStroke=function(color) primitive('outline',color) end
 }
 
-local free = TEST_EDITION=='free'
-if free then
-  for _,module in ipairs({'src/edition','src/gt7_settings','src/gt7_retro_layout','src/theme','ui/gt7_retro'}) do
-    local path='free-edition/' .. module .. '.lua'
-    package.preload[module]=assert(loadfile(path))
-  end
-end
 script={}
 require('app')
 local General=require('src/general_settings')
@@ -192,27 +185,22 @@ pending['>  Personalization##gt7.personalization']=true
 GT7.values.gt7SpeedNeedleMode,GT7.values.gt7RpmNeedleMode='analog','digital'
 pending['##gt7.speedNeedleStyle']=4
 visible=frame(GT7.draw)
-if free then
-  assert(not visible['##gt7.speedNeedleStyle'] and not visible['Classic##gt7.preset.classic'])
-  pending['##gt7.speedNeedleStyle']=nil
-else
-  assert(GT7.values.gt7SpeedNeedleStyle=='a04' and GT7.values.gt7RpmNeedleStyle=='a02')
-  assert(not visible['##gt7.rpmNeedleStyle'])
-  GT7.values.gt7RpmNeedleMode='analog'
-  pending['##gt7.rpmNeedleStyle']=23
-  frame(GT7.draw)
-  assert(GT7.values.gt7RpmNeedleStyle=='d05' and Dial.values.analogNeedleStyle=='d06')
-  local previousScale=GT7.values.hudScale
-  pending['Modern##gt7.preset.modern']=true
-  frame(GT7.draw)
-  assert(GT7.currentPreset()=='modern' and GT7.values.hudScale==previousScale)
-  assert(GT7.values.gt7SpeedNeedleStyle=='a04' and GT7.values.gt7RpmNeedleMode=='analog')
-  GT7.values.gt7GearStyle='classic'
-  assert(GT7.currentPreset()=='custom' and GT7.values.gt7Layout=='modern')
-  pending['Modern##gt7.preset.modern']=true
-  visible=frame(GT7.draw)
-  assert(GT7.currentPreset()=='modern' and visible['Composition: Modern'])
-end
+assert(GT7.values.gt7SpeedNeedleStyle=='a04' and GT7.values.gt7RpmNeedleStyle=='a02')
+assert(not visible['##gt7.rpmNeedleStyle'])
+GT7.values.gt7RpmNeedleMode='analog'
+pending['##gt7.rpmNeedleStyle']=23
+frame(GT7.draw)
+assert(GT7.values.gt7RpmNeedleStyle=='d05' and Dial.values.analogNeedleStyle=='d06')
+local previousScale=GT7.values.hudScale
+pending['Modern##gt7.preset.modern']=true
+frame(GT7.draw)
+assert(GT7.currentPreset()=='modern' and GT7.values.hudScale==previousScale)
+assert(GT7.values.gt7SpeedNeedleStyle=='a04' and GT7.values.gt7RpmNeedleMode=='analog')
+GT7.values.gt7GearStyle='classic'
+assert(GT7.currentPreset()=='custom' and GT7.values.gt7Layout=='modern')
+pending['Modern##gt7.preset.modern']=true
+visible=frame(GT7.draw)
+assert(GT7.currentPreset()=='modern' and visible['Composition: Modern'])
 
 General.values.opacity,General.values.backgroundOpacity=0.5,0.36
 General.values.rpmWarningFraction,General.values.rpmRedlineFraction=0.75,0.9
@@ -333,4 +321,4 @@ for _,page in ipairs(pages) do
   assert(visible['Reset all##'..page[1]],'reset must remain reachable')
 end
 
-print('Settings ('..(free and 'Free' or 'Premium')..'): eleven pages, migration, sliders, presets, resets and ten opacity consumers passed')
+print('Settings: eleven pages, migration, sliders, presets, resets and ten opacity consumers passed')

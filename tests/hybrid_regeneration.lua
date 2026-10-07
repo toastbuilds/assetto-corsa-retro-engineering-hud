@@ -123,24 +123,4 @@ car.kersCharge=0.9
 Hybrid.update(state,car,0.1,physics)
 assert(state.hybrid.chargeRecoveryRate==nil,'car changes must not compare unrelated batteries')
 
--- Repeat the recovery display checks against Free's renderer and palette.
-package.loaded['src/theme']=assert(loadfile('free-edition/src/theme.lua'))()
-package.loaded['src/gt7_retro_layout']=assert(loadfile('free-edition/src/gt7_retro_layout.lua'))()
-package.loaded['ui/instrument_illumination']=nil
-package.loaded['ui/hybrid_gauge']=nil
-ui.pathFillConvex=function() end
-local freeRenderer=assert(loadfile('free-edition/ui/gt7_retro.lua'))()
-local freeDial=assert(loadfile('ui/dial.lua'))()
-drawState.hybrid={batteryRecovery=true,chargeRecoveryRate=2,needle=-0.8,charge=0.84}
-for _,theme in ipairs({'dark','light'}) do
-  local options=require('src/gt7_settings').current()
-  options.theme=theme
-  for _,mode in ipairs({'analog','digital'}) do
-    options.gt7RpmNeedleMode=mode
-    assert(texts(harness.drawRenderer(freeRenderer,drawState,options,{1440,500}))['-2.0%/s'])
-  end
-  options=require('src/settings').current()
-  options.theme,options.instrumentMode,options.analogAuxiliaryMode=theme,'analog','auto'
-  assert(texts(harness.drawRenderer(freeDial,drawState,options,{620,620}))['-2.0%/s'])
-end
-print('Hybrid regeneration: negative recovery, measured kW and battery rate, missing channels, transitions, resets/replays and Free/Premium dials passed')
+print('Hybrid regeneration: negative recovery, measured kW and battery rate, missing channels, transitions, resets/replays and GT7 and standalone dials passed')

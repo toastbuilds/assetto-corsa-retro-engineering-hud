@@ -1,6 +1,5 @@
 local Theme = require('modules/timing/src/theme')
 local TimingUI = require('modules/timing/src/ui')
-local Edition = require('src/edition')
 
 local Display = {}
 local FONT = Theme.fonts.utility
@@ -78,7 +77,7 @@ function Display.draw(snapshot, settings, visual)
   local rowHeight = 34 * scale
   local rowGap = 3 * scale
   local remaining = 0
-  if Edition.premium and visual.animateLapChanges and snapshot.transitionStartedAt ~= nil then
+  if visual.animateLapChanges and snapshot.transitionStartedAt ~= nil then
     local elapsed = (type(ui.time) == 'function' and ui.time() or 0) - snapshot.transitionStartedAt
     if elapsed >= 0 and elapsed < TRANSITION_DURATION then
       remaining = 1 - smoothStep(elapsed / TRANSITION_DURATION)
