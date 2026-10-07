@@ -846,7 +846,7 @@ function M.draw(state, settings)
 
     local cellX = Layout.electronicsX
     local tcValue = state.tcLevel and (settings.showTcAbsLevels and tostring(state.tcLevel) or 'ON') or '—'
-    local absValue = state.absLevel and (settings.showTcAbsLevels and tostring(state.tcLevel) or 'ON') or '—'
+    local absValue = state.absLevel and (settings.showTcAbsLevels and tostring(state.absLevel) or 'ON') or '—'
     drawCell(origin, scale, cellX, 'TC', tcValue, state.tcActive == true, state.tcActive and C.amber or C.primary,
       nil, coreSurface, raisedSurface)
     cellX = cellX + Layout.electronicsWidth + Layout.electronicsGap
