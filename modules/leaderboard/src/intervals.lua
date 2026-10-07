@@ -1,8 +1,8 @@
 local Timeline = require('modules/leaderboard/src/timeline')
 local M = {}
 
--- Shared gates every 1% of a lap. Only two actual crossings of the same
--- unwrapped gate can produce a time interval; no lap clocks or speeds enter it.
+-- Precise shared gates take priority. Continuous position history and a
+-- distance/speed estimate keep live gaps available while gates are missing.
 local POINTS, MAX_SECONDS, MAX_SAMPLE_GAP = 100, 120, 2
 local EPSILON = 0.000001
 
@@ -88,10 +88,13 @@ local function identity(row)
 end
 
 local function addCrossing(car, gate, time, source)
-  if not car.crossings[gate] then car.crossings[gate] = {time = time, source = source} end
+  local previous = car.crossings[gate]
+  if not previous or source == 'sdk' and previous.source ~= 'sdk' then
+    car.crossings[gate] = {time = time, source = source}
+  end
 end
 
-local function observe(state, row, timeline)
+local function observe(state, row, timeline, sim)
   local progress, now = number(row.progress), timeline.time
   local car = state.cars[row.index]
   if not progress or not available(row) or timeline.measuredClock == false then
@@ -100,6 +103,20 @@ local function observe(state, row, timeline)
     return
   end
   local previous = car and car.last
+  local rawProgress = progress
+  local onlineZeroLap = read(sim, 'isOnlineRace') == true and row.lapCount == 0
+  local lapOffset = onlineZeroLap and car and car.lapOffset or 0
+  -- CMRT tracks finish crossings because online remote lapCount can stay zero.
+  -- Only unwrap continuous forward motion; jumps and reconnects still reset.
+  if onlineZeroLap and car and car.rawProgress and previous
+    and car.rawProgress > 0.9 and rawProgress < 0.1
+    and rawProgress + 1 - car.rawProgress < 0.1
+    and now > previous.time and now - previous.time <= MAX_SAMPLE_GAP
+    and not row.reconnected and not row.historyReset and not row.justJumped
+    and read(row.car, 'justJumped') ~= true then
+    lapOffset = lapOffset + 1
+  end
+  progress = progress + lapOffset
   local reset = not car or car.identity ~= identity(row) or row.reconnected == true
     or row.historyReset == true or row.justJumped == true or read(row.car, 'justJumped') == true
     or car.overflow or (car.lastSeen and now - car.lastSeen > MAX_SAMPLE_GAP)
@@ -107,11 +124,15 @@ local function observe(state, row, timeline)
     or progress - previous.progress > 0.25 or now < previous.time
     or (now == previous.time and math.abs(progress - previous.progress) > EPSILON)) then reset = true end
   if reset then
-    car = {crossings = {}, identity = identity(row), startedAt = now, startProgress = progress}
+    progress, lapOffset = rawProgress, 0
+    car = {crossings = {}, history = {}, identity = identity(row), startedAt = now, startProgress = progress}
     state.cars[row.index], state.lastRefresh = car, -math.huge
     previous = nil
   end
-  if previous and not state.sdkActive and now > previous.time and progress > previous.progress then
+  -- Registering SDK callbacks does not guarantee they will arrive for every
+  -- car. Always retain bracketed position crossings; consumeSDK replaces them
+  -- with the more precise physics timestamps when available on the same clock.
+  if previous and now > previous.time and progress > previous.progress then
     local first = math.floor(previous.progress * POINTS + EPSILON) + 1
     local last = math.floor(progress * POINTS + EPSILON)
     for gate = first, last do
@@ -122,6 +143,14 @@ local function observe(state, row, timeline)
     end
   end
   car.last, car.lastSeen = {progress = progress, time = now}, now
+  car.rawProgress, car.lapOffset = rawProgress, lapOffset
+  local history = car.history
+  if #history == 0 or now - history[#history].time >= 0.05 then
+    history[#history + 1] = car.last
+  end
+  while #history > 2 and (history[2].time < now - MAX_SECONDS or #history > 4096) do
+    table.remove(history, 1)
+  end
   for gate, crossed in pairs(car.crossings) do
     if crossed.time < now - MAX_SECONDS or gate < math.floor(progress * POINTS) - POINTS * 2 then
       car.crossings[gate] = nil
@@ -147,7 +176,18 @@ local function consumeSDK(state, timeline)
   state.sdkEvents = {}
 end
 
-local function measured(row, localRow, state)
+local function crossingTime(car, target)
+  local history, b = car.history, car.last
+  for i = #history, 1, -1 do
+    local a = history[i]
+    if a.progress <= target and target <= b.progress and b.progress > a.progress then
+      return a.time + (target - a.progress) * (b.time - a.time) / (b.progress - a.progress)
+    end
+    b = a
+  end
+end
+
+local function measured(row, localRow, state, sim)
   local other, player = state.cars[row.index], state.cars[localRow.index]
   if not other or not player then return '--' end
   local delta = other.last.progress - player.last.progress
@@ -161,10 +201,30 @@ local function measured(row, localRow, state)
       source = crossing.source == 'sdk' and otherCrossing.source == 'sdk' and 'sdk' or 'observed'
     end
   end
-  -- After an overtake the latest common gate can still describe the old
-  -- order. Wait for a new pair instead of reversing a measured timestamp.
-  if not seconds or delta * seconds < -EPSILON or math.abs(seconds) > MAX_SECONDS then return '--' end
-  return formatSeconds(seconds), seconds, source
+  local validPair = seconds and delta * seconds >= -EPSILON and math.abs(seconds) <= MAX_SECONDS
+  local now = state.timeline.time
+  -- Do not keep an old SDK gap while a stopped car's separation grows.
+  if validPair and source == 'sdk'
+    and math.max(player.crossings[latest].time, other.crossings[latest].time) >= now - MAX_SAMPLE_GAP then
+    return formatSeconds(seconds), seconds, source
+  end
+  -- Never estimate from the first sample after a restart, seek or teleport.
+  if now <= player.startedAt or now <= other.startedAt then return '--' end
+  local front, back, backRow = other, player, localRow
+  if delta < 0 then front, back, backRow = player, other, row end
+  -- As in CMRT, use how long the leading car took to cover the separation.
+  -- Unwrapped history naturally spans the finish line without mixing lap clocks.
+  local crossing = crossingTime(front, back.last.progress)
+  if crossing then
+    local gap = (delta < 0 and -1 or 1) * (now - crossing)
+    if math.abs(gap) <= MAX_SECONDS then return formatSeconds(gap), gap, 'history' end
+  end
+  if validPair and source ~= 'sdk' then return formatSeconds(seconds), seconds, source end
+  local length, speed = number(read(sim, 'trackLengthM')), number(backRow.speedMs)
+  if not length or length <= 0 or not speed then return '--' end
+  local gap = delta * length / math.max(18, math.abs(speed))
+  if math.abs(gap) > MAX_SECONDS then return '--' end
+  return '~' .. formatSeconds(gap), gap, 'estimated'
 end
 
 local function applyCache(state, rows)
@@ -179,7 +239,7 @@ end
 -- Snapshot contract: historyReset/resetIntervals clear immediately; a changed
 -- resetToken also clears history. Optional timeline is Timeline.sample(sim).
 -- row.interval is the existing display API. intervalSeconds/intervalSource are
--- populated only for a measured time (source is 'sdk' or 'observed'). final
+-- sources are 'sdk', 'history', 'observed' or 'estimated'. final
 -- computes once and freezes that cache until a reset or return to live data.
 function M.update(state, snapshot, settings)
   if snapshot == nil or snapshot.rows == nil then M.reset(state); return end
@@ -208,7 +268,7 @@ function M.update(state, snapshot, settings)
   for i = 1, #snapshot.rows do
     local row = snapshot.rows[i]
     seen[row.index] = true
-    observe(state, row, timeline)
+    observe(state, row, timeline, snapshot.sim)
   end
   for index in pairs(state.cars) do
     if not seen[index] then state.cars[index] = nil; state.cache[index] = nil; state.lastRefresh = -math.huge end
@@ -227,7 +287,7 @@ function M.update(state, snapshot, settings)
       if localRow and row.index == localRow.index then
         display = '-'
       elseif localRow then
-        display, seconds, source = measured(row, localRow, state)
+        display, seconds, source = measured(row, localRow, state, snapshot.sim)
       end
       state.cache[row.index] = {display = display, seconds = seconds, source = source}
     end

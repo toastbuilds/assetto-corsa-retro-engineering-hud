@@ -72,12 +72,47 @@ local function observedPair(replay, behind, wrap)
     w:step(0.2, base + 0.012, base + 0.008)
   else
     w:step(0.2, base + 0.004, base + 0.008)
-    assert(w.other.interval == '--', 'one crossing cannot produce an interval')
+    near(w.other.intervalSeconds, 0.1, 'leading history can resolve a gap before shared gates')
     w:step(0.2, base + 0.008, base + 0.012)
   end
-  near(w.other.intervalSeconds, behind and -0.125 or 0.125)
-  assert(w.other.intervalSource == 'observed')
+  near(w.other.intervalSeconds, behind and -0.2 or 0.2)
+  assert(w.other.intervalSource == 'history')
   return w
+end
+
+-- CMRT-style live history works before a shared 1%-lap gate is reached.
+do
+  local w = world(true, false, 0.401, 0.401)
+  w:step(0.2, 0.403, 0.405)
+  near(w.other.intervalSeconds, 0.1, 'dense history must not wait for shared gates')
+  assert(w.other.intervalSource == 'history')
+  w = world(true, false, 0.1, 0.2)
+  w:step(0.2, 0.101, 0.201)
+  near(w.other.intervalSeconds, 600 / 55, 'missing history uses distance and trailing speed')
+  assert(w.other.intervalSource == 'estimated')
+  assert(w.other.interval == '~+10.9s', 'speed estimates must be identifiable')
+  w.player.speedMs = 0
+  w:step(0.2, 0.102, 0.202)
+  near(w.other.intervalSeconds, 600 / 18, 'stationary speed must remain finite')
+  w = world(true, false, 0.98, 1.02)
+  w:step(0.2, 0.981, 1.021)
+  near(w.other.intervalSeconds, 240 / 55, 'finish-line fallback uses unwrapped distance')
+  w = world(true, false, 0.995, 0.995)
+  w.sim.isOnlineRace = true
+  w:step(0.2, 0.999, 0.003)
+  w:step(0.2, 1.003, 0.007)
+  near(w.other.intervalSeconds, 0.2, 'online remote lapCount stuck at zero must preserve finish crossings')
+  assert(w.other.intervalSource == 'history')
+  w.other.car.justJumped = true
+  w:step(0.01, 1.004, 0.008)
+  assert(w.other.interval == '--', 'online lap inference must not survive a pit teleport')
+  w = world(false, false, 0.2, 0.1)
+  w:step(0.2, 0.201, 0.101)
+  near(w.other.intervalSeconds, -600 / 90, 'behind estimate uses the trailing opponent speed')
+  assert(w.other.intervalSource == 'estimated')
+  w.sim.trackLengthM = nil
+  w:step(0.2, 0.202, 0.102)
+  assert(w.other.interval == '--', 'missing track length cannot create a speed estimate')
 end
 
 -- SDK timestamps, not render time, lap clocks, speeds or UI wall time.
@@ -115,16 +150,28 @@ do
 end
 
 do
+  local w = world(true, false, 0.495, 0.495)
+  w:step(0.2, 0.499, 0.503)
+  near(w.other.intervalSeconds, 0.1, 'silent SDK uses continuous position history')
+  w:step(0.2, 0.503, 0.507)
+  near(w.other.intervalSeconds, 0.2, 'silent SDK must retain measured position history')
+  assert(w.other.intervalSource == 'history')
+
+  -- Physics callbacks can arrive after an observation recorded the same gate.
+  w:fire(1, 50, 100.123456)
+  w:fire(0, 50, 100.234567)
+  w:step(0.2, 0.504, 0.508)
+  near(w.other.intervalSeconds, 0.111111, 'SDK timestamps replace observed crossings')
+  assert(w.other.intervalSource == 'sdk')
+end
+
+do
   local w = world(true)
-  w:step(0.5, 0.503, 0.504)
-  assert(w.other.interval == '--', 'SDK mode cannot invent missed callbacks')
-  w:fire(0, 51, 100.6)
-  w:fire(1, 52, 100.7)
-  w:step(0.5, 0.513, 0.524)
-  assert(w.other.interval == '--', 'different SDK gates cannot be paired')
-  w.other.progress = w.player.progress
-  w:step(0.1)
-  assert(w.other.interval == '--', 'equal progress alone is not a zero interval')
+  w:fire(0, 51, 100.1)
+  w:fire(1, 52, 100.2)
+  w:step(0.5, 0.499, 0.499)
+  assert(w.other.intervalSource == 'estimated', 'different SDK gates cannot be paired')
+  near(w.other.intervalSeconds, 0, 'equal progress has zero estimated separation')
 end
 
 do
@@ -136,19 +183,22 @@ do
   assert(w.state.cars[0].crossings[100] and w.state.cars[1].crossings[100])
 end
 
--- The fallback also requires observed, bracketed crossings; it never uses estimates.
+-- Missing history falls back to distance/speed; lap clocks do not seed gaps.
 do
   local w = world(false, false, 0.1, 0.2)
   w:step(0.2, 0.101, 0.201)
-  assert(w.other.interval == '--' and w.other.intervalSeconds == nil)
-  assert(w.other.intervalSource == nil, 'lap-clock and speed fields cannot seed a gap')
+  near(w.other.intervalSeconds, 600 / 55)
+  assert(w.other.intervalSource == 'estimated')
+  w.player.currentLapTimeMs, w.other.currentLapTimeMs = 1, 900000
+  w:step(0.2, 0.102, 0.202)
+  near(w.other.intervalSeconds, 600 / 55, 'unrelated lap clocks cannot seed a gap')
   observedPair(false)
   local partial = world(true, false, 0.495, 0.495, 10)
   assert(not partial.state.sdkActive and partial.disposed == 10)
   partial:step(0.2, 0.499, 0.503)
   partial:step(0.2, 0.503, 0.507)
-  near(partial.other.intervalSeconds, 0.125, 'SDK registration failure uses observed crossings')
-  assert(partial.other.intervalSource == 'observed')
+  near(partial.other.intervalSeconds, 0.2, 'SDK registration failure uses position history')
+  assert(partial.other.intervalSource == 'history')
 end
 
 -- Replay frame time is independent of both UI time and the live SDK epoch.
@@ -156,17 +206,17 @@ do
   local w = observedPair(true)
   assert(w.snapshot.timeline.clock == 'replay' and w.snapshot.timeline.time == 0.4)
   near(w.snapshot.timeline.sdkTime, 100.4)
-  assert(w.other.interval == '+0.1s')
+  assert(w.other.interval == '+0.2s')
   w.sim.isPaused, w.sim.replayPlaybackRate = true, 0
   w:step(0, nil, nil, {wallSeconds = 1000})
-  near(w.other.intervalSeconds, 0.125, 'paused replay retains crossing history')
+  near(w.other.intervalSeconds, 0.2, 'paused replay retains crossing history')
   w.sim.isPaused, w.sim.replayPlaybackRate = false, 4
   local generation = w.state.generation
   w:step(0.4, 0.511, 0.515)
   assert(w.state.generation == generation, 'accelerated replay is continuous')
   assert(w.other.intervalSeconds ~= nil)
   local behind = observedPair(true, true)
-  assert(behind.other.interval == '-0.1s')
+  assert(behind.other.interval == '-0.2s')
   observedPair(true, false, true)
   local sdkReplay = world(true, true)
   assert(sdkReplay.registered == 0, 'replay must not use live SDK callbacks')
@@ -290,4 +340,4 @@ do
 end
 
 print('Leaderboard intervals: SDK precision, shared crossings, replay interpolation, finish freeze, '
-  .. 'seeks, restarts, reconnects, disposal and no estimates passed')
+  .. 'seeks, restarts, reconnects, disposal, continuous history and speed fallback passed')

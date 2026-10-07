@@ -77,14 +77,17 @@ oscuro. Los ajustes existentes y las cinco filas iniciales se conservan.
   editar los valores de respaldo; `~` identifica referencias y stints estimados.
   **FROM OBSERVATION** indica que no se ha podido reconstruir el uso anterior.
 - **Leaderboard:** permite 3–10 filas. Práctica/clasificación muestran sectores,
-  mejor vuelta y gap; carrera muestra cambios de posición, intervalos medidos
-  respecto al jugador y última vuelta. Los sectores de validez desconocida quedan
+  mejor vuelta y gap; carrera muestra cambios de posición, intervalos respecto
+  al jugador y última vuelta. Prioriza tiempos de CSP e historial de posición;
+  si falta historial, estima por distancia y velocidad y lo indica con `~`.
+  Los sectores de validez desconocida quedan
   neutros. Las vueltas inválidas no actualizan récords de sectores.
   Las filas son compactas y no repiten etiquetas bajo los datos; los cambios de
   posición aparecen junto al puesto y se ocultan los ceros redundantes.
 - Las repeticiones reconstruyen el estado al cambiar de momento. No se añade
   un registro propio al archivo: algunos datos pueden faltar o ser aproximados,
-  y los intervalos quedan en `—` hasta observar cruces comparables.
+  Los intervalos reconstruyen su historial tras cada salto; las estimaciones
+  por distancia y velocidad se indican con `~`.
 
 ## Ajustes
 
