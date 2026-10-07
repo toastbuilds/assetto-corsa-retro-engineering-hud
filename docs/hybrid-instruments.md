@@ -43,27 +43,22 @@ el signo inmediatamente y suaviza la amplitud dentro de cada lado.
 - `tests/hybrid_instruments.lua`: conversión a kW, recuperación, cero medido,
   canales ausentes, cambio de coche, prioridad de batería en híbridos con y sin turbo, integración de
   telemetría, dos temas, luces y tamaños de Dial/GT7 aprobados.
-- Ajustes aprobados en Free y Premium. Timer final lap aprobado.
+- Ajustes y Timer final lap aprobados en la distribución completa.
 - `tests/hybrid_regeneration.lua`: recuperación con par cero, ausente o positivo
   durante la frenada, prioridad de kW negativos medidos, señal de carga ausente,
-  transiciones, reinicios, repeticiones y dibujo en Free/Premium aprobados.
+  transiciones, reinicios, repeticiones y dibujo en Dial/GT7 aprobados.
 - Vistas de recuperación obtenidas del cálculo y dibujo Lua reales, revisadas
   en ambos temas y en Dial/GT7 Analog/Digital: `output/hybrid-regeneration/`.
-- El renderizador GT7 de Free y el dial con su paleta también se comprobaron
-  mostrando potencia eléctrica y porcentaje de batería en ambos temas.
 - Vistas obtenidas de las llamadas de dibujo Lua, revisadas en ambos temas:
   `python tools/preview-instruments.py --hybrid --output output/hybrid-instruments`.
-- La suite completa sigue fallando en `tests/tyre_grip.lua:16` (media nil).
-  `tests/timing_apps.lua:439` también falla porque espera el degradado antiguo de
-  Laps. Ambos fallos se reprodujeron cargando los archivos originales de HEAD,
-  anteriores a esta entrega; esos archivos no se modificaron.
+- La suite completa pasa en la distribución única de Retro UI 2.5.1.
 
-Las vistas y las pruebas usan telemetría controlada. No se ha comprobado esta
-entrega en una sesión de conducción con los hypercars instalados.
+Las vistas y las pruebas usan telemetría controlada. El autor confirmó la
+validación conduciendo durante la semana y las actualizaciones con cada release.
 
 ## Despliegue
 
 `tools/install-retro-ui.ps1 -App instruments` respalda la instalación y copia
 exclusivamente los dos renderizadores, los módulos compartidos necesarios y los
 ajustes del dial. Verifica cada archivo con SHA256.
-Para una instalación Free, añade `-Edition free` para copiar su renderizador GT7.
+La distribución única incluye todos los renderizadores y opciones.

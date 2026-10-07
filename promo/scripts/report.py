@@ -43,7 +43,7 @@ def main():
     counts={t:sum(r['type']==t for r in entries) for t in ('PNG','GIF','MP4')}
     readme=f'''# Retro HUD — paquete promocional
 
-{counts['PNG']} PNG, {counts['GIF']} GIF y {counts['MP4']} MP4 generados ejecutando los componentes Lua actuales. Fondo uniforme #121416, vista frontal, sin cursor ni interfaz de desarrollo en los medios. No se ha modificado ningún archivo de producto: `source-audit.json` conserva los hashes de src/, ui/, modules/, free-edition/ y assets/.
+{counts['PNG']} PNG, {counts['GIF']} GIF y {counts['MP4']} MP4 generados ejecutando los componentes Lua actuales. Fondo uniforme #121416, vista frontal, sin cursor ni interfaz de desarrollo en los medios. No se ha modificado ningún archivo de producto: `source-audit.json` conserva los hashes de src/, ui/, modules/ y assets/.
 
 ## Imágenes recomendadas para la publicación
 
@@ -65,7 +65,7 @@ Para galerías que admitan video, preferir los MP4 homónimos. `videos/controls_
 | Carpeta / archivo | Contenido |
 |---|---|
 | INVENTORY.md | Inventario, opciones auditadas y checklist |
-| instruments/analog, digital | Dial, GT7 Premium y Free; velocidad/fuel, RPM/turbo/híbrido/AERO; Condition, Relative, Leaderboard, Map, Delta, Timer, Laps, Telemetry |
+| instruments/analog, digital | Dial, GT7 con todos sus presets; velocidad/fuel, RPM/turbo/híbrido/AERO; Condition, Relative, Leaderboard, Map, Delta, Timer, Laps, Telemetry |
 | instruments/variants | Composición GT7, radar, flags, pedales, estados, escalas y panel inferior |
 | instruments/comparisons | Mismos valores en Analog/Digital; modos mixtos |
 | instruments/transparent | RGBA del dial y GT7 con sus superficies semitransparentes originales |
@@ -119,7 +119,7 @@ Todos los PNG se abren/verifican; todos los GIF se decodifican frame por frame; 
 
 El antialiasing y el rasterizado de fuentes no son idénticos al backend de CSP: son renders offline del Lua original, no capturas certificadas dentro del juego. No hubo navegador conectado disponible para reproducirlos visualmente mediante esa herramienta; se incluye `review.html` para playback local y se revisaron secuencias decodificadas. Los instrumentos de conducción estabilizan el comienzo/final. Relojes, posiciones y trazas de historial requieren un reinicio al repetir; no se promete loop invisible en esas demos. La escala de turbo aprende el máximo observado y puede conservar una etiqueta distinta al final del primer ciclo: es el comportamiento real del HUD.
 
-Condition muestra referencias estimadas y stint observado cuando el mock no proporciona datos físicos de compuesto previos. `ISSUES.md` documenta el problema real observado de ABS en el dial digital y las limitaciones del backend. No se arregló el HUD para obtener capturas.
+Condition muestra referencias estimadas y stint observado cuando el mock no proporciona datos físicos de compuesto previos. `ISSUES.md` conserva la incidencia original de ABS, corregida en 2.5.1; su clip digital se regeneró después del arreglo. También documenta las limitaciones del backend.
 
 Para abrir la galería: `python -m http.server 8766 --bind 127.0.0.1 --directory promo`, y visitar `http://127.0.0.1:8766/review.html`.
 

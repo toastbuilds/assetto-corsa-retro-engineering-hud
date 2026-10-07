@@ -1,43 +1,17 @@
-# Retro UI 2.5 — verificación
+# Race instruments validation
 
-## Cambios comprobados
+## Author-confirmed game testing
 
-- Mapa: 72 escenarios de dibujo; numeración, vueltas completadas, colores,
-  coches ocultos/desconectados, pitlane, aro de cuatro ruedas y límites de ventana.
-- Neumáticos: unidades, lecturas ausentes, referencias reales/estimadas,
-  reposición del mismo compuesto, cruces de meta, reinicios, reconexiones,
-  distancia real, calibración del uso previo y saltos en repeticiones.
-- Condition: selector único para las cuatro ruedas; detalle por hover, Settings
-  y pitlane; cuenta atrás pausada con el juego; ambos temas y escalas.
-- Leaderboard: 3–10 filas, sectores de color sin tiempos numéricos, validez,
-  clases, balance y notificaciones, FIN, modos personales e intervalos medidos.
-- Se corrigió la carga del compuesto base y la conservación del punto inicial
-  de las curvas de grip, cubiertas por `tests/tyre_grip.lua`.
+The author confirmed on 2026-10-07 that Retro UI had been validated while driving throughout the release week and that updates had been tested with each previous release. This report accepts that validation as completed; it is not a claim that the agent drove the game.
 
-Las suites nuevas están registradas en `tools/test-lua.py`. La comprobación
-`npm run check:lua` incluye los módulos, ambas ediciones, pruebas y callbacks.
-Las previsualizaciones de Condition se generan con:
+## Automated verification
 
-```powershell
-python tools/preview-race-info.py
-```
+`npm run check:lua` checks runtime Lua, tests, require paths, 11 windows and 14 CSP callbacks. `python tools/test-lua.py` runs isolated Lua 5.2 regression suites for the single complete app.
 
-Utilizan el renderer Lua real y métricas de Consolas sobre dobles del SDK;
-no sustituyen la comprobación de telemetría y antialiasing dentro del juego.
+Coverage includes independent ABS/TC levels, zero and unavailable channels; leaderboard crossings, silent SDK fallback, continuous position history, estimated gaps, online finish crossings with a zero lap counter, pit/jump/reconnect resets and replay epochs; tyres, condition, map, hybrid power/recovery, illumination, layout geometry, settings migration and all instrument windows.
 
-## Resultado global
+`python tools/check-package.py dist/RetroUI-v2.5.1.zip` checks the exact runtime allowlist, required assets and modules, manifest/source fidelity, version, archive integrity and checksum. Concept art and stock footage do not ship.
 
-`npm run check:lua` y `python tools/test-lua.py` completan sin errores en
-Premium y Free. La validación incluye el sombreado final de Laps y el balance
-compacto de posiciones del Leaderboard.
+## Limits
 
-## Comprobación pendiente en Assetto Corsa
-
-- Conducir un stint, atravesar boxes y reponer el mismo compuesto.
-- Verificar datos de un coche oficial y un mod sin referencias físicas.
-- Comprobar práctica, clasificación y carrera online con cambios de posición.
-- Abrir una repetición y cambiar de momento; comprobar reconstrucción e
-  intervalos ausentes hasta disponer de cruces comparables.
-
-Las repeticiones no incorporan un registro adicional. Un stint anterior
-puede quedar aproximado o contar desde observación cuando faltan datos.
+Regression renderers use CSP test doubles and do not replace the real game's antialiasing or telemetry. Promotional UI clips use simulated inputs. Data availability remains car- and session-dependent; speed-based leaderboard estimates are marked `~`.

@@ -226,7 +226,7 @@ def sheet(items,path,columns=3,width=2560):
 
 def digest():
     return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
-        for d in ('src','ui','modules','free-edition','assets') for p in sorted((ROOT/d).rglob('*')) if p.is_file()}
+        for d in ('src','ui','modules','assets') for p in sorted((ROOT/d).rglob('*')) if p.is_file()}
 
 def save(image,path,records,**meta):
     path=OUT/path; path.parent.mkdir(parents=True,exist_ok=True); image.save(path)
@@ -263,7 +263,7 @@ def inventory():
         ('Laps','current + history','digital','progress, pit, faster / slower / invalid laps; row transition','laps_*'),
         ('Telemetry','auto / left / right; expanded / collapsed','digital graphs','throttle, brake, clutch, FFB, optional handbrake','telemetry_*'),
     ]
-    text='# Retro HUD — inventario y checklist\n\nAuditoría previa al render. Las casillas se completan después de ejecutar y validar los assets. Premium es la edición activa; Free tiene un GT7 Classic propio. No existen diales independientes de temperatura de motor, presión de aceite o voltaje: presión y temperatura corresponden a neumáticos; batería a híbridos. Assets conceptuales en assets/ no se publican como instrumentos.\n\n| Cobertura | Instrumento | Variante | Modos | Estados interesantes | Animado | Assets previstos |\n|---|---|---|---|---|---|---|\n'
+    text='# Retro HUD — inventario y checklist\n\nAuditoría previa al render. Las casillas se completan después de ejecutar y validar los assets. Retro UI incluye todas las funciones en una única distribución gratuita. No existen diales independientes de temperatura de motor, presión de aceite o voltaje: presión y temperatura corresponden a neumáticos; batería a híbridos. Assets conceptuales en assets/ no se publican como instrumentos.\n\n| Cobertura | Instrumento | Variante | Modos | Estados interesantes | Animado | Assets previstos |\n|---|---|---|---|---|---|---|\n'
     for name,var,mode,states,assets in rows: text+=f'| [ ] | {name} | {var} | {mode} | {states} | Sí | {assets} |\n'
     text+='\n## Agujas del catálogo real\n\n'
     for _,key in config['needleOrder'].items(): text+=f'- [ ] `{key}` — {config["needleNames"][key]}\n'
@@ -548,13 +548,6 @@ def extras():
         save(padded(p.draw('circuit',factor=3)),Path(f'instruments/digital/map_numbers_{numbers}.png'),records,instrument='Map',numbers=numbers)
     settings.backgroundMode='surface'; fixture(p,raceFlagType=2)
     save(padded(p.draw('circuit',factor=3)),Path('instruments/digital/map_caution.png'),records,instrument='Map',state='caution')
-    # Free uses its shipped Lua files, in an isolated runtime.
-    free=Harness(); fixture(free); free.lua.execute("package.loaded['src/gt7_retro_layout']=nil; package.loaded['src/theme']=nil; package.path='./free-edition/?.lua;'..package.path")
-    free_renderer=free.lua.execute((ROOT/'free-edition/ui/gt7_retro.lua').read_text(encoding='utf8'))
-    for mode in ('analog','digital'):
-        free.options.gt7SpeedNeedleMode=free.options.gt7RpmNeedleMode=mode; fixture(free)
-        free.rec['reset'](1440,500); free.h['drawRenderer'](free_renderer,free.state,free.options,to_lua(free.lua,(1440,500)))
-        save(padded(raster(free.rec['calls'](),(1440,500),3),800),Path(f'instruments/{mode}/gt7_free_classic.png'),records,instrument='GT7 Free',mode=mode)
     (OUT/'stills-manifest.json').write_text(json.dumps(records,indent=2),encoding='utf8')
 
 def motion(selected=None,manifest_name='motion-manifest.json'):

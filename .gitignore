@@ -18,3 +18,13 @@ __pycache__/
 /promo/*
 !/promo/README.md
 !/promo/scripts/
+!/promo/videos/
+!/promo/gifs/
+/promo/gifs/*
+!/promo/gifs/gt7_analog.gif
+!/promo/gifs/dial_digital.gif
+!/promo/gifs/controls_radar_flags.gif
+!/promo/gifs/map.gif
+!/promo/overview/
+/promo/overview/*
+!/promo/overview/all_instruments.png

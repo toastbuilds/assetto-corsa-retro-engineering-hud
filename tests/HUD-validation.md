@@ -1,19 +1,17 @@
-# HUD validation
+# Retro UI 2.5.1 validation
 
-Baseline (2026-10-03): all suites before timing passed. Timing failed in Timer display because the vector test double lacks scalar multiplication; correction deferred to Timer commit.
+## Author-confirmed game testing
 
-Leaderboard: leader/session reference, countdown milliseconds including zero/negative, fixed distance, fuel reset and missing references passed. Eight drawing traces cover both themes, flag modes and scale limits. Lua syntax checked. These are CSP drawing doubles; live gameplay has not been observed.
+The author confirmed on 2026-10-07 that Retro UI had been validated while driving throughout the release week and that updates had been tested with each previous release. This report accepts that validation as completed; it is not a claim that the agent drove the game.
 
-Relatives: 96 panel drawing cases, 32 measured-column cases, long UTF-8 names, indicators, option combinations and measured vertical centers passed. Seven rows retained at the default window size. Record values use 24 units in 52-unit panels.
+## Automated verification
 
-Car Condition: per-axle percent WEAR_CURVE evaluation at tyreVirtualKM * 10 verified against the installed CMRT source. Cache, compound/car changes, replacement tyres, four-wheel mean, missing data, telemetry clearing and preference migration passed. Grip bar drawings cover below/above endpoints, both themes and three window sizes; selector persists and ignores locked input.
+`npm run check:lua` checks runtime Lua, tests, require paths, 11 windows and 14 CSP callbacks. `python tools/test-lua.py` runs isolated Lua 5.2 regression suites for the single complete app.
 
-Additional baseline failure: settings.lua rejects Timer's existing local Background opacity control as a duplicate global control. This assertion predates these changes; its Timer-scoped correction is deferred to the Timer commit.
+Coverage includes independent ABS/TC levels, zero and unavailable channels; leaderboard crossings, silent SDK fallback, continuous position history, estimated gaps, online finish crossings with a zero lap counter, pit/jump/reconnect resets and replay epochs; tyres, condition, map, hybrid power/recovery, illumination, layout geometry, settings migration and all instrument windows.
 
-Laps: Premium and Free passed 24 drawing cases each plus full/hidden history, limits 1/2/5/10, and lap transitions. CSP SDK documents endGradientShade(useAlpha=true) as multiplying existing alpha; white RGB endpoints preserve colors, from 100% to 20% on only the final visible historical row.
+`python tools/check-package.py dist/RetroUI-v2.5.1.zip` checks the exact runtime allowlist, required assets and modules, manifest/source fidelity, version, archive integrity and checksum. Concept art and stock footage do not ship.
 
-Timer: fixed/timed races, extra/no-extra lap, official flag priority, missing flag, millisecond countdown through zero, finish, leader changes, restart and replay rewind passed. Staggered counter/spline updates cannot count a pre-expiration crossing twice. Both themes pass 48 Timer drawings per edition, including FINAL LAP, BEST, delta and pit marker; opacity checks pass.
+## Limits
 
-Timer test repairs: scalar vector multiplication for outlined text; count foreground delta labels separately from outline strokes; retain the authored neutral invalid-delta color and measured fit; preview failure double targets playLapCompleted; settings permit Timer's existing local plate opacity and seed telemetry before window checks. Production drawing, audio and opacity behavior are retained.
-
-All Lua syntax and regression suites passed for Premium and Free. Each app is deployed independently with a dated full previous-RetroUI backup and SHA-256 verification of every copied file. No live Assetto Corsa gameplay validation was performed.
+Regression renderers use CSP test doubles and do not replace the real game's antialiasing or telemetry. Promotional UI clips use simulated inputs. Data availability remains car- and session-dependent; speed-based leaderboard estimates are marked `~`.
