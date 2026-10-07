@@ -1,0 +1,79 @@
+SimHub engineering dashboard concept
+Tool: built-in image_gen
+Output: D:\.DEV\AC Hud\assets\simhub-engineering-retro-concept.png
+Native resolution: 1448 x 1086 (4:3)
+Inputs: the user's original SimHub screenshot and three viewed Retro UI HUD reference images.
+
+INITIAL GENERATION PROMPT
+
+Use case: ui-mockup.
+Create one finished, highly legible dashboard concept image for an existing SimHub engineering console. Output a full frontal flat UI screenshot, 4:3 landscape aspect ratio, target 1600 x 1200 pixels. Fill the frame with the complete console; opaque dark background. All panel edges and bottom indicators must be visible.
+
+REFERENCE ROLES:
+The oldest of the four supplied images is the user's original SimHub console screenshot: it is the authoritative reference for layout, all telemetry, labels, values and functional indicators.
+The other supplied images show the user's Retro UI HUD: use their premium analog automotive dial appearance, graphite surfaces, warm ivory numbers, restrained amber trim, cyan pedal segments, cut-corner instrument panels, fine concentric scale markings and softly illuminated needles as aesthetic references. The newest large HUD image contains a racetrack backdrop; DO NOT copy that backdrop. Render only the engineering console.
+
+GOAL:
+Restyle the SimHub console to match the current Retro UI HUD while visibly retaining EVERY indicator and data field. Preserve the compact original 4:3 organization: full-width session header, full-width setup strip, then three columns, left fuel strategy (29%), center tyres and brakes (40%), right chassis and pace (29%), with slender gutters. Improve readability and refinement, without adding new telemetry, deleting fields, collapsing duplicate fields, or inventing values.
+
+VISUAL SYSTEM:
+Near-black graphite #0B0907 background; instruments #15110D and #1A130E. Warm ivory #F2DBAE primary numbers; amber #FFC46B active accents; subdued brass #76542C hairline borders and ticks. Cyan #68B7D6 throttle; red #D84B3E brake and alerts; green #7EC86A optimal tyre states. A modern engineered retro instrument face, subtle raised rims, thin double frames, minimal cut corners, restrained warm backlight on numbers and needles. No excessive glow, heavy ornament, steampunk, orange wash or shiny plastic. Labels use compact precise uppercase utility typography; readings use crisp tabular monospaced figures resembling Consolas. Clear hierarchy and adequate space for every small label. Units appear smaller than numbers.
+
+COPY AND LAYOUT, render exactly:
+TOP SESSION STRIP, eight cells:
+"SESSION" / "RACE"
+"TIME LEFT" / "-02:11.86"
+"POSITION" / "5/5"
+"LAP" / "1/5"
+"TRACK" / "SPA"
+"AIR / TRACK" / "17° / 22°"
+"GRIP" / "--"
+"CAR" / "REN MP4-12C"
+
+Below it, a small centered tab reads "01 · ENGINEERING".
+SETUP STRIP: introductory cell "VEHICLE SETUP", then seven settings:
+"ABS" / "3"; "TC" / "3"; "TC CUT" / "--"; "DIFF" / "--"; "MAP" / "--"; "MGU-K" / "OFF"; "BRAKE BIAS" / "69.0".
+
+LEFT COLUMN: panel title "FUEL STRATEGY", small panel identifier "F-01".
+Large accurate analog fuel gauge: labels "FUEL", large numerical "30.0", unit "LITERS"; scale ticks and numbers "0", "25", "50", "75", "100"; needle visibly consistent with 30 liters on a 0-100 scale. Warm ivory illuminated needle, concentric graduations, cyan active fuel arc, small red reserve zone. Keep a separate small lower dial readout "MARGIN" / "-- L".
+Below gauge, six distinct metric tiles in two columns and three rows:
+"AVG / LAP" / "0.00" / "L"
+"LAPS LEFT" / "0.0"
+"LAST LAP" / "0.00" / "L"
+"TO FINISH" / "0.0" / "L"
+"REFUEL" / "-30.0" / "L"
+"MAX CAPACITY" / "110.0" / "L"
+Bottom full-width alert tile: "STRATEGY STATUS" with clearly visible red "CRITICAL".
+
+CENTER COLUMN: title "TYRES & BRAKES", identifier "T04".
+One compound row: "COMPOUND" and "SLICK MEDIUM (M)".
+Four complete individual tyre cards in a 2 x 2 matrix: FL top left, FR top right, RL bottom left, RR bottom right.
+EACH of the four cards must include ALL these separate fields, verbatim:
+corner code "FL", "FR", "RL" or "RR";
+"PRESS" above "24.6";
+"TEMP" above green "80°";
+"BRAKE" above "--°";
+"WEAR" above "92%";
+a separate horizontal tyre life gauge filled to 92%, green active segments over a subdued background, with endpoints "0" and "100" and label "TYRE LIFE";
+a separate lower state tile with "TYRE WINDOW" and green "OPTIMAL".
+Preserve BOTH the WEAR percentage and TYRE LIFE gauge, and BOTH temperature and brake temperature. Give all four tyres equal prominence and identical data structure. Do not substitute a decorative car silhouette for the cards.
+
+RIGHT COLUMN: title "CHASSIS & PACE", identifier "C07".
+At top left a smaller complete analog engine tachometer, labels "ENGINE RPM", numerical "1440", unit "REV / MIN". Correct needle around 1.44 on an x1000 RPM scale, fine concentric ticks and restrained redline.
+Next to it on the right, two distinct vertical segmented pedal meters labeled "THR" and "BRK": throttle meter cyan with value "0" (empty); brake meter red with value "100" (full).
+Below that, two side-by-side force tiles: "MAX LAT G" / "0.00" / "G" and "MAX LONG G" / "0.00" / "G".
+Next row: three separate angular telemetry tiles: "ROLL" / "1.4" / "°"; "PITCH" / "0.4" / "°"; "YAW" / "147.1" / "°".
+Next row: "LAST LAP" / "00:00.00" and "BEST LAP" / "00:00.00".
+Then a full-width timing tile "PREDICTED" / "00:00.00".
+At the very bottom preserve the thin full-width red outlined alert/status bar shown in the original screenshot, with no invented text.
+
+ACCEPTANCE:
+All headers, setup cells, fuel metrics, four tyre cards, tachometer, pedal meters, force and angle tiles, timing tiles and both lower alerts are complete, unobstructed and readable. Copy the supplied values literally, including placeholders and negative values. Consistent fine borders, carefully aligned baselines, physically credible gauge geometry. This should look like a polished usable SimHub dashboard screen in the same family as the user's HUD.
+No racetrack, car photography, hands, monitor frame, perspective, marketing captions, new logos, watermark, gibberish, cropped panels or extra control buttons.
+
+FINAL LOCALIZED REFINEMENT PROMPT
+
+Edit the supplied SimHub engineering dashboard image with ONE strictly localized correction: the vertical "THR" throttle meter in the upper-right panel currently has several faint cyan filled segments despite its numeric reading being "0". Make ALL interior segments of that THR meter uniformly inactive dark graphite, with zero colored fill and zero cyan illumination. Keep the cyan numeric "0" below it and the "THR" label above it unchanged. The THR meter should clearly communicate 0 percent, completely empty. Preserve its segmented geometry and fine frame.
+
+Leave the adjacent BRK meter bright red and completely full, with value "100". Preserve EVERYTHING ELSE exactly: every label, number, unit and placeholder; all eight header cells; every vehicle setting; both analog instruments and their needles; all six fuel metric tiles and the CRITICAL alert; all four FL/FR/RL/RR tyre cards and their complete fields; all G force, angle and lap time tiles; bottom alert bar; borders, typography, warm illumination, dimensions, 4:3 aspect and full dashboard framing. Do not add or remove anything, do not alter spelling, do not change any other colors or layout.
+
