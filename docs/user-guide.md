@@ -92,7 +92,7 @@ Close the game, disable Retro UI and remove `apps/lua/RetroUI`. Saved CSP prefer
 
 ## Support development
 
-All features remain free. Optional Ko-fi support will be available when the author's account is ready. Donations will not unlock layouts, settings or animations.
+All features remain free. You can optionally support development through [Ko-fi](https://ko-fi.com/R6R0MLVVS) or [PayPal](https://paypal.me/WendyGalvezSanchez). Donations will not unlock layouts, settings or animations.
 
 ## License
 

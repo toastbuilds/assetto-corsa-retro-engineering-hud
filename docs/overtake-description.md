@@ -38,6 +38,6 @@ Some readings depend on the car's telemetry. Estimates are identified with `~` o
 
 Promotional videos render the actual Lua UI with simulated inputs; they are not captured driving sessions. The author has validated the app while driving during the release week and tested previous release updates. Automated regressions and package checks cover 2.5.1.
 
-When reporting a problem, include CSP version, car, track/layout, session type, reproduction steps and a screenshot or clip. Optional Ko-fi support will be added once the account is ready; every feature remains free.
+When reporting a problem, include CSP version, car, track/layout, session type, reproduction steps and a screenshot or clip. You can optionally support development through [Ko-fi](https://ko-fi.com/R6R0MLVVS) or [PayPal](https://paypal.me/WendyGalvezSanchez); every feature remains free.
 
 MIT license. The download includes third-party notices.

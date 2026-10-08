@@ -48,4 +48,19 @@ Avoid including promotional media in the game ZIP. Selected GIFs and the origina
 
 ## Optional donations
 
-After creating the author's Ko-fi account, replace the empty mapping in `.github/FUNDING.yml` with `ko_fi: ACCOUNT_NAME` and add the verified account URL to the README and user guide. No donation is needed to enable any feature. GitHub configuration reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+Optional support links are [Ko-fi](https://ko-fi.com/R6R0MLVVS) and [PayPal](https://paypal.me/WendyGalvezSanchez). `.github/FUNDING.yml` configures Ko-fi and the custom PayPal link for GitHub's sponsor button. No donation is needed to enable any feature.
+
+The README uses Ko-fi's official GitHub image button:
+
+```markdown
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R6R0MLVVS)
+```
+
+For a website that supports JavaScript embeds, use the supplied widget with the same account and button colour:
+
+```html
+<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script>
+<script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'R6R0MLVVS');kofiwidget2.draw();</script>
+```
+
+GitHub configuration reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository

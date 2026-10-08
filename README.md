@@ -74,7 +74,11 @@ The author confirmed driving validation throughout the release week and successf
 
 Please include your CSP version, car/track, session type, steps to reproduce and a screenshot or clip when [reporting a bug](https://github.com/yukkine0704/assetto-corsa-retro-engineering-hud/issues).
 
-Retro UI remains free with all features included. Optional support through **Ko-fi** is planned; the donation link will be added when the account is ready.
+Retro UI remains free with all features included. Donations are optional and support development.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R6R0MLVVS)
+
+You can also [donate through PayPal](https://paypal.me/WendyGalvezSanchez).
 
 ## Development
 
