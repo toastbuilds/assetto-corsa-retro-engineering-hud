@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--size',type=int,default=620)
     parser.add_argument('--scale',type=float,default=1)
     parser.add_argument('--aux',choices=('turbo','fuel','electric','off'),default='turbo')
+    parser.add_argument('--lights-off',action='store_true')
     parser.add_argument('--alerts',action='store_true')
     parser.add_argument('--background-opacity',type=float,default=0.72)
     parser.add_argument('--app-root',type=Path,default=ROOT,
@@ -37,7 +38,7 @@ def main():
             rpmRedlineFraction=0.96,turboAvailable=True,turboBoost=0.7,turboDisplayMax=1.5,
             fuel=30,maxFuel=50,fuelNormalized=0.6,brake=0.32,throttle=0.72,clutch=0.2,
             steeringInput=-0.2,steeringAngle=-18,tcLevel=2,absLevel=3,tcSupported=True,
-            absSupported=True,lightsAvailable=True,headlights=True,highBeams=False,
+            absSupported=True,lightsAvailable=True,headlights=not args.lights_off,highBeams=False,
             tcActive=True,absActive=True,pitLimiter=False,pitLane=False,
             clock=0.05,leftIndicator=True,rightIndicator=True,hazardLights=True,
             raceFlagType=2 if args.alerts else 0,handbrake=1 if args.alerts else 0,

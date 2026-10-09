@@ -53,9 +53,9 @@ if ($App) {
   if ($App -eq 'condition') {
     $files += @('ui/car_condition.lua', 'src/condition_settings.lua', 'src/tyre_grip.lua')
   } elseif ($App -eq 'instruments') {
-    $files += @('src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',
+    $files += @('app.lua', 'src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',
       'ui/dial.lua', 'ui/side_instruments.lua', 'ui/gt7_retro.lua', 'src/settings.lua')
-    $files += @('src/dial_variants.lua', 'ui/analog_variants.lua', 'src/digital_dial_variants.lua', 'ui/digital_variants.lua')
+    $files += @('src/dial_variants.lua', 'ui/analog_variants.lua', 'src/digital_dial_variants.lua', 'ui/digital_variants.lua', 'src/dial_readout.lua')
     $files += Get-ChildItem -LiteralPath (Join-Path $project 'assets/dial_variants') -File -Filter '*.png' |
       ForEach-Object { $_.FullName.Substring($project.Length + 1) }
   } else {
@@ -69,7 +69,24 @@ if ($App) {
     Assert-ChildPath $project $source
     Assert-ChildPath $target $destination
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
-    Copy-Item -LiteralPath $source -Destination $destination -Force
+    try {
+      Copy-Item -LiteralPath $source -Destination $destination -Force
+    } catch {
+      if ($_.Exception.Message -notmatch 'user-mapped section') { throw }
+      # CSP can memory-map loaded PNGs. Keep its old file alive in the backup
+      # and put the replacement at the original path for the next app reload.
+      $mappedBackup = Join-Path $backup ('mapped-files/' + $file)
+      Assert-ChildPath $backup $mappedBackup
+      Assert-ChildPath $target $destination
+      New-Item -ItemType Directory -Path (Split-Path -Parent $mappedBackup) -Force | Out-Null
+      Move-Item -LiteralPath $destination -Destination $mappedBackup
+      try {
+        Copy-Item -LiteralPath $source -Destination $destination
+      } catch {
+        Move-Item -LiteralPath $mappedBackup -Destination $destination
+        throw
+      }
+    }
     if ((Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $destination).Hash) { throw "Installed file mismatch: $file" }
   }
   if ($App -eq 'instruments') {
