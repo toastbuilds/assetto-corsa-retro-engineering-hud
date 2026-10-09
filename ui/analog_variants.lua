@@ -1,3 +1,5 @@
+local Readout=require('src/dial_readout')
+local Light=require('ui/instrument_illumination')
 local Layouts = require('src/dial_variants')
 local Theme = require('src/theme')
 local General = require('src/general_settings')
@@ -5,6 +7,7 @@ local U = require('src/utils')
 local Config = require('src/instrument_config')
 local Needle = require('ui/instrument_needle')
 local Hybrid = require('src/hybrid')
+local Icons = require('ui/side_instruments')
 local M = {}
 -- CSP can expose the app root as __dirname inside required modules. Test both
 -- root and module contexts against a real asset instead of assuming ui/.
@@ -24,19 +27,6 @@ for id,layout in pairs(Layouts.layouts) do
   end
 end
 
-local variantPalettes = {}
-for _,theme in ipairs({'dark','light'}) do
-  local palette = {}
-  for role,color in pairs(Theme.get(theme)) do palette[role] = color end
-  if theme == 'dark' then
-    palette.primary = rgbm(0.96,0.955,0.90,1)
-    palette.secondary = rgbm(0.62,0.63,0.61,0.95)
-    palette.cyan = rgbm(0.19,0.80,0.91,1)
-    palette.amber = rgbm(1,0.72,0.12,1)
-    palette.green = rgbm(0.32,0.90,0.20,1)
-  end
-  variantPalettes[theme] = palette
-end
 local boldFont = 'Consolas;Weight=Bold'
 -- The concept's Classic hand has a broad ivory blade and a covered tail.
 -- Prepare its instrument-specific proportions once, preserving the catalog
@@ -50,29 +40,24 @@ classicHand = require('src/instrument_needle_geometry').build(classicHand)
 
 local function point(c, x, y) return c.origin + vec2(x*c.scale, y*c.scale) end
 local function text(c, value, size, x, y, color, backlight, bold)
+  value=Readout.value(value)
+  if not value then return end
   if bold then ui.pushDWriteFont(boldFont) end
-  size = size*c.scale
-  local p = point(c,x,y) - ui.measureDWriteText(tostring(value),size)/2
-  if backlight and c.state.headlights then
-    local glow = Theme.withAlpha(c.colors.backlight,0.18)
-    ui.dwriteDrawText(tostring(value),size,p+vec2(-c.scale,0),glow)
-    ui.dwriteDrawText(tostring(value),size,p+vec2(c.scale,0),glow)
-  end
-  ui.dwriteDrawText(tostring(value),size,p,color or c.colors.primary)
+  local ink=color or c.colors.primary
+  local style=backlight and not c.statusDrawing and ink~=c.colors.red and (size>=30 and c.L.value or c.L.label) or nil
+  Light.text(tostring(value),size*c.scale,point(c,x,y),ink,nil,style,c.scale)
   if bold then ui.popDWriteFont() end
 end
 local function line(c,x1,y1,x2,y2,color,width)
-  ui.drawLine(point(c,x1,y1),point(c,x2,y2),color,(width or 1)*c.scale)
+  Light.line(point(c,x1,y1),point(c,x2,y2),color,(width or 1)*c.scale,not c.statusDrawing and ((width or 1)>=2 and c.L.major or c.L.minor) or nil,c.scale)
 end
 local function arc(c,x,y,r,a,b,color,width)
   ui.pathClear()
-  ui.pathArcTo(point(c,x,y),r*c.scale,math.rad(a),math.rad(b),32)
+  ui.pathArcTo(point(c,x,y),r*c.scale,math.rad(math.min(a,b)),math.rad(math.max(a,b)),32)
   ui.pathStroke(color,false,width*c.scale)
 end
 local function polygon(c,points,color)
-  ui.pathClear()
-  for _,p in ipairs(points) do ui.pathLineTo(point(c,p[1],p[2])) end
-  ui.pathFillConvex(color)
+  Light.segment(c.origin,c.scale,points,color,c.L.segment)
 end
 local function pulse(state, enabled, period)
   return enabled == false or math.floor((state.clock or 0)/period)%2 == 0
@@ -163,7 +148,7 @@ local function drawNeedle(c)
   local preset=style=='a01' and classicHand or Config.needlePreset(style)
   Needle.draw(point(c,r[1],r[2]),c.scale*(r[3]-40)/preset.length,
     l.startAngle+(l.endAngle-l.startAngle)*U.clamp(s.analogNeedleNormalized or 0,0,1),
-    preset,C,s.headlights and 1 or 0,s.rpmWarning and rpmColor(c) or nil)
+    preset,C,c.L.light,s.rpmWarning and rpmColor(c) or nil)
 end
 
 local function bar(c,x,y,w,h,fraction,color,signed)
@@ -177,28 +162,53 @@ local function bar(c,x,y,w,h,fraction,color,signed)
       else active=i<=math.floor(U.clamp(fraction,0,1)*count+0.5) end
     end
     local x1=x+(i-1)*w/count
-    ui.drawRectFilled(point(c,x1,y),point(c,x1+w/count-2,y+h),active and color or c.colors.inactive)
+    ui.drawRectFilled(point(c,x1,y),point(c,x1+w/count-2,y+h),active and Light.color(color,c.L.subSegment) or c.colors.inactive)
   end
   if signed then line(c,x+w/2,y-2,x+w/2,y+h+2,c.colors.secondary,1) end
 end
 local function auxColor(c,a)
   if a.electric then return (a.recovery or (a.fraction or 0)<0) and c.colors.green or c.colors.cyan end
-  if a.label=='FUEL' then return (a.fraction or 1)<0.15 and c.colors.red or c.colors.primary end
+  if a.label=='FUEL' then return Readout.fuelColor(a.fraction,c.state,c.colors,c.colors.primary) end
   return a.label=='AERO' and (a.fraction or 0)>=0.82 and c.colors.amber or c.colors.cyan
 end
 local function drawAuxiliary(c)
   local a=M.auxiliary(c.state,c.settings.analogAuxiliaryMode)
+  if c.layout.pairedAux then
+    local function channel(a,start,finish,iconX,iconY,radius)
+      if not a then return end
+      local ink=auxColor(c,a)
+      for i=1,18 do
+        local fraction=a.fraction
+        local signed=(i-0.5)/18*2-1
+        local active=fraction and (a.electric
+          and ((signed>0 and fraction>0 and signed<=fraction) or (signed<0 and fraction<0 and signed>=fraction))
+          or (not a.electric and i<=math.floor(U.clamp(fraction,0,1)*18+0.5)))
+        local span=(finish-start)/18
+        arc(c,310,304,radius or 199,start+(i-0.87)*span,start+(i-0.13)*span,
+          active and Light.color(ink,c.L.subSegment) or c.colors.inactive,14)
+      end
+      local p=point(c,iconX,iconY)
+      local icon=a.label=='FUEL' and Icons.fuelIcon or a.label=='AERO' and Icons.aeroIcon or Icons.boostIcon
+      if a.electric then
+        ui.drawRect(p-vec2(9,5)*c.scale,p+vec2(9,5)*c.scale,Light.color(ink,c.L.icon),0,nil,1.5*c.scale)
+        line(c,iconX+11,iconY-2,iconX+11,iconY+2,ink,2)
+      else icon(p,c.scale*0.75,Light.color(ink,c.L.icon)) end
+    end
+    if a and a.label=='FUEL' then a=M.auxiliary(c.state,'turbo') end
+    channel(a,62,118,415,461,178)
+    channel(M.auxiliary(c.state,'fuel'),-118,-62,423,142,185)
+    return
+  end
   if not a then return end
   local p,C=c.layout.aux,c.colors
   local color=auxColor(c,a)
   if c.layout.auxStyle=='screen' then
     local x,y,w,h=p[1],p[2],p[3],p[4]
-    text(c,a.label,13,x,y-h/2+10,C.primary,true)
-    text(c,a.value,17,x,y-h/2+30,color,true,true)
-    bar(c,x-w/2+5,y-2,w-10,22,a.fraction,color,a.electric)
+    text(c,a.value,17,x,y-15,color,true,true)
+    bar(c,x-w/2+5,y+4,w-10,22,a.fraction,color,a.electric)
     if a.electric then
-      bar(c,x-w/2+5,y+25,w-48,7,a.charge,a.charge and a.charge<=0.15 and C.red or C.green)
-      text(c,a.charge and string.format('%.0f%%',a.charge*100) or '--%',10,x+w/2-17,y+29,C.primary)
+      bar(c,x-w/2+5,y+30,w-48,7,a.charge,a.charge and a.charge<=0.15 and C.red or C.green)
+      text(c,a.charge and string.format('%.0f%%',a.charge*100) or '--%',10,x+w/2-17,y+33,C.primary)
     end
   else
     local dial=c.layout.auxStyle=='dial'
@@ -279,11 +289,28 @@ local function drawControls(c)
     text(c,'CL',8,p[1]-p[3]/2-11,p[2],C.secondary)
   end
   if c.settings.showSteering~=false then
+    if l.steeringRing then
+      local p=l.steeringRing
+      local angle=-90+U.clamp(s.steeringInput or 0,-1,1)*145
+      arc(c,p[1],p[2],p[3],0,360,C.outlineDim,4)
+      arc(c,p[1],p[2],p[3],angle-7,angle+7,Light.color(C.cyan,c.L.icon),5)
+      return
+    end
     local p=l.steering
     line(c,p[1]-p[3],p[2],p[1]+p[3],p[2],C.outline,2)
-    line(c,p[1],p[2]-5,p[1],p[2]+5,C.primary,1)
-    ui.drawCircleFilled(point(c,p[1]+U.clamp(s.steeringInput or 0,-1,1)*p[3],p[2]),3*c.scale,C.cyan,16)
-    text(c,s.steeringAngle and string.format('%+d°',U.round(s.steeringAngle)) or 'INPUT',9,p[1],p[2]+14,C.secondary)
+    if l.graduatedSteering then
+      for i=-10,10 do
+        local x=p[1]+p[3]*i/10
+        local height=i==0 and 8 or i%5==0 and 6 or 3
+        line(c,x,p[2]-height,x,p[2]+height,i==0 and C.primary or C.secondary,i==0 and 2 or 1)
+      end
+      local x=p[1]+U.clamp(s.steeringInput or 0,-1,1)*p[3]
+      line(c,x,p[2]-10,x,p[2]+10,C.cyan,3)
+    else
+      line(c,p[1],p[2]-5,p[1],p[2]+5,C.primary,1)
+      ui.drawCircleFilled(point(c,p[1]+U.clamp(s.steeringInput or 0,-1,1)*p[3],p[2]),3*c.scale,C.cyan,16)
+      text(c,s.steeringAngle and string.format('%+d°',U.round(s.steeringAngle)) or 'INPUT',9,p[1],p[2]+14,C.secondary)
+    end
   end
 end
 
@@ -298,17 +325,6 @@ local function status(c,position,label,level,available,active,color)
   text(c,label,label=='ABS' and 12 or 14,x,y-(levels and 7 or 0),ink,active)
   if levels then text(c,level~=nil and tostring(level) or '—',12,x,y+10,ink) end
 end
-local function turn(c,position,right,active)
-  local x,y=position[1],position[2]
-  local color=active and c.colors.green or c.colors.outlineDim
-  -- Two convex pieces: CSP cannot fill the concave outline of a whole arrow.
-  ui.drawRectFilled(point(c,x-9,y-5),point(c,x+7,y+5),color)
-  if right then
-    polygon(c,{{x+2,y-13},{x+17,y},{x+2,y+13}},color)
-  else
-    polygon(c,{{x-2,y-13},{x-2,y+13},{x-17,y}},color)
-  end
-end
 local function drawStatuses(c)
   local s,l,C=c.state,c.layout,c.colors
   status(c,l.statuses[1],'TC',s.tcLevel,s.tcSupported or s.tcLevel~=nil,s.tcActive==true,C.amber)
@@ -322,12 +338,6 @@ local function drawStatuses(c)
     for j=-1,1 do line(c,p[1]-13,p[2]+j*5,p[1]-5,p[2]+j*4,ink,1) end
   end
   status(c,l.statuses[4],'PIT',nil,s.pitLimiter~=nil or s.pitLane,s.pitLimiter==true or s.pitLane,C.amber)
-  local phase=s.indicatorPhase
-  local blink=c.settings.animateIndicators==false or (type(phase)=='boolean' and phase)
-    or (type(phase)=='number' and phase>0.5)
-    or (phase==nil and pulse(s,true,0.42))
-  turn(c,l.turns[1],false,(s.leftIndicator or s.hazardLights) and blink)
-  turn(c,l.turns[2],true,(s.rightIndicator or s.hazardLights) and blink)
   local p=l.warning
   local color=(s.handbrake or 0)>0.9 and C.red or C.outlineDim
   line(c,p[1],p[2]-18,p[1]+18,p[2]+14,color,3)
@@ -348,7 +358,8 @@ function M.draw(state,settings,origin,scale)
   local layout=Layouts.get(settings.analogVariant)
   if not layout then return false end
   local c={layout=layout,state=state,settings=settings,origin=origin,scale=scale,
-    colors=General.palette(variantPalettes[settings.theme=='light' and 'light' or 'dark'],settings.backgroundOpacity)}
+    colors=General.palette(Theme.get(settings.theme),settings.backgroundOpacity)}
+  c.L=Light.resolve(c.colors,settings.theme,state.gt7Instruments and state.gt7Instruments.light or (state.headlights and 1 or 0))
   local images=imagesByVariant[layout.id][settings.theme=='light' and 'light' or 'dark']
   local tint=rgbm(1,1,1,U.clamp((settings.backgroundOpacity or 0.72)/0.72,0,1))
   local finish=point(c,620,620)
@@ -356,35 +367,40 @@ function M.draw(state,settings,origin,scale)
   -- texture loading can never leave the instrument floating without a face.
   local center=point(c,310,304)
   if layout.id=='concentric' then
-    -- Leave the center opening genuinely transparent, even before PNG loading.
-    arc(c,310,304,234,0,360,c.colors.surface,116)
+    ui.drawCircleFilled(center,176*scale,Theme.withAlpha(Theme.get(settings.theme).surface,0.10),96)
+    arc(c,310,304,221,0,360,c.colors.surface,90)
   else
-    ui.drawCircleFilled(center,292*scale,c.colors.void,96)
-    ui.drawCircleFilled(center,268*scale,c.colors.surface,96)
+    ui.drawCircleFilled(center,266*scale,c.colors.void,96)
+    ui.drawCircleFilled(center,266*scale,c.colors.surface,96)
   end
-  ui.drawCircle(center,290*scale,c.colors.metal,96,3*scale)
-  ui.drawCircle(center,279*scale,c.colors.metalDim,96,4*scale)
-  ui.drawCircle(center,268*scale,c.colors.outlineDim,96,2*scale)
   ui.drawImage(images.back,origin,finish,tint)
   drawRpm(c)
-  if layout.id~='shelf' and layout.id~='fan' then drawNeedle(c) end
+  if layout.id=='concentric' then
+    drawControls(c)
+    drawNeedle(c)
+  end
   if layout.id=='concentric' then
     -- Opaque center masks the hand regardless of shell opacity.
-    ui.drawCircleFilled(point(c,310,334),99*scale,
-      settings.theme=='light' and rgbm(0.925,0.925,0.92,1) or rgbm(0.04,0.04,0.035,1),96)
+    local p=layout.core
+    ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,
+      Theme.withAlpha(Theme.get(settings.theme).panel,1),96)
   end
   ui.drawImage(images.front,origin,finish,tint)
   local speed,gear=layout.speed,layout.gear
   text(c,state.speedText or '000',speed[3],speed[1],speed[2],c.colors.primary,true,true)
   text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+9,c.colors.primary,true)
   text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true)
-  local p=layout.rpmValue
-  text(c,'RPM ×1000',13,p[1],p[2]-22,c.colors.primary,true)
-  text(c,state.rpmText or '0000',15,p[1],p[2],rpmColor(c),true)
+  if not layout.hideRpmValue then
+    local p=layout.rpmValue
+    text(c,'RPM ×1000',13,p[1],p[2]-22,c.colors.primary,true)
+    text(c,state.rpmText or '0000',15,p[1],p[2],rpmColor(c),true)
+  end
   drawAuxiliary(c)
-  drawControls(c)
+  if layout.id~='concentric' then drawControls(c) end
+  c.statusDrawing=true
   drawStatuses(c)
-  if layout.id=='shelf' or layout.id=='fan' then drawNeedle(c) end
+  c.statusDrawing=false
+  if layout.id~='concentric' then drawNeedle(c) end
   return true
 end
 return M

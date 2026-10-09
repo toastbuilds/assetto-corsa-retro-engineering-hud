@@ -42,7 +42,8 @@ for id,layout in pairs(Layouts.layouts) do
         for _,mode in ipairs({'auto','turbo','fuel','electric','off'}) do
           local calls=h.drawDial({analogVariant=id,theme=theme,analogAuxiliaryMode=mode,
             hudScale=window[1]==340 and 0.55 or 1.15},state,window)
-          assert(contains(calls,'139') and contains(calls,'R') and contains(calls,'5200'))
+          assert(contains(calls,'139') and contains(calls,'R'))
+          assert(contains(calls,'5200') == (id~='concentric'))
           assert(contains(calls,'0') and contains(calls,'3'),'independent TC/ABS levels include zero')
           local images=0
           for _,call in ipairs(calls) do
@@ -66,34 +67,36 @@ for id,layout in pairs(Layouts.layouts) do
     if call.kind=='image' then assert(call.color.mult==0,'background opacity can hide shell completely') end
   end
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
-  assert(contains(calls,'TURBO') and contains(calls,'0.70 BAR'))
+  assert(not contains(calls,'TURBO'))
+  if id=='concentric' then assert(not contains(calls,'0.70'))
+  else assert(contains(calls,'0.70 BAR')) end
   local flagDrawn,rpmAlert=false,false
   local palette=require('src/theme').get('dark')
   for _,call in ipairs(calls) do
     flagDrawn=flagDrawn or (call.kind=='rect_fill' and call.color==palette.flagYellow)
     rpmAlert=rpmAlert or (call.kind=='text' and call.text=='5200' and call.color==palette.red)
   end
-  assert(flagDrawn and rpmAlert and contains(calls,'!'),'flag, RPM and handbrake coexist')
+  assert(flagDrawn and (rpmAlert or id=='concentric') and contains(calls,'!'),'flag, RPM and handbrake coexist')
   for _,style in ipairs(require('src/instrument_config').needleOrder) do
     h.drawDial({analogVariant=id,analogNeedleStyle=style},state)
   end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,maximumKw=150,recoveryKw=100}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='auto'},state)
-  assert(contains(calls,'ERS') and contains(calls,'-38 kW'),'hybrid auto mode includes recovery')
+  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,'-38 kW')),'hybrid auto mode includes recovery')
   state.hybrid={charge=nil,delivery=0.4,needle=0.4}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(contains(calls,'ERS 40%'),'delivery fallback must not fabricate kW')
+  assert(id=='concentric' or contains(calls,'40%'),'delivery fallback must not fabricate kW')
   state.hybrid={charge=0.4,batteryRecovery=true,chargeRecoveryRate=0.3,needle=-0.2}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(contains(calls,'-0.3%/s'),'battery recovery retains its units')
+  assert(id=='concentric' or contains(calls,'-0.3%/s'),'battery recovery retains its units')
   state.hybrid=nil
   state.turboAvailable=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
-  assert(contains(calls,'AERO'),'Turbo on an atmospheric car retains AERO')
+  assert(not contains(calls,'AERO') and Renderer.auxiliary(state,'turbo').label=='AERO','atmospheric cars retain the AERO channel without its caption')
   state.turboAvailable=true
   state.available=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
-  assert(contains(calls,'N/A'),'disconnected telemetry must not show measured boost')
+  assert(contains(calls,'N/A') == (id~='concentric'),'disconnected telemetry must not show measured boost')
   state.available=true
 end
 assert(Renderer.auxiliary(state,'off')==nil)

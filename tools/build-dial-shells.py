@@ -20,16 +20,22 @@ R = np.hypot(X - 310, Y - 304)
 NOISE = np.random.default_rng(615).normal(0, 0.6, (SIZE, SIZE))
 
 
+# Resolve the same semantic palette as the runtime, without CSP dependencies.
+paletteLua=LuaRuntime()
+paletteLua.execute("package.path = '"+ROOT.as_posix()+"/?.lua;' .. package.path; rgbm=function(r,g,b,a) return {r=r,g=g,b=b,mult=a} end; package.loaded['src/general_settings']={}")
+THEME=paletteLua.execute("return require('src/theme')")
+
+def ink(light,role):
+    c=THEME['get']('light' if light else 'dark')[role]
+    return tuple(round(c[k]*255) for k in ('r','g','b'))+(255,)
+
 def material(light=False, metal=False, screen=False):
-    shade = (218 if light else 24) + (304-Y) * (0.025 if light else 0.015)
-    shade = shade + 8*np.exp(-((X-230)**2+(Y-125)**2)/40000) + NOISE
-    if screen:
-        shade = (236 if light else 10) + NOISE * 0.3
+    base=np.array(ink(light,'metal' if metal else 'panel' if screen else 'surface')[:3])
+    relief=NOISE*0.3 if screen else NOISE+(304-Y)*0.012
     if metal:
-        shade = (170 if light else 48) + 22*np.sin((X+Y)/200) + 11*np.cos(R/3)
-        shade = shade + np.sin(Y*6)*1.6 + NOISE
-    rgb = np.stack((shade+1, shade+1, shade), axis=2)
-    return Image.fromarray(np.uint8(np.clip(rgb, 0, 255)), 'RGB').convert('RGBA')
+        relief=relief+8*np.sin((X+Y)/200)+4*np.cos(R/3)
+    rgb=base[None,None,:]+relief[:,:,None]
+    return Image.fromarray(np.uint8(np.clip(rgb,0,255)), 'RGB').convert('RGBA')
 
 
 def mask(shape, data):
@@ -57,11 +63,11 @@ def surface(canvas, m, texture, light, bevel=True):
     canvas.alpha_composite(tile)
     if bevel:
         edge = ImageChops.subtract(m, m.filter(ImageFilter.MinFilter(9)))
-        tint = Image.new('RGBA', canvas.size, (145, 145, 140, 255) if light else (65, 66, 63, 255))
+        tint = Image.new('RGBA', canvas.size, ink(light,'metal'))
         tint.putalpha(edge)
         canvas.alpha_composite(tint)
         edge = ImageChops.subtract(m, m.filter(ImageFilter.MinFilter(3)))
-        tint = Image.new('RGBA', canvas.size, (92, 94, 91, 255) if light else (5, 6, 5, 255))
+        tint = Image.new('RGBA', canvas.size, ink(light,'outlineDim'))
         tint.putalpha(edge)
         canvas.alpha_composite(tint)
 
@@ -77,7 +83,7 @@ def panel(canvas, points, textures, light):
 
 def screen(canvas, x, y, w, h, textures, light, gear=False):
     surface(canvas,mask('round',(x,y,w,h,13)),textures['screen'],light)
-    color = (174,120,36,255) if light else (217,168,62,255)
+    color = ink(light,'amber')
     if gear:
         ImageDraw.Draw(canvas).rounded_rectangle(tuple(round(v*SCALE) for v in (x-w/2+2,y-h/2+2,x+w/2-2,y+h/2-2)),
                                                 radius=11*SCALE,outline=color,width=2)
@@ -86,13 +92,9 @@ def screen(canvas, x, y, w, h, textures, light, gear=False):
 def shells(layout, light):
     textures = {name: material(light,metal=name=='metal',screen=name=='screen') for name in ('face','metal','screen')}
     back = Image.new('RGBA',(SIZE,SIZE))
-    outer = mask('circle',(310,304,292))
+    outer = mask('circle',(310,304,266))
     surface(back,outer,textures['metal'],light,False)
     surface(back,mask('circle',(310,304,268)),textures['face'],light)
-    for radius,color,width in ((290,(9,10,9,255),3),(285,(126,129,124,255),1),
-                               (279,(11,13,11,255),5),(273,(98,102,96,255),1),
-                               (266,(6,7,6,255),3),(261,(61,64,59,255),1)):
-        circle(back,310,304,radius,color,width)
     # Subtle brushed highlights remain texture; RPM bands are runtime geometry.
     r=layout['rpm']
     if layout['id'] in ('fan','spoke'):
@@ -110,14 +112,14 @@ def shells(layout, light):
         # This opening shows the game scene, not a painted silver ring.
         back.putalpha(ImageChops.subtract(back.getchannel('A'),mask('circle',(310,304,176))))
     if layout['id']=='shelf':
-        ink=(167,169,161,255) if light else (56,59,54,255)
+        circleInk=ink(light,'outlineDim')
         for radius in (165,160,83):
-            circle(back,r[1],r[2],radius,ink,1)
+            circle(back,r[1],r[2],radius,circleInk,1)
     if layout['id']=='spoke':
         surface(back,mask('circle',(310,300,60)),textures['metal'],light)
         surface(back,mask('circle',(310,300,49)),textures['screen'],light)
-        circle(back,310,300,58,(110,113,104,255),2)
-        circle(back,310,300,47,(72,75,68,255),1)
+        circle(back,310,300,58,ink(light,'metal'),2)
+        circle(back,310,300,47,ink(light,'outlineDim'),1)
 
     front=Image.new('RGBA',(SIZE,SIZE))
     name=layout['id']
@@ -126,9 +128,11 @@ def shells(layout, light):
     elif name=='fan':
         panel(front,[(409,350),(565,351),(552,439),(522,483),(415,479),(397,405)],textures,light)
     elif name=='concentric':
-        surface(front,mask('circle',(310,334,99)),textures['screen'],light)
-        circle(front,310,334,99,(67,70,64,255),3)
-        circle(front,310,334,90,(88,89,80,255),1)
+        core=layout['core']
+        cx,cy,rr=core[1],core[2],core[3]
+        surface(front,mask('circle',(cx,cy,rr)),textures['screen'],light)
+        circle(front,cx,cy,rr,ink(light,'outline'),3)
+        circle(front,cx,cy,rr-9,ink(light,'outlineDim'),1)
     elif name=='spoke':
         # Recessed perforated side panels, bounded by the spokes.
         for points in ([(81,418),(199,432),(225,512),(177,546),(122,523)],
@@ -140,7 +144,7 @@ def shells(layout, light):
                 for xx in range(75,550,8):
                     x=(xx+(4 if yy%16 else 0))*SCALE
                     y=yy*SCALE
-                    d.ellipse((x-2,y-2,x+2,y+2),fill=(8,9,8,255) if not light else (120,123,118,255))
+                    d.ellipse((x-2,y-2,x+2,y+2),fill=ink(light,'void'))
             surface(front,m,tile,light)
         panel(front,[(273,520),(347,520),(365,579),(255,579)],textures,light)
         # The central hub stays dynamic, above the static foreground spokes.
