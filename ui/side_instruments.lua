@@ -6,6 +6,7 @@ local Light = require('ui/instrument_illumination')
 local U = require('src/utils')
 local Hybrid = require('src/hybrid')
 local HybridGauge = require('ui/hybrid_gauge')
+local Layout = require('src/gt7_retro_layout')
 local M = {}
 local D, S = Config.dial, Config.sub
 
@@ -276,6 +277,11 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
     or U.clamp((state.speedValue or 0) / maximum, 0, 1)
   local redline = U.clamp((state.rpmDisplayLimiter or 8000) * (state.rpmRedlineFraction or 0.96)
     / math.max(state.rpmGaugeLimiter or 8000, 1), 0, 1)
+  local redlineColor = C.red
+  if rpm and state.rpmRedline and settings.animateRedlineAlert ~= false
+      and math.floor((state.clock or 0) / Layout.redlineBlinkPeriod) % 2 ~= 0 then
+    redlineColor = C.amber
+  end
   if digital < 1 then
     ui.pushStyleVarAlpha(1 - digital)
     if rpm then
@@ -288,8 +294,9 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
         redlineKey = key
       end
       for _, block in ipairs(redlineGeometry) do
-        Light.segment(center, scale, block, fraction >= redline and C.red or C.redDim,
-          fraction >= redline and L.segment or L.printedWarning)
+        local active = state.rpmRedline or fraction >= redline
+        Light.segment(center, scale, block, active and redlineColor or C.redDim,
+          active and L.segment or L.printedWarning)
       end
     end
     for _, tick in ipairs(geometry.ticks) do
@@ -345,7 +352,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
       center + vec2(0, -33 * scale), C.secondary, nil, L.label, scale)
     local needleFraction = rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local style = rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
-    local tint = rpm and (state.rpmRedline and C.red or (state.rpmWarning and C.amber or nil)) or nil
+    local tint = rpm and (state.rpmRedline and redlineColor or (state.rpmWarning and C.amber or nil)) or nil
     Needle.draw(center, scale, layout.gaugeStart + (layout.gaugeEnd - layout.gaugeStart)
       * U.clamp(needleFraction or fraction, 0, 1), Config.needlePreset(style), C, light, tint, L)
     ui.popStyleVar(1)
