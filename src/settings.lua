@@ -3,6 +3,7 @@ local SettingsUI = require('src/settings_ui')
 local InstrumentConfig = require('src/instrument_config')
 local GeneralSettings = require('src/general_settings')
 local DialVariants = require('src/dial_variants')
+local DigitalVariants = require('src/digital_dial_variants')
 
 M.lastChange = 'Ready'
 
@@ -18,6 +19,7 @@ M.values = ac.storage({
   sharedUnitsVersion = 0,
   instrumentMode = 'digital',
   analogVariant = 'original',
+  digitalVariant = 'original',
   theme = 'dark',
   analogAuxiliaryMode = 'auto',
   analogNeedleStyle = 'a01',
@@ -110,6 +112,7 @@ end
 if (M.values.layoutVersion or 1) < 9 then M.values.layoutVersion = 9 end
 
 M.values.analogVariant = DialVariants.normalize(M.values.analogVariant)
+M.values.digitalVariant = DigitalVariants.normalize(M.values.digitalVariant)
 if (M.values.layoutVersion or 1) < 10 then M.values.layoutVersion = 10 end
 
 if M.values.gt7RadarStyle ~= 'arcs' then M.values.gt7RadarStyle = 'lights' end
@@ -131,6 +134,7 @@ end
 
 local function resetVisualSettings()
   M.values.analogVariant = 'original'
+  M.values.digitalVariant = 'original'
   M.values.analogNeedleStyle = 'a01'
   M.values.hudScale = 0.72
   M.lastChange = 'Visual settings reset'
@@ -144,8 +148,10 @@ local instrumentModes = {
 function M.current()
   local variant = DialVariants.normalize(M.values.analogVariant)
   if M.values.analogVariant ~= variant then M.values.analogVariant = variant end
+  local digital = DigitalVariants.normalize(M.values.digitalVariant)
+  if M.values.digitalVariant ~= digital then M.values.digitalVariant = digital end
   local values = {}
-  for _, key in ipairs({'hudScale', 'instrumentMode', 'analogVariant', 'analogAuxiliaryMode', 'analogNeedleStyle',
+  for _, key in ipairs({'hudScale', 'instrumentMode', 'analogVariant', 'digitalVariant', 'analogAuxiliaryMode', 'analogNeedleStyle',
       'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'debug'}) do
     values[key] = M.values[key]
   end
@@ -161,12 +167,17 @@ function M.draw()
     if M.values.instrumentMode == 'analog' then
       SettingsUI.choice('dial', 'variant', 'Variant', M.values.analogVariant,
         DialVariants.choices, function(value) M.values.analogVariant = value end)
+    else
+      SettingsUI.choice('dial', 'digitalVariant', 'Variant', M.values.digitalVariant,
+        DigitalVariants.choices, function(value) M.values.digitalVariant = value end)
     end
   end)
   SettingsUI.section('dial', 'personalization', 'Personalization', false, function()
     if M.values.instrumentMode == 'analog' then
       SettingsUI.needle('dial', 'needleStyle', 'RPM needle', M.values.analogNeedleStyle,
         InstrumentConfig, function(value) M.values.analogNeedleStyle = value end)
+    end
+    if M.values.instrumentMode == 'analog' or M.values.digitalVariant ~= 'original' then
       SettingsUI.choice('dial', 'lower', 'Auxiliary gauge', M.values.analogAuxiliaryMode,
         {{label='Auto', value='auto'}, {label='Turbo', value='turbo'},
          {label='Electric', value='electric'}, {label='Fuel', value='fuel'}, {label='Off', value='off'}},

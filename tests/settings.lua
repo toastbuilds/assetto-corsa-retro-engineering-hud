@@ -169,6 +169,12 @@ assert(variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
 Dial.values.instrumentMode='digital'
 variantItems=frame(Dial.draw)
 assert(not variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
+pending['##dial.digitalVariant']=5
+variantItems=frame(Dial.draw)
+assert(variantItems['##dial.digitalVariant'] and Dial.current().digitalVariant=='orbit')
+Dial.values.instrumentMode='analog'
+frame(Dial.draw)
+assert(Dial.current().digitalVariant=='orbit' and Dial.current().analogVariant=='spoke')
 pending['Reset appearance##dial']=true
 frame(Dial.draw)
 assert(Dial.current().analogVariant=='original')

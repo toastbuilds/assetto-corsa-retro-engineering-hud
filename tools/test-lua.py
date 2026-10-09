@@ -41,6 +41,7 @@ def main():
         "tests/timer_final_lap.lua",
         "tests/dial_electronics.lua",
         "tests/dial_variants.lua",
+        "tests/digital_variants.lua",
         "tests/instrument_illumination.lua",
         "tests/hybrid_instruments.lua",
         "tests/hybrid_regeneration.lua",
