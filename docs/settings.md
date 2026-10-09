@@ -50,3 +50,18 @@ Map backgrounds use dots or a radial surface. Off-track and flag alerts depend o
 Basics opens by default. Personalization and Advanced expand when needed. Presets modify composition without locking subsequent edits. Reset appearance changes presentation; Reset all restores the local instrument after confirmation. General has separate shared resets.
 
 Stored settings keep their existing keys when upgrading to the single complete package. Feature availability no longer depends on a package edition.
+
+All standalone variants reuse the original bezel turn indicators and lower lamp. Variant faces use the shared theme palette and GT7 instrument illumination, including the headlight transition and flasher response. Digital 6 Orbit has a dedicated upper-left turbo/AERO/battery gauge and upper-right fuel gauge.
+
+Digital 2 and 4 use turbo/AERO/battery and fuel semicircular tracks along the inner bezel. Digital 2 raises the brake/throttle bars to clear the RPM display; Digital 4 omits the RPM scale numbers. Digital 6 fills both upper perimeter bars upward, omits units, and follows the outer circumference with the brake and throttle tracks.
+
+Standalone faces omit descriptive captions while retaining measurements and TC/ABS/PIT status abbreviations. Digital 6 uses a larger speed/gear circle with a steering sphere traveling around its outer ring; the steering visibility setting controls this sphere.
+
+Digital 3 uses a steering sphere around the central speed/gear circle, with auxiliary dots beneath the RPM arc and the auxiliary reading above the RPM value.
+
+Digital 1 uses a graduated steering line above the speed readout. Digital 2 and 4 omit auxiliary units and place channel icons below their perimeter bars. Digital 6 raises its central circle and uses a graduated steering ring. Standalone fuel readouts turn red below 15% and flash below 10%.
+
+Analog pedal tracks fill upward in Classic Shelf, Fan and Concentric; Spoke fills both tracks outward from the centre and uses an illuminated steering marker on its hub ring. Concentric has a smaller opaque central readout, a 10% background in its opening, and opposing lower auxiliary and upper fuel arcs with icons and no units.
+
+
+Concentric omits numeric RPM and auxiliary readings; its auxiliary icons sit to the right of their arcs. Its steering track and lower auxiliary arc are raised. The needle draws above pedal tracks and beneath the opaque central readout.
