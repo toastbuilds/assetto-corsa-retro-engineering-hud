@@ -114,7 +114,7 @@ local function drawRpm(c)
   local red=U.clamp(limiter*(s.rpmRedlineFraction or 0.96)/maximum,0,1)
   arc(c,r[1],r[2],r[3]+3,r[4],r[5],C.outlineDim,1)
   for i,band in ipairs(l.bands) do
-    local f=(i-0.5)/64
+    local f=(i-0.5)/#l.bands
     if f>=warning then
       local color=f>=red and (s.rpmRedline and rpmColor(c) or C.red) or C.amber
       if f<red and s.rpmWarning and pulse(s,c.settings.animateShiftAlert,0.14) then color=C.shiftBlue end
@@ -122,9 +122,11 @@ local function drawRpm(c)
     end
   end
   for _,tick in ipairs(l.ticks) do
-    local length=tick[3]>=warning and 5 or 9
-    line(c,r[1]+(r[3]-length)*tick[1],r[2]+(r[3]-length)*tick[2],
-      r[1]+r[3]*tick[1],r[2]+r[3]*tick[2],C.primary,1)
+    if tick[3]<red then
+      local length=tick[3]>=warning and 5 or 9
+      line(c,r[1]+(r[3]-length)*tick[1],r[2]+(r[3]-length)*tick[2],
+        r[1]+r[3]*tick[1],r[2]+r[3]*tick[2],C.primary,1)
+    end
   end
   local thousands=maximum/1000
   local step=thousands<=10 and 1 or (thousands<=20 and 2 or 5)

@@ -60,14 +60,15 @@ for id, layout in pairs(M.layouts) do
     local a = layout.startAngle + (layout.endAngle-layout.startAngle)*i/80
     layout.ticks[i+1] = {math.cos(a), math.sin(a), i/80}
   end
-  for i=1,64 do
-    local a = layout.startAngle + (layout.endAngle-layout.startAngle)*(i-0.88)/64
-    local b = layout.startAngle + (layout.endAngle-layout.startAngle)*(i-0.12)/64
+  -- Broad warning blocks match the premium GT7 instrument treatment.
+  for i=1,40 do
+    local a = layout.startAngle + (layout.endAngle-layout.startAngle)*(i-0.88)/40
+    local b = layout.startAngle + (layout.endAngle-layout.startAngle)*(i-0.12)/40
     layout.bands[i] = {
       {r[1]+r[3]*math.cos(a), r[2]+r[3]*math.sin(a)},
       {r[1]+r[3]*math.cos(b), r[2]+r[3]*math.sin(b)},
-      {r[1]+(r[3]-16)*math.cos(b), r[2]+(r[3]-16)*math.sin(b)},
-      {r[1]+(r[3]-16)*math.cos(a), r[2]+(r[3]-16)*math.sin(a)}
+      {r[1]+(r[3]-20)*math.cos(b), r[2]+(r[3]-20)*math.sin(b)},
+      {r[1]+(r[3]-20)*math.cos(a), r[2]+(r[3]-20)*math.sin(a)}
     }
   end
 end
