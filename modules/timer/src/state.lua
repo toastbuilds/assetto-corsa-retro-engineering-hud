@@ -262,10 +262,13 @@ end
 
 function State:isFinalLap(sim, player)
   local ok, session = pcall(ac.getSession, sim.currentSessionIndex)
-  if not ok or not Session.isRace(session) then
+  session = ok and session or nil
+  local nativeRace = ac.SessionType and Timing.field(sim,'raceSessionType',nil) == ac.SessionType.Race
+  if not Session.isRace(session) and not nativeRace then
     self.raceEnd = { observations = {} }
     return false
   end
+  session = session or {}
   local state = self.raceEnd or { observations = {} }
   local remaining = Session.timeLeftSeconds(sim, session)
   local frame = sim.isReplayActive == true and tonumber(sim.replayCurrentFrame) or nil
@@ -285,8 +288,10 @@ function State:isFinalLap(sim, player)
     state.active, state.expired = false, false
     return false
   end
-  -- The official last-lap flag overrides every fallback, including extra laps.
-  if flag == 'LAST LAP' then state.active = true end
+  -- AC exposes the race's final-lap state separately from the current flag.
+  -- Flags can stay green or show a caution while its native timer says FINAL LAP.
+  if flag == 'LAST LAP' or Timing.field(sim,'leaderLastLap',false) == true
+      or Timing.field(sim,'timeRaceLastLap',false) == true then state.active = true end
 
   local leader, observations, leaderPosition, leaderProgress = nil, {}, math.huge, -math.huge
   for _, car in ipairs(Timing.cars()) do
@@ -323,7 +328,8 @@ function State:isFinalLap(sim, player)
   end
   state.observations = observations
 
-  if not Session.isTimed(session) then
+  local timed = Session.isTimed(session) or Timing.field(sim,'isTimedRace',false) == true
+  if not timed then
     local total = positive(session.laps)
     if total and completed >= math.max(0,math.floor(total+0.5)-1) then state.active = true end
   else

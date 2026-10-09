@@ -13,6 +13,7 @@ local State=require('modules/timer/src/state')
 local function new(extra)
  sim.sessionTimeLeft=1000; sim.currentSessionIndex=0; sim.raceFlagType=nil
  sim.isReplayActive=false; sim.isSessionFinished=false; sim.replayCurrentFrame=nil
+ sim.leaderLastLap=nil; sim.timeRaceLastLap=nil; sim.raceSessionType=nil; sim.isTimedRace=nil
  session.isTimedRace=true; session.hasAdditionalLap=extra; session.laps=nil
  player.lapCount=2; player.racePosition=2; player.splinePosition=0.5
  rival.lapCount=3; rival.racePosition=1; rival.splinePosition=0.8
@@ -80,4 +81,20 @@ timer=new(true)
 session.isTimedRace=false; session.laps=3
 final(timer,true,'fixed lap races retain their detection')
 sim.raceFlagType=13; final(timer,false)
-print('Timer final lap: timed/fixed races, official flags, zero/negative time, extra laps, leaders, finish, restart and replay rewind passed')
+timer=new(true)
+sim.raceFlagType=1; sim.leaderLastLap=true
+final(timer,true,'native leaderLastLap overrides green flag and additional-lap fallback')
+sim.leaderLastLap=false; final(timer,true,'native last-lap notice stays latched')
+sim.raceFlagType=13; final(timer,false,'finish clears a native last-lap notice')
+
+timer=new(true)
+sim.raceFlagType=2; sim.timeRaceLastLap=true
+final(timer,true,'native timeRaceLastLap must show during a caution with time remaining')
+
+timer=new(true)
+local getSession=ac.getSession
+ac.getSession=function() return nil end
+sim.raceSessionType=ac.SessionType.Race; sim.isTimedRace=true; sim.timeRaceLastLap=true
+final(timer,true,'native race state works without session metadata')
+ac.getSession=getSession
+print('Timer final lap: timed/fixed races, native AC last-lap signals, official flags, zero/negative time, extra laps, leaders, finish, restart and replay rewind passed')
