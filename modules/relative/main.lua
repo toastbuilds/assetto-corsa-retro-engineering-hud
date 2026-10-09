@@ -122,10 +122,14 @@ local function drawRow(row, isPlayer, visual, x1, x2, y, fontSize, rowHeight, no
     ui.drawRectFilled(start, finish, Theme.fromRgb(palette.lapper, 0.28 * opacity))
   elseif lapState == 'being_lapped' then
     ui.drawRectFilled(start, finish, Theme.fromRgb(palette.lapped, 0.24 * opacity))
-  elseif row.approaching then
-    ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, 0.34 * opacity))
-  elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then
+  elseif not row.approaching and row.filteredGap and math.abs(row.filteredGap) < 0.5 then
     ui.drawRectFilled(start, finish, Theme.fromRgb(color, 0.16 * opacity))
+  end
+  if row.approaching and not isPlayer then
+    -- Pulse the row fill, keeping FAST and all timing text continuously legible.
+    -- This also works when a faster car is already marked as lapping the player.
+    local alpha = math.floor(now / 0.3) % 2 == 0 and 0.44 or 0.04
+    ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, alpha * opacity))
   end
   if flagColor and not previousAlert then
     local alpha = (palette == Theme.palettes.light and 0.18 or 0.22) + 0.08 * flagPulse
