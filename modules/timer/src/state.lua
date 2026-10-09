@@ -166,7 +166,7 @@ function State:showResult(kind, index, time, status, delta, valid)
     delta = delta,
     valid = valid,
     createdAt = now,
-    expiresAt = now + (self.settings.freezeDuration or 3)
+    expiresAt = now + 2
   }
 end
 
@@ -388,7 +388,8 @@ end
 
 function State:snapshot()
   local now = self:advanceClock()
-  if self.result and now > self.result.expiresAt then self.result = nil end
+  if self.result and now >= self.result.expiresAt then self.result = nil end
+  self.data.clock = now
   self.data.result = self.result
   self.data.sectorRecordEventId = self.sectorRecordEventId
   self.data.lapRecordEventId = self.lapRecordEventId

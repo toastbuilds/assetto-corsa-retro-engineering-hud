@@ -7,7 +7,7 @@ local previewFailed = false
 local DEFAULTS = {
   scale = 1.0,
   backgroundOpacity = 0.70,
-  freezeDuration = 3.0,
+  freezeDuration = 2.0,
   audioEnabled = true,
   autoPlacement = true,
   locked = false
@@ -33,7 +33,7 @@ function Settings.normalize()
   local v = Settings.values
   v.scale = clamp(v.scale, 0.65, 1.50, DEFAULTS.scale)
   v.backgroundOpacity = clamp(v.backgroundOpacity, 0, 1, DEFAULTS.backgroundOpacity)
-  v.freezeDuration = clamp(v.freezeDuration, 1.0, 8.0, DEFAULTS.freezeDuration)
+  v.freezeDuration = DEFAULTS.freezeDuration
   v.audioEnabled = v.audioEnabled ~= false
   v.autoPlacement = v.autoPlacement ~= false
   v.locked = v.locked == true
@@ -61,7 +61,7 @@ function Settings.draw()
   SettingsUI.section('timer', 'basics', 'Basics', true, function()
     slider('HUD scale', 'scale', 0.65, 1.50, '%.2fx')
     percentSlider('Background opacity', 'backgroundOpacity')
-    slider('Result hold', 'freezeDuration', 1.0, 8.0, '%.1f s')
+    ui.textWrapped('Sector and lap results hold and flash for 2 seconds.')
     checkbox('Lap and sector sounds', 'audioEnabled')
     if ui.button('Test sector sound##timer.test-sector-sound') then previewFailed = not Audio.playSectorRecord() end
     if ui.button('Test lap sound##timer.test-lap-sound') then previewFailed = not Audio.playLapCompleted() end

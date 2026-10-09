@@ -37,7 +37,7 @@ Class overrides live in `modules/relative/classes.ini` and `modules/leaderboard/
 
 ## Delta, Timer and Laps
 
-Delta compares current progress against local lap references. Timer shows lap clocks, completed results and final-lap state for fixed or timed races, with optional audio and sound previews. Laps controls visible history, auto-placement and the lap-change animation switch.
+Delta compares current progress against local lap references. Timer shows lap clocks, completed results and final-lap state for fixed or timed races, with optional audio and sound previews. Its clock keeps a fixed font size; sector/lap results hold and flash for 2 seconds, with BEST and relative-delta badges appearing below the clock. Laps controls visible history, auto-placement and the lap-change animation switch.
 
 ## Telemetry and Map
 
