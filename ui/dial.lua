@@ -1,3 +1,4 @@
+local Readout=require('src/dial_readout')
 local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layout = require('src/layout')
@@ -20,11 +21,15 @@ local function point(origin, scale, x, y)
 end
 
 local function centeredText(text, size, center, color)
+  text=Readout.value(text)
+  if not text then return end
   local measured = ui.measureDWriteText(text, size)
   ui.dwriteDrawText(text, size, center - measured / 2, color)
 end
 
 local function centeredBacklitText(text, size, center, color, scale, backlit)
+  text=Readout.value(text)
+  if not text then return end
   if backlit then
     local glow = Theme.withAlpha(C.backlight, 0.26)
     local spread = 1.35 * scale
@@ -354,7 +359,7 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
   elseif not useTurbo and available then
     value = string.format('%.0f L', state.fuel)
     normalized = state.fuelNormalized
-    accent = normalized < 0.15 and C.red or C.primary
+    accent = Readout.fuelColor(normalized, state, C, C.primary)
   end
 
   local radius = Layout.analogAuxArcRadius * scale
@@ -716,6 +721,23 @@ local function drawDigitalRpmBezelCut(center, scale, state, settings, backdrop)
     Layout.turnIndicatorArcSpan, scale, active, backdrop, fill, color)
 end
 
+-- All standalone variants share the original physical bezel and lamp cuts.
+local function drawSharedBezel(center,scale,state,settings,backdrop)
+  drawArc(center,279*scale,0,math.pi*2,backdrop,26*scale,96)
+  ui.drawCircle(center,Layout.outerRadius*scale,C.metal,96,3*scale)
+  ui.drawCircle(center,(Layout.outerRadius-7)*scale,C.metalDim,96,3*scale)
+  ui.drawCircle(center,(Layout.outerRadius-15)*scale,C.outlineDim,96,5*scale)
+  ui.drawCircle(center,(Layout.outerRadius-22)*scale,C.metalDim,96,2*scale)
+  ui.drawCircle(center,Layout.innerRadius*scale,C.outline,96,1.5*scale)
+  local lit=indicatorLit(state,settings.animateIndicators~=false)
+  drawBezelArcCut(center,Layout.bezelCutRadius*scale,math.pi-Layout.turnIndicatorAngle,
+    Layout.turnIndicatorArcSpan,scale,(state.hazardLights or state.leftIndicator) and lit,backdrop)
+  drawBezelArcCut(center,Layout.bezelCutRadius*scale,Layout.turnIndicatorAngle,
+    Layout.turnIndicatorArcSpan,scale,(state.hazardLights or state.rightIndicator) and lit,backdrop)
+  if settings.instrumentMode=='analog' then drawWarningBezelCut(center,scale,state,backdrop)
+  else drawDigitalRpmBezelCut(center,scale,state,settings,backdrop) end
+end
+
 local function drawScrews(center, scale)
   local left = U.polar(center, 240 * scale, math.rad(143))
   local right = U.polar(center, 240 * scale, math.rad(37))
@@ -772,6 +794,7 @@ function M.draw(state, settings)
 
   if (settings.instrumentMode == 'analog' and AnalogVariants.draw(state,settings,origin,scale))
     or (settings.instrumentMode ~= 'analog' and DigitalVariants.draw(state,settings,origin,scale)) then
+    drawSharedBezel(center,scale,state,settings,outerSurface)
     if settings.debug then drawDebug(origin,scale,state) end
     ui.popDWriteFont()
     ui.popStyleVar(1)

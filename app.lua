@@ -60,6 +60,8 @@ local function updateCore(name, state, dt, values)
     Telemetry.update(state, dt, resolved)
     if name == 'GT7' and resolved.gt7InstrumentsEnabled then
       Instruments.update(state, resolved, dt)
+    elseif name == 'dial' then
+      Instruments.updateLighting(state, dt)
     end
   end)
   if not ok then reportOnce(name .. ' update', tostring(err)) end

@@ -28,7 +28,7 @@ end
 -- A presentation state belongs to a telemetry instance, never to a renderer.
 -- Both modes use this same state. Existing telemetry and spring targets remain
 -- intact, including the unipolar boost needle used by the standalone dial.
-function M.update(state, settings, dt)
+function M.updateLighting(state, dt)
   local visual = state.gt7Instruments
   if not visual then visual = {}; state.gt7Instruments = visual end
   -- The flasher overrides only the displayed intensity. The regular lamp
@@ -51,6 +51,11 @@ function M.update(state, settings, dt)
   end
   visual.steadyLight = visual.light
   if state.available and state.lightsAvailable and state.flashingLights == true then visual.light = 1 end
+  return visual
+end
+
+function M.update(state, settings, dt)
+  local visual=M.updateLighting(state,dt)
   visual.speedDigital = transition(visual.speedDigital,
     settings.gt7SpeedNeedleMode == 'digital' and 1 or 0, dt, Config.modeTransition)
   visual.rpmDigital = transition(visual.rpmDigital,
