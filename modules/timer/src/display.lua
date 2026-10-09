@@ -25,7 +25,9 @@ end
 local function drawOutlinedText(text, size, center, color, scale)
   text = tostring(text)
   local measured = ui.measureDWriteText(text, size)
-  local position = center - measured / 2
+  -- Consolas digits occupy less than the measured line box. Centre their ink,
+  -- including the outline, instead of leaving the time visually above centre.
+  local position = center - measured / 2 + vec2(0, size * 0.15)
   local spread = math.max(0.75, scale)
   local outline = outlineFor(color)
   for _, offset in ipairs(OUTLINE_OFFSETS) do
