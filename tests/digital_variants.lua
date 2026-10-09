@@ -15,6 +15,7 @@ state.speedText,state.gearText,state.rpmText='139','R','5200'
 state.tcLevel,state.absLevel,state.tcActive,state.absActive=0,3,true,true
 state.tcSupported,state.absSupported=true,true
 state.turboAvailable,state.turboBoost,state.turboDisplayMax=true,0.7,1.5
+state.fuel,state.maxFuel,state.fuelNormalized=30,50,0.6
 state.lightsAvailable,state.headlights=true,true
 state.hazardLights,state.indicatorPhase=true,true
 state.raceFlagType,state.handbrake,state.clock=2,1,0.05
@@ -31,8 +32,12 @@ for id in pairs(Layouts.layouts) do
           state.rpmWarning,state.rpmRedline=fraction==1,fraction==1
           local calls=h.drawDial({instrumentMode='digital',digitalVariant=id,theme=theme},state,{size,size})
           assert(has(calls,'139') and has(calls,'R') and has(calls,'5200'))
+          if id=='orbit' then assert(not has(calls,'km/h') and not has(calls,'0.70 BAR')) end
           assert(has(calls,'0') and has(calls,'3') and has(calls,'!'))
-          assert(has(calls,'TURBO  0.70 BAR'))
+          if id=='orbit' or id=='column' then
+            assert(not has(calls,'0.70') and not has(calls,'30'))
+          else assert(has(calls,id=='offset' and '0.70' or '0.70 BAR')) end
+          if id=='offset' then assert(not has(calls,'FUEL') and has(calls,'30')) end
           count=count+1
         end
       end
@@ -40,14 +45,18 @@ for id in pairs(Layouts.layouts) do
   end
   local calls=h.drawDial({instrumentMode='digital',digitalVariant=id,
     showClutch=false,showLights=false,showSteering=false,analogAuxiliaryMode='off'},state)
-  assert(not has(calls,'CLUTCH') and not has(calls,'LIGHTS') and not has(calls,'TURBO  0.70 BAR'))
+  assert(not has(calls,'CLUTCH') and not has(calls,'LIGHTS'))
+  if id=='orbit' or id=='offset' or id=='column' then assert(not has(calls,'0.70 BAR'))
+  else assert(not has(calls,'TURBO  0.70 BAR')) end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,recoveryKw=100,maximumKw=150}
   calls=h.drawDial({instrumentMode='digital',digitalVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(has(calls,'ERS  -38 kW  BAT 84%'))
+  if id=='orbit' or id=='column' then assert(not has(calls,'84'))
+  else assert(has(calls,id=='offset' and '84' or '-38 kW  84%')) end
   state.hybrid=nil
   state.available=false
   calls=h.drawDial({instrumentMode='digital',digitalVariant=id,analogAuxiliaryMode='turbo'},state)
-  assert(has(calls,'TURBO  N/A'))
+  if id=='orbit' or id=='column' then assert(not has(calls,'N/A'))
+  else assert(has(calls,'N/A')) end
   state.available=true
 end
 print('Digital variants: '..count..' theme/size/limiter/RPM scenarios, saved selections, controls and auxiliary fallbacks passed')
