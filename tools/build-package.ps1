@@ -36,6 +36,13 @@ try {
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $project $relative) -Destination $destination
   }
+  $shellFiles = Get-ChildItem -LiteralPath (Join-Path $project 'assets/dial_variants') -File -Filter '*.png'
+  if ($shellFiles.Count -ne 16) { throw 'Expected 16 analog dial shell layers.' }
+  foreach ($file in $shellFiles) {
+    $destination = Join-Path $app ('assets/dial_variants/' + $file.Name)
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath $file.FullName -Destination $destination
+  }
   foreach ($name in @('app.lua', 'RetroUI.lua', 'manifest.ini', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'CHANGELOG.md')) {
     Copy-Item -LiteralPath (Join-Path $project $name) -Destination $app
   }

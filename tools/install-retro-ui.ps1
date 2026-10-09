@@ -55,6 +55,9 @@ if ($App) {
   } elseif ($App -eq 'instruments') {
     $files += @('src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',
       'ui/dial.lua', 'ui/side_instruments.lua', 'ui/gt7_retro.lua', 'src/settings.lua')
+    $files += @('src/dial_variants.lua', 'ui/analog_variants.lua')
+    $files += Get-ChildItem -LiteralPath (Join-Path $project 'assets/dial_variants') -File -Filter '*.png' |
+      ForEach-Object { $_.FullName.Substring($project.Length + 1) }
   } else {
     $module = Join-Path $project ('modules/' + $App)
     $files += Get-ChildItem -LiteralPath $module -Recurse -File | Where-Object { $_.Extension -eq '.lua' } | ForEach-Object { $_.FullName.Substring($project.Length + 1) }
@@ -68,6 +71,17 @@ if ($App) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
     Copy-Item -LiteralPath $source -Destination $destination -Force
     if ((Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $destination).Hash) { throw "Installed file mismatch: $file" }
+  }
+  if ($App -eq 'instruments') {
+    foreach ($retired in @('stack', 'twin')) {
+      foreach ($theme in @('dark', 'light')) {
+        foreach ($layer in @('back', 'front')) {
+          $obsolete = Join-Path $target ("assets/dial_variants/{0}_{1}_{2}.png" -f $retired, $theme, $layer)
+          Assert-ChildPath $target $obsolete
+          if (Test-Path -LiteralPath $obsolete) { Remove-Item -LiteralPath $obsolete }
+        }
+      }
+    }
   }
   (Get-Item -LiteralPath (Join-Path $target 'RetroUI.lua')).LastWriteTime = Get-Date
   Write-Output "Installed and SHA256 verified: $App ($($files.Count) files)"

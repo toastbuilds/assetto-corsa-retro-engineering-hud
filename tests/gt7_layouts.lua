@@ -26,6 +26,7 @@ end }
 local width, height = 1440, 500
 local calls, path, arc = {}, {}, nil
 local fonts, alphaDepth = 0, 0
+local fontStack = {}
 local pendingCombos, pendingButtons, pendingSliders, comboCalls = {}, {}, {}, {}
 local function noop() end
 local function record(kind, values)
@@ -39,10 +40,13 @@ ui = {
   measureDWriteText = function(text, size) return vec2(#tostring(text) * size * 0.55, size) end,
   dwriteDrawText = function(text, size, position, color)
     assert(size > 0 and size == size, 'text size must be finite and positive')
-    record('text', { text = text, size = size, a = position, color = color })
+    record('text', { text = text, size = size, a = position, color = color, font = fontStack[#fontStack] })
   end,
   drawLine = function(a, b, color, thickness)
     record('line', { a = a, b = b, color = color, thickness = thickness })
+  end,
+  drawImage = function(image, a, b, color)
+    record('image', {image=image, a=a, b=b, color=color})
   end,
   drawCircle = function(center, radius, color, _, thickness)
     record('circle', { a = center, radius = radius, color = color, thickness = thickness })
@@ -78,8 +82,8 @@ ui = {
       record('path', { points = path, color = color, closed = closed, thickness = thickness })
     end
   end,
-  pushDWriteFont = function() fonts = fonts + 1 end,
-  popDWriteFont = function() fonts = fonts - 1 end,
+  pushDWriteFont = function(font) fonts = fonts + 1; fontStack[#fontStack+1] = font end,
+  popDWriteFont = function() fonts = fonts - 1; table.remove(fontStack) end,
   pushStyleVarAlpha = function() alphaDepth = alphaDepth + 1 end,
   popStyleVar = function() alphaDepth = alphaDepth - 1 end,
   header = noop, separator = noop, text = noop, textWrapped = noop, sameLine = noop,

@@ -9,6 +9,9 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 ## Dial and GT7
 
 - Switch between analog and digital modes. GT7 speed and RPM dials can use different modes.
+- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Concentric or Spoke. Original remains the upgrade default; digital mode keeps its existing composition.
+- Retired variants 2 and 4 revert to Original. Variant 5 has a transparent opening and an opaque central speed face; its center stays opaque when background opacity is reduced.
+- The four analog variants include brake/throttle tracks, optional clutch and steering, independent TC/ABS levels, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
 - Select one of 24 analog needle geometries. The standalone RPM needle and GT7 speed/RPM needles keep separate selections.
 - Adjust GT7 side dial scale/spacing and status indicator size.
 - Choose GT7 presets or customize central speed, gear, steering, RPM bar, pedal position/style, radar and flags independently.

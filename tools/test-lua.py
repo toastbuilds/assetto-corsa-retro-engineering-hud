@@ -40,6 +40,7 @@ def main():
         "tests/tyre_grip.lua",
         "tests/timer_final_lap.lua",
         "tests/dial_electronics.lua",
+        "tests/dial_variants.lua",
         "tests/instrument_illumination.lua",
         "tests/hybrid_instruments.lua",
         "tests/hybrid_regeneration.lua",

@@ -17,13 +17,15 @@ if not FONT.exists():
     raise SystemExit("Consolas is required to match the HUD typography")
 fonts = {}
 glyphs = {}
+images = {}
 
 
-def font(size):
+def font(size, bold=False):
     pixels = max(1, round(size * FACTOR))
-    if pixels not in fonts:
-        fonts[pixels] = ImageFont.truetype(str(FONT), pixels)
-    return fonts[pixels]
+    key = (pixels,bold)
+    if key not in fonts:
+        fonts[key] = ImageFont.truetype(str(FONT.with_name('consolab.ttf') if bold else FONT), pixels)
+    return fonts[key]
 
 
 def raster(calls, width=1440, height=500, background="#121416"):
@@ -51,13 +53,22 @@ def raster(calls, width=1440, height=500, background="#121416"):
         def xy(p):
             return (round(p["x"] * FACTOR), round(p["y"] * FACTOR))
 
-        if kind == "text":
+        if kind == "image":
+            name = call["image"]
+            if name not in images:
+                images[name] = Image.open(ROOT / name).convert('RGBA')
+            a, b = xy(call['a']), xy(call['b'])
+            tile = images[name].resize((max(1,b[0]-a[0]),max(1,b[1]-a[1])),Image.Resampling.LANCZOS)
+            tile.putalpha(tile.getchannel('A').point(lambda value: round(value*rgba[3]/255)))
+            canvas.paste(tile,a,tile)
+        elif kind == "text":
             # Pillow's RGB ImageDraw.text ignores fill alpha even in RGBA mode.
             # Composite a glyph tile explicitly so low-opacity emission stays
             # subtle, rather than making the review falsely look bold.
-            key = (str(call["text"]), call["size"], rgba)
+            bold = 'Bold' in str(call['font'] or '')
+            key = (str(call["text"]), call["size"], rgba, bold)
             if key not in glyphs:
-                face = font(call["size"])
+                face = font(call["size"],bold)
                 left, top, right, bottom = face.getbbox(key[0], anchor="lt")
                 tile = Image.new("RGBA", (max(1, right-left), max(1, bottom-top)))
                 ImageDraw.Draw(tile).text((-left, -top), key[0], font=face, fill=rgba, anchor="lt")
@@ -68,6 +79,9 @@ def raster(calls, width=1440, height=500, background="#121416"):
         elif kind in ("circle", "circle_fill", "arc"):
             x, y = xy(call["a"])
             r = call["radius"] * FACTOR
+            # CSP centers strokes on the path; Pillow strokes inside the box.
+            if kind != "circle_fill":
+                r += thickness / 2
             box = (round(x-r), round(y-r), round(x+r), round(y+r))
             if kind == "arc":
                 draw.arc(box, math.degrees(call["startAngle"]), math.degrees(call["endAngle"]),
@@ -123,8 +137,16 @@ def create_harness():
         for _ = 1, n do alpha = table.remove(stack) end
         pop(n)
       end
+      local fontStack = {}
+      local pushFont,popFont = ui.pushDWriteFont,ui.popDWriteFont
+      ui.pushDWriteFont = function(desc)
+        fontStack[#fontStack+1] = desc; previewFont = desc; pushFont(desc)
+      end
+      ui.popDWriteFont = function()
+        table.remove(fontStack); previewFont = fontStack[#fontStack]; popFont()
+      end
       for name, index in pairs({drawLine=3, drawCircle=3, drawCircleFilled=3,
-          drawRect=3, drawRectFilled=3, pathFillConvex=1, pathStroke=1, dwriteDrawText=4}) do
+          drawRect=3, drawRectFilled=3, pathFillConvex=1, pathStroke=1, dwriteDrawText=4, drawImage=4}) do
         local original = ui[name]
         ui[name] = function(...)
           local args = {...}; local c = args[index]
@@ -135,7 +157,7 @@ def create_harness():
     """)
 
     def measure(value, size):
-        face = font(size)
+        face = font(size,'Bold' in str(lua.globals().previewFont or ''))
         return lua.globals().vec2(face.getlength(str(value)) / FACTOR, size)
 
     lua.globals().ui.measureDWriteText = measure

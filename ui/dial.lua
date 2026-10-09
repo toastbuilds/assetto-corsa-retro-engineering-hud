@@ -6,6 +6,7 @@ local InstrumentConfig = require('src/instrument_config')
 local Needle = require('ui/instrument_needle')
 local Hybrid = require('src/hybrid')
 local HybridGauge = require('ui/hybrid_gauge')
+local AnalogVariants = require('ui/analog_variants')
 
 local M = {}
 local drawAnalogElectronics
@@ -767,6 +768,13 @@ function M.draw(state, settings)
 
   ui.pushStyleVarAlpha(settings.opacity)
   ui.pushDWriteFont(Theme.fonts.utility)
+
+  if settings.instrumentMode == 'analog' and AnalogVariants.draw(state,settings,origin,scale) then
+    if settings.debug then drawDebug(origin,scale,state) end
+    ui.popDWriteFont()
+    ui.popStyleVar(1)
+    return
+  end
 
   ui.drawCircleFilled(center, Layout.outerRadius * scale, outerSurface, 96)
   ui.drawCircleFilled(center, Layout.innerRadius * scale, innerSurface, 96)

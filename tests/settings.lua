@@ -97,6 +97,7 @@ ui = {
   drawLine=function(_,_,color) primitive('line',color) end,
   drawRect=function(_,_,color) primitive('outline',color) end,
   drawRectFilled=function(_,_,color) primitive('background',color) end,
+  drawImage=function(_,_,_,color) primitive('image',color) end,
   drawCircle=function(_,_,color) primitive('outline',color) end,
   drawCircleFilled=function(_,_,color) primitive('background',color) end,
   drawTriangleFilled=function(_,_,_,color) primitive('triangle',color) end,
@@ -126,6 +127,8 @@ assert(General.values.theme=='light' and General.values.speedUnit=='mph' and Gen
 assert(General.values.opacity==1 and General.values.backgroundOpacity==0.72)
 assert(General.values.rpmWarningFraction==0.86 and General.values.rpmRedlineFraction==0.96)
 assert(Dial.values.hudScale==0.65 and Dial.values.analogNeedleStyle=='c03' and GT7.values.hudScale==0.8)
+assert(Dial.current().analogVariant=='original' and Dial.values.layoutVersion==10,
+  'variant migration retains existing appearance and defaults to Original')
 General.values.opacity=0.5
 package.loaded['src/general_settings']=nil
 local reloaded=require('src/general_settings')
@@ -157,6 +160,18 @@ for _,page in ipairs(pages) do
     assert(not visible['Blink redline alert'] and not visible['RPM warning threshold'])
   end
 end
+
+-- Variants are local analog selections and remain stored while digital is shown.
+Dial.values.instrumentMode='analog'
+pending['##dial.variant']=4
+local variantItems=frame(Dial.draw)
+assert(variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
+Dial.values.instrumentMode='digital'
+variantItems=frame(Dial.draw)
+assert(not variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
+pending['Reset appearance##dial']=true
+frame(Dial.draw)
+assert(Dial.current().analogVariant=='original')
 
 -- Slider paths preserve selection while hidden and clamp/round to real catalog entries.
 pending['>  Personalization##dial.personalization']=true
@@ -255,6 +270,11 @@ end
 for _,callback in ipairs(callbacks) do assertGlobalOpacity(callback) end
 Dial.values.instrumentMode='analog'
 assertGlobalOpacity('windowMain')
+for id in pairs(require('src/dial_variants').layouts) do
+  Dial.values.analogVariant=id
+  assertGlobalOpacity('windowMain')
+end
+Dial.values.analogVariant='original'
 for _,speedMode in ipairs({'analog','digital'}) do
   for _,rpmMode in ipairs({'analog','digital'}) do
     GT7.values.gt7SpeedNeedleMode,GT7.values.gt7RpmNeedleMode=speedMode,rpmMode

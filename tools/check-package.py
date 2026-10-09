@@ -8,6 +8,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 PREFIX = 'apps/lua/RetroUI/'
 ASSETS = {'assets/notification-qqv87.wav', 'assets/notification-d4s3s.wav'}
+ASSETS.update(f'assets/dial_variants/{variant}_{theme}_{layer}.png'
+              for variant in ('shelf', 'fan', 'concentric', 'spoke')
+              for theme in ('dark', 'light') for layer in ('back', 'front'))
 
 
 def verify(path):
@@ -35,7 +38,12 @@ def verify(path):
                 for module in re.findall(r"require\(['\"]([^'\"]+)['\"]\)", text):
                     assert f'{module}.lua' in actual, f'Missing dependency {module} in {name}'
                 for asset in re.findall(r"['\"](assets/[^'\"]+)['\"]", text):
-                    assert asset in actual, f'Missing runtime asset {asset}'
+                    if asset.endswith('/'):
+                        # Variant images compose filenames from a shared prefix;
+                        # the exact 16 allowed layers are verified in ASSETS above.
+                        assert any(name.startswith(asset) for name in actual), f'Missing asset directory {asset}'
+                    else:
+                        assert asset in actual, f'Missing runtime asset {asset}'
     checksum = Path(str(path) + '.sha256').read_text(encoding='ascii').split()
     assert checksum == [hashlib.sha256(path.read_bytes()).hexdigest(), path.name], 'Invalid checksum'
     print(f'Package verified: {len(expected)} files, {path.stat().st_size / 1024:.1f} KiB, version {version}, source fidelity and SHA-256')

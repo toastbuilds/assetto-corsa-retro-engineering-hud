@@ -2,6 +2,7 @@ local M = {}
 local SettingsUI = require('src/settings_ui')
 local InstrumentConfig = require('src/instrument_config')
 local GeneralSettings = require('src/general_settings')
+local DialVariants = require('src/dial_variants')
 
 M.lastChange = 'Ready'
 
@@ -16,6 +17,7 @@ M.values = ac.storage({
   temperatureUnit = 'C',
   sharedUnitsVersion = 0,
   instrumentMode = 'digital',
+  analogVariant = 'original',
   theme = 'dark',
   analogAuxiliaryMode = 'auto',
   analogNeedleStyle = 'a01',
@@ -107,6 +109,9 @@ end
 -- Keep existing installations visually unchanged by default.
 if (M.values.layoutVersion or 1) < 9 then M.values.layoutVersion = 9 end
 
+M.values.analogVariant = DialVariants.normalize(M.values.analogVariant)
+if (M.values.layoutVersion or 1) < 10 then M.values.layoutVersion = 10 end
+
 if M.values.gt7RadarStyle ~= 'arcs' then M.values.gt7RadarStyle = 'lights' end
 
 local function checkbox(label, key)
@@ -125,6 +130,7 @@ local function slider(label, key, minimum, maximum, format)
 end
 
 local function resetVisualSettings()
+  M.values.analogVariant = 'original'
   M.values.analogNeedleStyle = 'a01'
   M.values.hudScale = 0.72
   M.lastChange = 'Visual settings reset'
@@ -136,8 +142,10 @@ local instrumentModes = {
 }
 
 function M.current()
+  local variant = DialVariants.normalize(M.values.analogVariant)
+  if M.values.analogVariant ~= variant then M.values.analogVariant = variant end
   local values = {}
-  for _, key in ipairs({'hudScale', 'instrumentMode', 'analogAuxiliaryMode', 'analogNeedleStyle',
+  for _, key in ipairs({'hudScale', 'instrumentMode', 'analogVariant', 'analogAuxiliaryMode', 'analogNeedleStyle',
       'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'debug'}) do
     values[key] = M.values[key]
   end
@@ -150,6 +158,10 @@ function M.draw()
     slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
     SettingsUI.choice('dial', 'mode', 'Dial mode', M.values.instrumentMode,
       instrumentModes, function(value) M.values.instrumentMode = value end)
+    if M.values.instrumentMode == 'analog' then
+      SettingsUI.choice('dial', 'variant', 'Variant', M.values.analogVariant,
+        DialVariants.choices, function(value) M.values.analogVariant = value end)
+    end
   end)
   SettingsUI.section('dial', 'personalization', 'Personalization', false, function()
     if M.values.instrumentMode == 'analog' then

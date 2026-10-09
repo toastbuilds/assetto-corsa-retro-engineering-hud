@@ -67,6 +67,7 @@ ui = {
   drawLine = noop,
   drawRect = noop,
   drawRectFilled = noop,
+  drawImage = noop,
   drawTriangleFilled = noop,
   dwriteDrawText = noop,
   pathArcTo = noop,
@@ -165,7 +166,8 @@ ConditionSettings.draw()
 assert(ConditionSettings.values.temperatureCoreWeight == 0.8, 'full reset must restore 80/20')
 
 assert(Settings.values.instrumentMode == 'analog', 'v5 migration must preserve analog')
-assert(Settings.values.layoutVersion == 9, 'v9 migration must complete')
+assert(Settings.values.layoutVersion == 10 and Settings.values.analogVariant == 'original',
+  'v10 migration must complete without changing the existing analog composition')
 assert(Settings.values.gt7SpeedNeedleMode == 'digital'
   and Settings.values.gt7RpmNeedleMode == 'digital',
   'v6 migration must preserve the former direct GT7 needle response')
@@ -766,6 +768,22 @@ for _, scenario in ipairs(scenarios) do
   script.update(1 / 60)
   if scenario.mode == 'gt7_retro' then script.gt7Main() else script.windowMain() end
 end
+
+-- Exercise real telemetry/update/window callbacks for every new composition.
+Settings.values.instrumentMode = 'analog'
+for id in pairs(require('src/dial_variants').layouts) do
+  Settings.values.analogVariant = id
+  for _,mode in ipairs({'auto','turbo','electric','fuel','off'}) do
+    Settings.values.analogAuxiliaryMode = mode
+    car = makeCar({rpm=7100,turboCount=1,turboBoost=0.7,gear=-1})
+    script.update(1/60)
+    script.windowMain()
+    car = nil
+    script.update(1/60)
+    script.windowMain()
+  end
+end
+Settings.values.analogVariant = 'original'
 
 assert(lastRequestedWindowSize and lastRequestedWindowSize.x >= 575
   and lastRequestedWindowSize.y <= 360,

@@ -14,4 +14,6 @@ Coverage includes independent ABS/TC levels, zero and unavailable channels; lead
 
 ## Limits
 
+The four new standalone analog Dial variants (Classic Shelf, Fan, Concentric and Spoke) were checked offline on 2026-10-09. Coverage includes 360 size/theme/RPM/auxiliary combinations, all 24 needle styles, simultaneous alerts, missing telemetry, settings persistence and global opacity. The actual Lua renderer produced simulated preview sheets with turbo and ERS in both themes and at small window sizes. All 16 transparent shell layers and the local ZIP passed integrity checks. These new variants have not yet been validated in Assetto Corsa; the earlier author-confirmed game testing above does not cover them.
+
 Regression renderers use CSP test doubles and do not replace the real game's antialiasing or telemetry. Promotional UI clips use simulated inputs. Data availability remains car- and session-dependent; speed-based leaderboard estimates are marked `~`.
