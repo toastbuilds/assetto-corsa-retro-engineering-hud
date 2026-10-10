@@ -33,6 +33,10 @@ local function blockGeometry(count, radius, depth, first, last, gap)
       {radius * math.cos(b), radius * math.sin(b)},
       {inside * math.cos(b), inside * math.sin(b)},
       {inside * math.cos(a), inside * math.sin(a)} }
+    if last < first then
+      local block = blocks[i]
+      blocks[i] = {block[4], block[3], block[2], block[1]}
+    end
   end
   return blocks
 end
@@ -43,6 +47,7 @@ local subGeometry = blockGeometry(S.segmentCount, S.radius, S.segmentDepth,
   S.startAngle, S.endAngle, S.segmentGap)
 local analogSubGeometry = blockGeometry(S.segmentCount, S.analogRadius,
   S.segmentDepth, S.analogStart, S.analogEnd, S.segmentGap)
+local lowerSubGeometry = blockGeometry(32, 148, 10, math.rad(150), math.rad(30), 0.20)
 
 local scales = {}
 local function scaleGeometry(maximum, step, first, last, rpm)
@@ -256,6 +261,49 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     subCenter + vec2(0, S.labelY * scale), low and C.red or C.secondary, nil, L.label, scale)
 end
 
+-- Radial and Orbit use the lower circumference for their auxiliary reading.
+local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
+  local hybrid = rpm and Hybrid.forGauge(state)
+  if hybrid then
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc')
+    return
+  end
+  local visual = state.gt7Instruments
+  local pressure, minimum, maximum = Presentation.boost(state, settings)
+  if visual then pressure, minimum, maximum = visual.boostNeedleValue, visual.boostMinimum, visual.boostMaximum end
+  local aero = rpm and not state.turboAvailable
+  local available = rpm or (state.fuel ~= nil and state.maxFuel ~= nil)
+  local fraction = aero and U.clamp(state.aeroLoadNormalized or 0, 0, 1)
+    or (rpm and U.clamp((pressure - minimum) / (maximum - minimum), 0, 1)
+      or U.clamp(state.fuelNormalized or 0, 0, 1))
+  local zero = rpm and not aero and -minimum / (maximum - minimum) or 0
+  local low = not rpm and available and fraction < Config.fuelWarning
+  local blink = low and fraction < 0.10 and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
+  for i, block in ipairs(lowerSubGeometry) do
+    local f = (i - 0.5) / 32
+    local active = available and (rpm and f >= math.min(zero, fraction) and f <= math.max(zero, fraction)
+      or not rpm and i <= math.ceil(fraction * 32))
+    local warning = not rpm and (low or f <= Config.fuelWarning)
+      or rpm and not aero and f >= (Config.boostWarning * maximum - minimum) / (maximum - minimum)
+    local color = not available and C.outlineDim or (active and (warning and (blink and C.redDim or C.red)
+      or aero and (f >= 0.82 and C.amber or C.cyan) or rpm and C.primary or C.cyan)
+      or warning and C.redDim or C.inactive)
+    Light.segment(center, scale, block, color, active and L.subSegment or nil)
+  end
+  local tint = not available and C.outlineSoft or low and (blink and C.redDim or C.red) or C.primary
+  icon(aero and M.aeroIcon or rpm and M.boostIcon or M.fuelIcon,
+    center + vec2(0, 119 * scale), 0.8 * scale, tint, available and L.icon or L.inner)
+  text(not available and 'N/A' or aero and '0' or rpm and string.format('%.1f', minimum) or 'E',
+    11 * scale, center + vec2(-128 * scale, 59 * scale), C.secondary, nil, L.label, scale)
+  text(aero and '100' or rpm and string.format('%.1f', maximum) or 'F',
+    11 * scale, center + vec2(128 * scale, 59 * scale), C.secondary, nil, L.label, scale)
+  if rpm and not aero then
+    local angle = math.rad(150 - 120 * zero)
+    Light.line(U.polar(center, 136 * scale, angle), U.polar(center, 151 * scale, angle),
+      C.amber, 1.2 * scale, L.inner, scale)
+  end
+end
+
 function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm, rpmColor)
   local radius = layout.dialRadius
   local visual = state.gt7Instruments
@@ -273,7 +321,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   Light.ambient(center, scale, L)
   if StyledInstruments.supports(selectedStyle) then
     StyledInstruments.draw(selectedStyle, center, scale, state, settings, C, L,
-      digital, light, rpm, rpmColor, subGauge)
+      digital, light, rpm, rpmColor, subGauge, lowerArcGauge)
     return
   end
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.

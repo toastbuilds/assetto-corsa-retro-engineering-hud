@@ -5,6 +5,12 @@ local Readout = require('src/dial_readout')
 local M = {}
 
 local profiles = {
+  gt7_lower_arc = {
+    powerRadius = 137, powerWidth = 7, powerStart = math.rad(150), powerEnd = math.rad(30),
+    batteryRadius = 151, batteryWidth = 5, batteryStart = math.rad(150), batteryEnd = math.rad(30),
+    labelX = 83, labelY = 96, valueY = 123, batteryY = 103,
+    labelSize = 10, valueSize = 14, chargeSize = 14, iconScale = 0.55
+  },
   standalone = {
     powerRadius = 206, powerWidth = 18, powerStart = math.rad(65), powerEnd = math.rad(115),
     batteryRadius = 252, batteryWidth = 7, batteryStart = math.rad(50), batteryEnd = math.rad(130),
@@ -20,6 +26,7 @@ local profiles = {
 }
 
 local function arc(center, radius, first, last, width, color, scale, style)
+  if last < first then first, last = last, first end
   ui.pathClear()
   ui.pathArcTo(center, radius * scale, first, last, 5)
   ui.pathStroke(Light.color(color, style), false, width * scale)

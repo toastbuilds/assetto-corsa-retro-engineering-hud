@@ -15,14 +15,14 @@ local faces = {
     value={-65,91,40},unit={-65,121},aux={70,110,0.60}},
   concentric={analog=true,x=0,y=-6,r=148,
     value={0,-14,43},unit={0,22},aux={0,119,0.60},core={0,-6,69}},
-  spoke={analog=true,x=0,y=-28,r=141,
+  spoke={analog=true,x=0,y=0,r=147,
     value={-72,83,39},unit={-72,113},aux={72,105,0.66}},
   radial={x=0,y=-6,r=147,
     value={0,12,51},unit={0,47},aux={0,126,0.58},core={0,18,65}},
   offset={x=0,y=0,r=147,
     value={-37,-20,53},unit={-37,20},aux={-37,119,0.55},vertical=true},
-  orbit={x=0,y=-18,r=137,
-    value={0,-29,52},unit={0,10},aux={0,126,0.60},core={0,-18,87}}
+  orbit={x=0,y=0,r=148,
+    value={0,-16,52},unit={0,22},aux={0,126,0.60},core={0,0,87}}
 }
 
 for id, f in pairs(faces) do
@@ -46,7 +46,7 @@ end
 
 function M.supports(id) return faces[id] ~= nil end
 
-function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, rpmColor, auxiliary)
+function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, rpmColor, auxiliary, lowerAuxiliary)
   local f=faces[id]
   local function p(x,y) return center+vec2(x*scale,y*scale) end
   local pivot=p(f.x,f.y)
@@ -85,8 +85,8 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
     line(5,59,5,138,C.metalDim,1.5)
   elseif id=='spoke' then
     for _, endpoint in ipairs({{-147,58},{147,58},{0,157}}) do
-      line(0,-28,endpoint[1],endpoint[2],C.metalDim,8)
-      line(0,-28,endpoint[1],endpoint[2],C.outlineSoft,1)
+      line(0,0,endpoint[1],endpoint[2],C.metalDim,8)
+      line(0,0,endpoint[1],endpoint[2],C.outlineSoft,1)
     end
   elseif id=='offset' then
     ui.drawRectFilled(p(-129,-79),p(58,48),C.panelRaised,12*scale)
@@ -99,12 +99,12 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
     end
     circle(0,18,75,C.cyan,1)
   elseif id=='orbit' then
-    circle(0,-18,99,C.metalDim,2)
+    circle(0,0,99,C.metalDim,2)
     for i=0,59 do
       local a=math.pi*2*i/60
       local inside=i%5==0 and 92 or 95
-      line(math.cos(a)*inside,-18+math.sin(a)*inside,
-        math.cos(a)*99,-18+math.sin(a)*99,C.secondary,i%5==0 and 1.4 or 0.7)
+      line(math.cos(a)*inside,math.sin(a)*inside,
+        math.cos(a)*99,math.sin(a)*99,C.secondary,i%5==0 and 1.4 or 0.7)
     end
   end
 
@@ -158,10 +158,14 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
       n=n+step
     end
   end
-  local aux=f.aux
-  local auxScale=scale*aux[3]
-  auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
-    state,settings,C,digital,light,rpm,L)
+  if id=='radial' or id=='orbit' then
+    lowerAuxiliary(center,scale,state,settings,C,light,rpm,L)
+  else
+    local aux=f.aux
+    local auxScale=scale*aux[3]
+    auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
+      state,settings,C,digital,light,rpm,L)
+  end
 
   if f.analog then
     local needleFraction=rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
