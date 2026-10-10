@@ -44,7 +44,7 @@ local function drawBadge(tl, width, height, label, fill, stroke, textColor, scal
     (height - 8 * scale) / math.max(1, measured.y))
   local center = tl + vec2(width / 2, height / 2)
   if outlineValue then drawOutlinedText(label, size, center, textColor, scale)
-  else TimingUI.centeredText(label, size, center, textColor) end
+  else TimingUI.centeredText(label, size, center + vec2(0, size * 0.15), textColor) end
 end
 
 local function withBackgroundOpacity(color, opacity)
@@ -55,7 +55,7 @@ function Display.draw(snapshot, settings, visual)
   local colors = visual.palette
   local backgroundOpacity = math.max(0, math.min(1, tonumber(settings.backgroundOpacity) or 0.70))
   local width, height = ui.windowWidth(), ui.windowHeight()
-  local scale = math.max(0.35, math.min(settings.scale or 1, width / 320, height / 94))
+  local scale = math.max(0.35, math.min(settings.scale or 1, width / 480, height / 94))
   local contentTop = 5 * scale
   local result = snapshot.result
   local showBest = result and result.valid ~= false and result.status == 'session_best'
@@ -66,19 +66,18 @@ function Display.draw(snapshot, settings, visual)
   local resultBadgeHeight = 24 * scale
   local timerHeight = height - timerTop - resultBadgeHeight - gap - 2 * scale
   local timerTL = vec2(6 * scale, timerTop)
-  local timerBR = vec2(width - 6 * scale, timerTop + timerHeight)
+  local timerBR = vec2(width - 6 * scale - bestWidth - deltaWidth - 2 * gap, timerTop + timerHeight)
   local timerWidth = timerBR.x - timerTL.x
 
   ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
   ui.pushDWriteFont(FONT)
 
   if snapshot.finalLap then
-    local badgeWidth = 132 * scale
-    local badgeTL = vec2(result and 6 * scale or (width - badgeWidth) / 2,
-      timerBR.y + gap + 2 * scale)
-    drawBadge(badgeTL, badgeWidth, 20 * scale, 'FINAL LAP',
+    local badgeWidth = width - 12 * scale
+    local badgeTL = vec2(6 * scale, timerBR.y + gap)
+    drawBadge(badgeTL, badgeWidth, resultBadgeHeight, 'FINAL LAP',
       withBackgroundOpacity(colors.redDim, backgroundOpacity),
-      withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale)
+      withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale, 15)
   end
 
   local time = result and result.time or snapshot.currentLapTime
@@ -117,21 +116,20 @@ function Display.draw(snapshot, settings, visual)
   ui.popStyleVar(1)
 
   if result then
-    local badgeTop = timerBR.y + gap
-    local groupWidth = deltaWidth + (showBest and bestWidth + gap or 0)
-    local badgeLeft = snapshot.finalLap and width - 6 * scale - groupWidth or (width - groupWidth) / 2
+    local badgeTop = timerTop
+    local badgeLeft = timerBR.x + gap
     if showBest then
-      drawBadge(vec2(badgeLeft, badgeTop), bestWidth, resultBadgeHeight, 'BEST',
+      drawBadge(vec2(badgeLeft, badgeTop), bestWidth, timerHeight, 'BEST',
         withBackgroundOpacity(colors.purpleDim, backgroundOpacity),
-        withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 20)
+        withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 26)
     end
     local deltaStatus = (result.valid == false or result.status == 'invalid') and 'invalid'
       or (result.delta ~= nil and result.delta < 0 and 'session_best') or 'slower'
     local deltaColor = deltaStatus == 'invalid' and colors.secondary
       or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
-    drawBadge(vec2(badgeLeft + (showBest and bestWidth + gap or 0), badgeTop), deltaWidth, resultBadgeHeight,
+    drawBadge(vec2(badgeLeft + bestWidth + gap, badgeTop), deltaWidth, timerHeight,
       TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
-      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 20, true)
+      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 26, true)
   end
 
   if snapshot.inPits then

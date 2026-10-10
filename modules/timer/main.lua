@@ -9,7 +9,7 @@ local Window = require('modules/timing/src/window')
 local M = {}
 local APP_TITLE = 'Retro UI Timer'
 local state = State.new(Settings.values)
-local controller = Window.new(APP_TITLE, function() return vec2(320, 94) end, 'top-center')
+local controller = Window.new(APP_TITLE, function() return vec2(480, 94) end, 'top-center')
 local lastError
 local lastSectorRecordEvent = 0
 local lastLapCompletedEvent = 0
