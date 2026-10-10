@@ -65,8 +65,8 @@ function Display.draw(snapshot, settings, visual)
   local timerTop = contentTop + 6 * scale
   local resultBadgeHeight = 24 * scale
   local timerHeight = height - timerTop - resultBadgeHeight - gap - 2 * scale
-  local timerTL = vec2(6 * scale, timerTop)
-  local timerBR = vec2(width - 6 * scale - bestWidth - deltaWidth - 2 * gap, timerTop + timerHeight)
+  local timerTL = vec2(6 * scale + bestWidth + gap, timerTop)
+  local timerBR = vec2(width - 6 * scale - deltaWidth - gap, timerTop + timerHeight)
   local timerWidth = timerBR.x - timerTL.x
 
   ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
@@ -117,9 +117,8 @@ function Display.draw(snapshot, settings, visual)
 
   if result then
     local badgeTop = timerTop
-    local badgeLeft = timerBR.x + gap
     if showBest then
-      drawBadge(vec2(badgeLeft, badgeTop), bestWidth, timerHeight, 'BEST',
+      drawBadge(vec2(6 * scale, badgeTop), bestWidth, timerHeight, 'BEST',
         withBackgroundOpacity(colors.purpleDim, backgroundOpacity),
         withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 26)
     end
@@ -127,7 +126,7 @@ function Display.draw(snapshot, settings, visual)
       or (result.delta ~= nil and result.delta < 0 and 'session_best') or 'slower'
     local deltaColor = deltaStatus == 'invalid' and colors.secondary
       or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
-    drawBadge(vec2(badgeLeft + bestWidth + gap, badgeTop), deltaWidth, timerHeight,
+    drawBadge(vec2(timerBR.x + gap, badgeTop), deltaWidth, timerHeight,
       TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
       withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 26, true)
   end
