@@ -22,18 +22,18 @@ M.digital = {
 local profiles = {
   analog = {
     original = {first=140, last=400},
-    shelf = {first=150, last=390, shelf=true},
+    shelf = {first=180, last=360},
     fan = {first=190, last=350, fan=true},
-    concentric = {first=140, last=400, concentric=true},
-    spoke = {first=150, last=390, spokes=true}
+    concentric = {first=140, last=400},
+    spoke = {first=180, last=360}
   },
   digital = {
     original = {first=140, last=400},
     bridge = {first=190, last=350, bridge=true},
     column = {first=140, last=400, columns=true},
-    radial = {first=150, last=390, radial=true},
-    offset = {first=155, last=385, offset=true},
-    orbit = {first=130, last=410, orbit=true}
+    radial = {first=190, last=350},
+    offset = {first=180, last=360},
+    orbit = {first=180, last=360}
   }
 }
 

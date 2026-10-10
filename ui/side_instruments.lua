@@ -8,6 +8,7 @@ local Hybrid = require('src/hybrid')
 local HybridGauge = require('ui/hybrid_gauge')
 local Layout = require('src/gt7_retro_layout')
 local DialStyles = require('src/gt7_dial_styles')
+local StyledInstruments = require('ui/gt7_styled_instruments')
 local M = {}
 local D, S = Config.dial, Config.sub
 
@@ -260,6 +261,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local visual = state.gt7Instruments
   local mode = rpm and settings.gt7RpmNeedleMode or settings.gt7SpeedNeedleMode
   local selectedStyle = rpm and settings.gt7RpmDialStyle or settings.gt7SpeedDialStyle
+  selectedStyle = DialStyles.normalize(selectedStyle, mode)
   local face = DialStyles.get(selectedStyle, mode)
   local first, last = math.rad(face.first), math.rad(face.last)
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
@@ -269,25 +271,14 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local L = Light.resolve(C, settings.theme, light)
   ui.drawCircleFilled(center, radius * scale, Theme.withAlpha(C.panel, math.min(0.96, backdropOpacity + 0.18)), 72)
   Light.ambient(center, scale, L)
+  if StyledInstruments.supports(selectedStyle) then
+    StyledInstruments.draw(selectedStyle, center, scale, state, settings, C, L,
+      digital, light, rpm, rpmColor, subGauge)
+    return
+  end
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.
   arc(center, D.numberRadius * scale, first, last,
     C.panelRaised, D.numberBandWidth * scale, 64)
-  if face.concentric or face.radial then
-    arc(center, (D.innerRadius + (face.concentric and 8 or 15)) * scale, first, last,
-      C.metalDim, (face.concentric and 1.2 or 0.8) * scale, 48)
-  end
-  if face.concentric then
-    arc(center, (D.innerRadius - 8) * scale, first, last,
-      C.outlineSoft, 0.7 * scale, 48)
-  elseif face.orbit then
-    arc(center, (D.lightRadius + 3) * scale, math.rad(130), math.rad(225),
-      C.metalDim, 0.8 * scale, 32)
-    arc(center, (D.lightRadius + 3) * scale, math.rad(315), math.rad(410),
-      C.metalDim, 0.8 * scale, 32)
-  elseif face.shelf then
-    Light.line(center + vec2(-78 * scale, 121 * scale), center + vec2(78 * scale, 121 * scale),
-      C.metalDim, 1 * scale, L.inner, scale)
-  end
   if light > 0 then
     local ring = Config.illumination.ring
     local intensity = ring.analog + (ring.digital - ring.analog) * digital
@@ -331,7 +322,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
           active and L.segment or L.printedWarning)
       end
     end
-    for tickIndex, tick in ipairs(geometry.ticks) do
+    for _, tick in ipairs(geometry.ticks) do
       -- Keep the analog redline as a clean, broad colored band without normal
       -- graduations behind it, matching the premium GT7 RPM face.
       if not (rpm and tick.f >= redline) then
@@ -339,7 +330,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
           C.primary, (tick.major and D.tickWidth or (face.fan and tick.medium and D.tickWidth * 0.75 or D.minorWidth)) * scale,
           tick.major and L.major or (tick.medium and L.medium or L.minor), scale)
       end
-      if (face.spokes and tickIndex % 5 == 1) or (face.fan and tick.major) then
+      if face.fan and tick.major then
         Light.line(center + vec2(40 * math.cos(first + (last - first) * tick.f) * scale,
             40 * math.sin(first + (last - first) * tick.f) * scale),
           center + vec2(tick.x2 * scale, tick.y2 * scale), C.metalDim,
