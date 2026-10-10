@@ -2,6 +2,7 @@ local DialSettings = require('src/settings')
 local SettingsUI = require('src/settings_ui')
 local Layout = require('src/gt7_retro_layout')
 local InstrumentConfig = require('src/instrument_config')
+local DialStyles = require('src/gt7_dial_styles')
 local GeneralSettings = require('src/general_settings')
 local M = {}
 
@@ -40,6 +41,8 @@ M.values = ac.storage({
   gt7RpmNeedleMode = 'digital',
   gt7SpeedNeedleStyle = 'b01',
   gt7RpmNeedleStyle = 'b01',
+  gt7SpeedDialStyle = 'original',
+  gt7RpmDialStyle = 'original',
   gt7SimulateVacuum = true,
   gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
@@ -88,9 +91,13 @@ local function sanitizeComposition()
   local normalized = Layout.normalize(M.values)
   setComposition(normalized)
   if not presetIds[M.values.gt7Layout] then M.values.gt7Layout = 'classic' end
+  M.values.gt7SpeedNeedleMode = M.values.gt7SpeedNeedleMode == 'analog' and 'analog' or 'digital'
+  M.values.gt7RpmNeedleMode = M.values.gt7RpmNeedleMode == 'analog' and 'analog' or 'digital'
   for _, key in ipairs({ 'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle' }) do
     M.values[key] = InstrumentConfig.normalizeNeedleStyle(M.values[key])
   end
+  M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, M.values.gt7SpeedNeedleMode)
+  M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, M.values.gt7RpmNeedleMode)
 end
 sanitizeComposition()
 
@@ -125,7 +132,7 @@ function M.current()
     'gt7SpeedStyle', 'gt7GearStyle', 'gt7SteeringStyle', 'gt7RpmBarVisible',
     'gt7PedalPosition', 'gt7PedalStyle', 'gt7RadarPresentation',
     'gt7FlagPresentation', 'gt7LowerFrameStyle',
-    'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7LowerPanelMode',
+    'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7SpeedDialStyle', 'gt7RpmDialStyle', 'gt7LowerPanelMode',
     'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle', 'gt7SimulateVacuum', 'gt7VacuumMinimum',
     'gt7ProximityRadar', 'gt7RadarStyle', 'showSteering', 'showLights', 'debug'
   }) do
@@ -159,6 +166,7 @@ local function resetAppearance()
   M.values.hudScale, M.values.gt7DialScale, M.values.gt7DialSpacing = 0.72, 1, 0
   M.values.gt7IndicatorScale = 1
   M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
+  M.values.gt7SpeedDialStyle, M.values.gt7RpmDialStyle = 'original', 'original'
 end
 
 function M.draw()
@@ -177,12 +185,22 @@ function M.draw()
     slider('HUD scale', 'hudScale', 0.55, 1.15, '%.2fx')
     local modes = {{label='Digital', value='digital'}, {label='Analog', value='analog'}}
     SettingsUI.choice('gt7', 'speedNeedle', 'Speed dial mode', M.values.gt7SpeedNeedleMode,
-      modes, function(value) M.values.gt7SpeedNeedleMode = value end)
+      modes, function(value)
+        M.values.gt7SpeedNeedleMode = value
+        M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, value)
+      end)
     SettingsUI.choice('gt7', 'rpmNeedle', 'RPM dial mode', M.values.gt7RpmNeedleMode,
-      modes, function(value) M.values.gt7RpmNeedleMode = value end)
+      modes, function(value)
+        M.values.gt7RpmNeedleMode = value
+        M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, value)
+      end)
   end)
   SettingsUI.section('gt7', 'personalization', 'Personalization', false, function()
     SettingsUI.section('gt7', 'dials', 'Side dials', true, function()
+      choice('speedDialStyle', 'Speed dial style',
+        M.values.gt7SpeedNeedleMode == 'analog' and DialStyles.analog or DialStyles.digital)
+      choice('rpmDialStyle', 'RPM dial style',
+        M.values.gt7RpmNeedleMode == 'analog' and DialStyles.analog or DialStyles.digital)
       if M.values.gt7SpeedNeedleMode == 'analog' then
         SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
           InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)

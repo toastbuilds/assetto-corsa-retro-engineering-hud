@@ -7,6 +7,7 @@ local U = require('src/utils')
 local Hybrid = require('src/hybrid')
 local HybridGauge = require('ui/hybrid_gauge')
 local Layout = require('src/gt7_retro_layout')
+local DialStyles = require('src/gt7_dial_styles')
 local M = {}
 local D, S = Config.dial, Config.sub
 
@@ -35,7 +36,8 @@ local function blockGeometry(count, radius, depth, first, last, gap)
   return blocks
 end
 
-local mainGeometry, geometryKey, redlineGeometry, redlineKey
+local mainGeometries, redlineGeometries = {}, {}
+local segmentGeometries = {}
 local subGeometry = blockGeometry(S.segmentCount, S.radius, S.segmentDepth,
   S.startAngle, S.endAngle, S.segmentGap)
 local analogSubGeometry = blockGeometry(S.segmentCount, S.analogRadius,
@@ -101,6 +103,15 @@ function M.boostIcon(center, scale, color, spread)
   ui.drawLine(p(1, -9), p(12, -9), color, (1.7 + extra) * scale)
   ui.drawLine(p(12, -9), p(12, -14), color, (1.7 + extra) * scale)
   ui.drawLine(p(8, -14), p(14, -14), color, (1.7 + extra) * scale)
+end
+
+local function segmentGeometry(count, first, last)
+  local key = table.concat({count, first, last}, '|')
+  if not segmentGeometries[key] then
+    segmentGeometries[key] = blockGeometry(count, D.segmentRadius, D.segmentDepth,
+      first, last, D.segmentGap)
+  end
+  return segmentGeometries[key]
 end
 
 function M.aeroIcon(center, scale, color, spread)
@@ -248,6 +259,9 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local radius = layout.dialRadius
   local visual = state.gt7Instruments
   local mode = rpm and settings.gt7RpmNeedleMode or settings.gt7SpeedNeedleMode
+  local selectedStyle = rpm and settings.gt7RpmDialStyle or settings.gt7SpeedDialStyle
+  local face = DialStyles.get(selectedStyle, mode)
+  local first, last = math.rad(face.first), math.rad(face.last)
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
   if digital == nil then digital = mode == 'digital' and 1 or 0 end
   local light = visual and visual.light
@@ -256,23 +270,40 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   ui.drawCircleFilled(center, radius * scale, Theme.withAlpha(C.panel, math.min(0.96, backdropOpacity + 0.18)), 72)
   Light.ambient(center, scale, L)
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.
-  arc(center, D.numberRadius * scale, layout.gaugeStart, layout.gaugeEnd,
+  arc(center, D.numberRadius * scale, first, last,
     C.panelRaised, D.numberBandWidth * scale, 64)
+  if face.concentric or face.radial then
+    arc(center, (D.innerRadius + (face.concentric and 8 or 15)) * scale, first, last,
+      C.metalDim, (face.concentric and 1.2 or 0.8) * scale, 48)
+  end
+  if face.concentric then
+    arc(center, (D.innerRadius - 8) * scale, first, last,
+      C.outlineSoft, 0.7 * scale, 48)
+  elseif face.orbit then
+    arc(center, (D.lightRadius + 3) * scale, math.rad(130), math.rad(225),
+      C.metalDim, 0.8 * scale, 32)
+    arc(center, (D.lightRadius + 3) * scale, math.rad(315), math.rad(410),
+      C.metalDim, 0.8 * scale, 32)
+  elseif face.shelf then
+    Light.line(center + vec2(-78 * scale, 121 * scale), center + vec2(78 * scale, 121 * scale),
+      C.metalDim, 1 * scale, L.inner, scale)
+  end
   if light > 0 then
     local ring = Config.illumination.ring
     local intensity = ring.analog + (ring.digital - ring.analog) * digital
-    arc(center, D.lightRadius * scale, D.coldStart, D.coldEnd,
+    local warmBoundary = first + (last - first) * 0.5
+    arc(center, D.lightRadius * scale, first, warmBoundary,
       L.ringHalo, ring.haloWidth * scale)
-    arc(center, D.lightRadius * scale, D.coldStart, D.coldEnd,
+    arc(center, D.lightRadius * scale, first, warmBoundary,
       Theme.withAlpha(L.ringCold, L.ringCold.mult * intensity), 1 * scale)
-    arc(center, D.lightRadius * scale, D.coldEnd, layout.gaugeEnd,
+    arc(center, D.lightRadius * scale, warmBoundary, last,
       Theme.withAlpha(L.ringWarm, L.ringWarm.mult * intensity), 1 * scale)
   end
   local maximum = rpm and math.max((state.rpmGaugeLimiter or 8000) / 1000, 1)
     or (state.speedGaugeMaximum or 320)
   local step = rpm and (maximum <= 9 and 1 or (maximum <= 18 and 2 or math.ceil(maximum / 8)))
     or (state.speedGaugeStep or maximum / 8)
-  local geometry = scaleGeometry(maximum, step, layout.gaugeStart, layout.gaugeEnd, rpm)
+  local geometry = scaleGeometry(maximum, step, first, last, rpm)
   local fraction = rpm and U.clamp(state.rpmGaugeNormalized or 0, 0, 1)
     or U.clamp((state.speedValue or 0) / maximum, 0, 1)
   local redline = U.clamp((state.rpmDisplayLimiter or 8000) * (state.rpmRedlineFraction or 0.96)
@@ -285,13 +316,14 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   if digital < 1 then
     ui.pushStyleVarAlpha(1 - digital)
     if rpm then
-      local key = table.concat({layout.gaugeStart, layout.gaugeEnd, redline}, '|')
-      if redlineKey ~= key then
+      local key = table.concat({first, last, redline}, '|')
+      local redlineGeometry = redlineGeometries[key]
+      if not redlineGeometry then
         redlineGeometry = blockGeometry(math.max(2, math.ceil((1 - redline) * D.segmentCount)),
           D.segmentRadius, D.segmentDepth,
-          layout.gaugeStart + (layout.gaugeEnd - layout.gaugeStart) * redline,
-          layout.gaugeEnd, D.segmentGap)
-        redlineKey = key
+          first + (last - first) * redline,
+          last, D.segmentGap)
+        redlineGeometries[key] = redlineGeometry
       end
       for _, block in ipairs(redlineGeometry) do
         local active = state.rpmRedline or fraction >= redline
@@ -299,13 +331,19 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
           active and L.segment or L.printedWarning)
       end
     end
-    for _, tick in ipairs(geometry.ticks) do
-      -- Major marks align with printed values (7, 8, etc.) and must cut
-      -- through the analog redline blocks so those numbered positions remain clear.
-      if not rpm or tick.f < redline or tick.major then
+    for tickIndex, tick in ipairs(geometry.ticks) do
+      -- Keep the analog redline as a clean, broad colored band without normal
+      -- graduations behind it, matching the premium GT7 RPM face.
+      if not (rpm and tick.f >= redline) then
         Light.line(center + vec2(tick.x1 * scale, tick.y1 * scale), center + vec2(tick.x2 * scale, tick.y2 * scale),
-          C.primary, (tick.major and D.tickWidth or D.minorWidth) * scale,
+          C.primary, (tick.major and D.tickWidth or (face.fan and tick.medium and D.tickWidth * 0.75 or D.minorWidth)) * scale,
           tick.major and L.major or (tick.medium and L.medium or L.minor), scale)
+      end
+      if (face.spokes and tickIndex % 5 == 1) or (face.fan and tick.major) then
+        Light.line(center + vec2(40 * math.cos(first + (last - first) * tick.f) * scale,
+            40 * math.sin(first + (last - first) * tick.f) * scale),
+          center + vec2(tick.x2 * scale, tick.y2 * scale), C.metalDim,
+          (face.fan and 0.9 or 0.65) * scale, L.inner, scale)
       end
       if not tick.major then
         ui.drawLine(center + vec2(tick.ix1 * scale, tick.iy1 * scale),
@@ -321,16 +359,27 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   end
   if digital > 0 then
     ui.pushStyleVarAlpha(digital)
-    local key = tostring(layout.gaugeStart) .. '|' .. tostring(layout.gaugeEnd)
-    if geometryKey ~= key then
-      mainGeometry = blockGeometry(D.segmentCount, D.segmentRadius, D.segmentDepth,
-        layout.gaugeStart, layout.gaugeEnd, D.segmentGap)
-      geometryKey = key
+    local key = table.concat({first, last, face.columns and 'columns' or ''}, '|')
+    local mainGeometry = mainGeometries[key]
+    if not mainGeometry then
+      if face.columns then
+        local left = blockGeometry(D.segmentCount / 2, D.segmentRadius, D.segmentDepth,
+          math.rad(140), math.rad(220), D.segmentGap)
+        local right = blockGeometry(D.segmentCount / 2, D.segmentRadius, D.segmentDepth,
+          math.rad(320), math.rad(400), D.segmentGap)
+        mainGeometry = {}
+        for _, block in ipairs(left) do mainGeometry[#mainGeometry + 1] = block end
+        for _, block in ipairs(right) do mainGeometry[#mainGeometry + 1] = block end
+      else
+        mainGeometry = segmentGeometry(D.segmentCount, first, last)
+      end
+      mainGeometries[key] = mainGeometry
     end
-    local filled = math.floor(fraction * D.segmentCount + 0.5)
+    local filled = math.floor(fraction * (face.columns and D.segmentCount / 2 or D.segmentCount) + 0.5)
     for i, block in ipairs(mainGeometry) do
-      local f = i / D.segmentCount
-      local active = i <= filled
+      local localIndex = face.columns and ((i - 1) % (D.segmentCount / 2) + 1) or i
+      local f = localIndex / (face.columns and D.segmentCount / 2 or D.segmentCount)
+      local active = localIndex <= filled
       local color = active and C.primary or C.inactive
       if rpm then
         color = active and rpmColor(f, true, state, settings) or (f >= redline and C.redDim or C.inactive)
@@ -353,7 +402,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
     local needleFraction = rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local style = rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
     local tint = rpm and (state.rpmRedline and redlineColor or (state.rpmWarning and C.amber or nil)) or nil
-    Needle.draw(center, scale, layout.gaugeStart + (layout.gaugeEnd - layout.gaugeStart)
+    Needle.draw(center, scale, first + (last - first)
       * U.clamp(needleFraction or fraction, 0, 1), Config.needlePreset(style), C, light, tint, L)
     ui.popStyleVar(1)
   end
