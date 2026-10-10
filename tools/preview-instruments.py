@@ -257,6 +257,13 @@ def main(hybrid=False, styles_only=False):
     if styles_only:
         render("gt7-mixed-analog", speed_dial_style="shelf", rpm_dial_style="spoke", lights=True)
         render("gt7-mixed-digital", mode="digital", speed_dial_style="offset", rpm_dial_style="orbit", lights=True)
+        state["fuelNormalized"], state["fuel"], state["clock"] = 0.08, 4, 0
+        render("gt7-orbit-low-fuel", mode="digital", speed_dial_style="orbit", lights=True)
+        state["clock"] = 0.3
+        render("gt7-orbit-low-fuel-blink", mode="digital", speed_dial_style="orbit", lights=True)
+        state["fuelNormalized"], state["fuel"] = 0.6, 30
+        state["hybrid"] = lua.table_from(dict(powerKw=120, needle=0.8, charge=0.84))
+        render("gt7-orbit-hybrid", mode="digital", speed_dial_style="orbit", rpm_dial_style="orbit", lights=True)
         return
 
     for theme in ("dark", "light"):

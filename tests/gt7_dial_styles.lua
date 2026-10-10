@@ -113,5 +113,32 @@ local shelf, concentric, spoke = primaryPosition('shelf','analog'),
 assert(concentric.y+70<shelf.y and concentric.y+70<spoke.y,
   'Concentric must move the reading into its central core')
 
+state.available, state.fuel, state.maxFuel, state.fuelNormalized = true, 30, 50, 0.6
+for _, style in ipairs({'radial','orbit'}) do
+  local options={gt7SpeedNeedleMode='digital',gt7RpmNeedleMode='digital',
+    gt7SpeedDialStyle=style,gt7RpmDialStyle=style}
+  local calls=harness.draw('classic',options,state)
+  local lowerBlocks=0
+  for _, call in ipairs(calls) do
+    if call.kind=='polygon' and call.points and call.points[1] then
+      for _,p in ipairs(call.points) do
+        local distance=math.sqrt((p.x-175)^2+(p.y-258)^2)
+        if math.abs(distance-148)<0.1 and p.y>258 then lowerBlocks=lowerBlocks+1; break end
+      end
+    end
+    assert(not (call.kind=='arc' and call.radius<80 and math.abs(call.a.x-175)<0.1
+      and call.a.y>258 and call.a.y<430), 'fuel must use the lower bezel, without a mini dial')
+  end
+  assert(lowerBlocks>=32,'fuel must span the lower circular rim: '..style)
+  state.hybrid={powerKw=120,needle=0.8,charge=0.84}
+  local labels={}
+  for _,call in ipairs(harness.draw('classic',options,state)) do
+    if call.kind=='text' then labels[call.text]=true end
+  end
+  assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%'],
+    'the lower RPM arc must preserve independent hybrid readings')
+  state.hybrid=nil
+end
+
 values.gt7SpeedDialStyle, values.gt7RpmDialStyle = originalSpeed, originalRpm
 print('GT7 dial styles: mode fallback, independent persistence, nine styles, themes and preserved readings passed')
