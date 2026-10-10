@@ -164,7 +164,7 @@ def create_harness():
     return lua, harness
 
 
-def main(hybrid=False):
+def main(hybrid=False, styles_only=False):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     lua, harness = create_harness()
     state = harness["state"]
@@ -232,7 +232,8 @@ def main(hybrid=False):
         return
 
     dial_style_module = lua.eval("require('src/gt7_dial_styles')")
-    for mode, choices in (("analog", dial_style_module["analog"]), ("digital", dial_style_module["digital"])):
+    for mode, theme, choices in ((mode, theme, dial_style_module[mode])
+                                 for mode in ("analog", "digital") for theme in ("dark", "light")):
         choices = [choices[i] for i in range(1, len(choices) + 1)]
         columns, cell_w, cell_h = 4, 300, 310
         rows = math.ceil(len(choices) / columns)
@@ -242,16 +243,21 @@ def main(hybrid=False):
         for index, item in enumerate(choices):
             style_id = item["value"]
             x, y = (index % columns) * cell_w, (index // columns) * cell_h
-            picture = render("style-review", mode=mode, lights=True,
+            picture = render("style-review", mode=mode, lights=True, theme=theme,
                 speed_dial_style=style_id, rpm_dial_style="original")
             speed_sheet.paste(picture.crop((0, 78, 350, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
             ImageDraw.Draw(speed_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
-            picture = render("style-review", mode=mode, lights=True,
+            picture = render("style-review", mode=mode, lights=True, theme=theme,
                 speed_dial_style="original", rpm_dial_style=style_id)
             rpm_sheet.paste(picture.crop((1090, 78, 1440, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
             ImageDraw.Draw(rpm_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
-        speed_sheet.save(OUTPUT / f"gt7-speed-style-{mode}.png")
-        rpm_sheet.save(OUTPUT / f"gt7-rpm-style-{mode}.png")
+        suffix = "-light" if theme == "light" else ""
+        speed_sheet.save(OUTPUT / f"gt7-speed-style-{mode}{suffix}.png")
+        rpm_sheet.save(OUTPUT / f"gt7-rpm-style-{mode}{suffix}.png")
+    if styles_only:
+        render("gt7-mixed-analog", speed_dial_style="shelf", rpm_dial_style="spoke", lights=True)
+        render("gt7-mixed-digital", mode="digital", speed_dial_style="offset", rpm_dial_style="orbit", lights=True)
+        return
 
     for theme in ("dark", "light"):
         for mode in ("analog", "digital"):
@@ -337,6 +343,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--hybrid", action="store_true", help="Preview the Triptych electric instruments only")
+    parser.add_argument("--styles-only", action="store_true", help="Preview GT7 speed and RPM face compositions only")
     args = parser.parse_args()
     OUTPUT = args.output
-    main(hybrid=args.hybrid)
+    main(hybrid=args.hybrid, styles_only=args.styles_only)

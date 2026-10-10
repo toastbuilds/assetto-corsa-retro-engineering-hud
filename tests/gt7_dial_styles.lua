@@ -91,5 +91,27 @@ for _, mode in ipairs({'analog', 'digital'}) do
   end
 end
 
+-- These families must change the placement of the primary reading, rather
+-- than merely add decorative rings to an otherwise identical face.
+local function primaryPosition(style, mode)
+  local calls = harness.draw('classic', {gt7SpeedNeedleMode=mode, gt7RpmNeedleMode=mode,
+    gt7SpeedDialStyle=style, gt7RpmDialStyle='original'}, state)
+  for _,call in ipairs(calls) do
+    if call.kind=='text' and call.text=='139' and call.size>25 and call.a.x<350 then return call.a end
+  end
+  error('styled dial must preserve a legible primary reading: ' .. style)
+end
+local radial, offset, orbit = primaryPosition('radial','digital'),
+  primaryPosition('offset','digital'), primaryPosition('orbit','digital')
+for _, pair in ipairs({{radial,offset},{radial,orbit},{offset,orbit}}) do
+  local a,b=pair[1],pair[2]
+  assert(math.sqrt((a.x-b.x)^2+(a.y-b.y)^2)>25,
+    'Radial, Offset and Orbit must use visibly different primary reading positions')
+end
+local shelf, concentric, spoke = primaryPosition('shelf','analog'),
+  primaryPosition('concentric','analog'), primaryPosition('spoke','analog')
+assert(concentric.y+70<shelf.y and concentric.y+70<spoke.y,
+  'Concentric must move the reading into its central core')
+
 values.gt7SpeedDialStyle, values.gt7RpmDialStyle = originalSpeed, originalRpm
 print('GT7 dial styles: mode fallback, independent persistence, nine styles, themes and preserved readings passed')
