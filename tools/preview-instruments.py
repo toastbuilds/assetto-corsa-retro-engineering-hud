@@ -181,9 +181,12 @@ def main(hybrid=False):
         presentation = presentation[0]
     renders = {}
 
-    def render(name, mode="analog", style="b01", lights=False, theme="dark", frame="classic", window=None, dial_scale=1, spacing=0, indicator_scale=1, no_ring=False):
+    def render(name, mode="analog", style="b01", lights=False, theme="dark", frame="classic", window=None, dial_scale=1, spacing=0, indicator_scale=1, no_ring=False,
+               speed_dial_style="original", rpm_dial_style="original"):
         options = lua.table_from(dict(gt7SpeedNeedleMode=mode, gt7RpmNeedleMode=mode,
-            gt7SpeedNeedleStyle=style, gt7RpmNeedleStyle=style, theme=theme, speedUnit="km/h",
+            gt7SpeedNeedleStyle=style, gt7RpmNeedleStyle=style,
+            gt7SpeedDialStyle=speed_dial_style, gt7RpmDialStyle=rpm_dial_style,
+            theme=theme, speedUnit="km/h",
             gt7SimulateVacuum=True, gt7VacuumMinimum=-0.5, showLights=True,
             gt7DialScale=dial_scale, gt7DialSpacing=spacing, gt7IndicatorScale=indicator_scale))
         state["headlights"], state["gt7Instruments"] = lights, None
@@ -227,6 +230,28 @@ def main(hybrid=False):
             state["hybrid"]["powerKw"], state["hybrid"]["needle"] = 120,0.8
         sheet.save(OUTPUT / "hybrid-comparison.png")
         return
+
+    dial_style_module = lua.eval("require('src/gt7_dial_styles')")
+    for mode, choices in (("analog", dial_style_module["analog"]), ("digital", dial_style_module["digital"])):
+        choices = [choices[i] for i in range(1, len(choices) + 1)]
+        columns, cell_w, cell_h = 4, 300, 310
+        rows = math.ceil(len(choices) / columns)
+        speed_sheet = Image.new("RGB", (columns * cell_w, rows * cell_h), "#121416")
+        rpm_sheet = Image.new("RGB", speed_sheet.size, "#121416")
+        label_face = ImageFont.truetype(str(FONT), 15)
+        for index, item in enumerate(choices):
+            style_id = item["value"]
+            x, y = (index % columns) * cell_w, (index // columns) * cell_h
+            picture = render("style-review", mode=mode, lights=True,
+                speed_dial_style=style_id, rpm_dial_style="original")
+            speed_sheet.paste(picture.crop((0, 78, 350, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
+            ImageDraw.Draw(speed_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
+            picture = render("style-review", mode=mode, lights=True,
+                speed_dial_style="original", rpm_dial_style=style_id)
+            rpm_sheet.paste(picture.crop((1090, 78, 1440, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
+            ImageDraw.Draw(rpm_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
+        speed_sheet.save(OUTPUT / f"gt7-speed-style-{mode}.png")
+        rpm_sheet.save(OUTPUT / f"gt7-rpm-style-{mode}.png")
 
     for theme in ("dark", "light"):
         for mode in ("analog", "digital"):

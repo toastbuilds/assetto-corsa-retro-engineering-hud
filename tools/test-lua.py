@@ -43,6 +43,7 @@ def main():
         "tests/dial_variants.lua",
         "tests/digital_variants.lua",
         "tests/instrument_illumination.lua",
+        "tests/gt7_dial_styles.lua",
         "tests/hybrid_instruments.lua",
         "tests/hybrid_regeneration.lua",
     ]
