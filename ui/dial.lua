@@ -27,6 +27,11 @@ local function centeredText(text, size, center, color)
   ui.dwriteDrawText(text, size, center - measured / 2, color)
 end
 
+local function centeredCaption(text, size, center, color)
+  local measured = ui.measureDWriteText(text, size)
+  ui.dwriteDrawText(text, size, center - measured / 2, color)
+end
+
 local function centeredBacklitText(text, size, center, color, scale, backlit)
   text=Readout.value(text)
   if not text then return end
@@ -329,7 +334,7 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
     return
   end
   if requestedMode == 'electric' then
-    centeredText('ERS N/A', 13 * scale,
+    centeredCaption('ERS N/A', 13 * scale,
       point(origin, scale, Layout.centerX, Layout.analogAuxLabelY), C.secondary)
     return
   end
@@ -375,8 +380,8 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
   end
 
   local backlit = state.headlights == true
-  centeredBacklitText(label, 11 * scale,
-    point(origin, scale, Layout.centerX - 66, Layout.analogAuxLabelY), C.secondary, scale, backlit)
+  centeredCaption(label, 11 * scale,
+    point(origin, scale, Layout.centerX - 66, Layout.analogAuxLabelY), C.secondary)
   centeredBacklitText(value, 13 * scale,
     point(origin, scale, Layout.centerX + 52, Layout.analogAuxLabelY), accent, scale, backlit)
 end

@@ -47,7 +47,10 @@ function M.draw(center, scale, hybrid, palette, theme, lights, profile)
   local p = profiles[profile]
   local L = Theme.dialBacklight and Light.resolve(palette, theme, lights or 0) or {}
   local function text(value, size, x, y, color, style)
-    if profile == 'standalone' then value = Readout.value(value) end
+    if profile == 'standalone' and value ~= 'CHG' and value ~= 'PWR'
+        and not value:match('^ERS[%s%-]') then
+      value = Readout.value(value)
+    end
     if not value then return end
     Light.text(value, size * scale, center + vec2(x * scale, y * scale), color, nil, style, scale)
   end
