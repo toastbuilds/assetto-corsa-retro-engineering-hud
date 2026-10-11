@@ -61,7 +61,7 @@ function Settings.draw()
   SettingsUI.section('timer', 'basics', 'Basics', true, function()
     slider('HUD scale', 'scale', 0.65, 1.50, '%.2fx')
     percentSlider('Background opacity', 'backgroundOpacity')
-    ui.textWrapped('Sector and lap results hold and flash for 2 seconds.')
+    if ui.text then ui.text('Sector and lap results hold and flash for 2 seconds.') end
     checkbox('Lap and sector sounds', 'audioEnabled')
     if ui.button('Test sector sound##timer.test-sector-sound') then previewFailed = not Audio.playSectorRecord() end
     if ui.button('Test lap sound##timer.test-lap-sound') then previewFailed = not Audio.playLapCompleted() end

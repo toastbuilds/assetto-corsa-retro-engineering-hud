@@ -36,15 +36,15 @@ local function drawOutlinedText(text, size, center, color, scale)
   ui.dwriteDrawText(text, size, position, color)
 end
 
-local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize, outlineValue)
+local function drawBadge(tl, width, height, label, fill, stroke, textColor, scale, textSize, outlineValue, verticalPadding)
   TimingUI.chamferRect(tl, tl + vec2(width, height), 8 * scale, fill, stroke, 1.1 * scale)
   local size = (textSize or 10) * scale
   local measured = ui.measureDWriteText(label, size)
   size = size * math.min(1, (width - 10 * scale) / math.max(1, measured.x),
-    (height - 8 * scale) / math.max(1, measured.y))
+    (height - (verticalPadding or 8) * scale) / math.max(1, measured.y))
   local center = tl + vec2(width / 2, height / 2)
   if outlineValue then drawOutlinedText(label, size, center, textColor, scale)
-  else TimingUI.centeredText(label, size, center + vec2(0, size * 0.15), textColor) end
+  else TimingUI.centeredText(label, size, center, textColor) end
 end
 
 local function withBackgroundOpacity(color, opacity)
@@ -55,16 +55,17 @@ function Display.draw(snapshot, settings, visual)
   local colors = visual.palette
   local backgroundOpacity = math.max(0, math.min(1, tonumber(settings.backgroundOpacity) or 0.70))
   local width, height = ui.windowWidth(), ui.windowHeight()
-  local scale = math.max(0.35, math.min(settings.scale or 1, width / 480, height / 94))
+  local scale = math.max(0.35, math.min(settings.scale or 1, width / 320, height / 94))
   local contentTop = 5 * scale
   local result = snapshot.result
   local showBest = result and result.valid ~= false and result.status == 'session_best'
-  local bestWidth = 64 * scale
-  local deltaWidth = 88 * scale
+  local bestWidth = showBest and 64 * scale or 0
+  local deltaWidth = result and 88 * scale or 0
   local gap = 5 * scale
-  local timerTop = contentTop + 6 * scale
-  local resultBadgeHeight = 24 * scale
-  local timerHeight = height - timerTop - resultBadgeHeight - gap - 2 * scale
+  local timerTop = contentTop + 4 * scale
+  local resultBadgeHeight = 14 * scale
+  local timerHeight = height - timerTop - (snapshot.finalLap and resultBadgeHeight + gap or 0)
+    - (snapshot.finalLap and 0 or 2 * scale)
   local timerTL = vec2(6 * scale + bestWidth + gap, timerTop)
   local timerBR = vec2(width - 6 * scale - deltaWidth - gap, timerTop + timerHeight)
   local timerWidth = timerBR.x - timerTL.x
@@ -77,7 +78,7 @@ function Display.draw(snapshot, settings, visual)
     local badgeTL = vec2(6 * scale, timerBR.y + gap)
     drawBadge(badgeTL, badgeWidth, resultBadgeHeight, 'FINAL LAP',
       withBackgroundOpacity(colors.redDim, backgroundOpacity),
-      withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale, 15)
+      withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale, 12, false, 2)
   end
 
   local time = result and result.time or snapshot.currentLapTime
@@ -91,12 +92,11 @@ function Display.draw(snapshot, settings, visual)
   local timeText = TimingUI.formatTime(time)
   local timeSize = timerHeight
   local pitPadding = snapshot.inPits and 18 * scale or 0
-  -- Measure a fixed envelope, so sectors, laps and result badges never resize the clock.
-  local measured = ui.measureDWriteText('88:88.888', timeSize)
+  local measured = ui.measureDWriteText(timeText, timeSize)
   local hasInvalidMarker = invalidLap and timeText:find('%d') ~= nil
   local markerReserve = ui.measureDWriteText('*', timeSize * 0.34).x + 3 * scale
-  timeSize = timeSize * math.min(1, (timerWidth - 34 * scale - markerReserve) / math.max(1, measured.x),
-    (timerHeight - 8 * scale) / math.max(1, measured.y))
+  timeSize = timeSize * math.min(1, (timerWidth - 4 * scale - markerReserve) / math.max(1, measured.x),
+    (timerHeight - timeSize * 0.3 - scale) / math.max(1, measured.y))
   local textMeasured = ui.measureDWriteText(timeText, timeSize)
   local actualMarkerReserve = hasInvalidMarker
     and (ui.measureDWriteText('*', timeSize * 0.34).x + 3 * scale) or 0
