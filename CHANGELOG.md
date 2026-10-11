@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.6.0
+
+### Added
+
+- Four new analog Dial layouts: Concentric, Fan, Shelf and Spoke, each with light and dark finishes.
+- Five digital Dial variants with distinct layouts, steering details and perimeter gauges.
+- GT7 side dials that adapt their composition to the selected instrument style, including hybrid readouts and lower auxiliary arcs.
+- More control over dial variants, indicators and visual details in Settings.
+
+### Improved
+
+- Timer panels now center lap times and deltas more clearly, keep clock sizing stable, and show a full-width final-lap result banner.
+- Final-lap detection now also uses Assetto Corsa's native signal; result flashes last two seconds.
+- Approaching FAST rows blink while keeping their text readable.
+- Analog redline blocks and GT7 limiter animation are clearer.
+- Lap row fades preserve each row's colors.
+
+### For creators
+
+- Added previews and shell-building tools for the new instrument variants.
+
+Earlier release history: https://github.com/yukkine0704/assetto-corsa-retro-engineering-hud/releases
+
 ## 2.5.1
 
 ### Fixed

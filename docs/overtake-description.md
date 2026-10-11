@@ -18,25 +18,25 @@ Ten independent instruments in one CSP Lua app: Dial, GT7, Car Condition, Multic
 
 Assetto Corsa for Windows with CSP Lua apps enabled. CSP 0.2.8 or newer is recommended for complete window anchoring and mouse pass-through. Content Manager is recommended.
 
-Drag **RetroUI-v2.5.1.zip** into Content Manager, install and enable Retro UI. In a session, open instruments and Settings from the CSP app sidebar. Manual installation extracts `apps/lua/RetroUI` into the Assetto Corsa folder.
+Drag **RetroUI-v2.6.0.zip** into Content Manager, install and enable Retro UI. In a session, open instruments and Settings from the CSP app sidebar. Manual installation extracts `apps/lua/RetroUI` into the Assetto Corsa folder.
 
 ## Updating
 
 Close the game and install over the existing app. Stored settings and the installation identity stay the same. Back up any customized Relative/Leaderboard `classes.ini` files before ZIP updates and restore them afterward.
 
-## Version 2.5.1
+## Version 2.6.0
 
-- Fixed the digital Dial showing the TC level under ABS.
-- Improved leaderboard timing without requiring matching CSP callbacks.
-- Preserved finish-line timing for online rivals with a zero lap counter.
-- Consolidated all features into one complete free package.
-- Removed concept images and footage from the installation ZIP and added an English user guide, settings reference and changelog.
+- Four new analog Dial layouts (Concentric, Fan, Shelf and Spoke), in light and dark finishes.
+- Five digital Dial variants and GT7 side dials styled to match the selected instrument.
+- More Settings controls for dial variants, indicators and visual details.
+- Clearer Timer results, final-lap banners and FAST-row alerts; improved redline and limiter visuals.
+- Lap row fades preserve their colors. The complete feature set remains free in one package.
 
 ## Notes and support
 
 Some readings depend on the car's telemetry. Estimates are identified with `~` or **FROM OBSERVATION**. Replay seeks rebuild timing history.
 
-Promotional videos render the actual Lua UI with simulated inputs; they are not captured driving sessions. The author has validated the app while driving during the release week and tested previous release updates. Automated regressions and package checks cover 2.5.1.
+Promotional videos render the actual Lua UI with simulated inputs; they are not captured driving sessions. The author has validated the app while driving during the release week and tested previous release updates. Automated regressions and package checks run for each release.
 
 When reporting a problem, include CSP version, car, track/layout, session type, reproduction steps and a screenshot or clip. You can optionally support development through [Ko-fi](https://ko-fi.com/R6R0MLVVS) or [PayPal](https://paypal.me/WendyGalvezSanchez); every feature remains free.
 
