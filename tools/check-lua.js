@@ -26,7 +26,9 @@ for (const file of files) {
     failures++
   }
   for (const match of code.matchAll(/require\(['"]([^'"]+)['"]\)/g)) {
-    if (!fs.existsSync(path.join(root, `${match[1]}.lua`))) {
+    const modulePath = match[1]
+    const candidates = [modulePath, modulePath.replaceAll('.', path.sep)]
+    if (!candidates.some((candidate) => fs.existsSync(path.join(root, `${candidate}.lua`)))) {
       console.error(`${file}: missing module ${match[1]}`)
       failures++
     }
