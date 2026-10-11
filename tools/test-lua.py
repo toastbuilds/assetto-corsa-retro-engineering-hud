@@ -24,6 +24,7 @@ def main():
             runtime.execute((root / suite).read_text(encoding="utf-8-sig"))
         return
     suites = [
+        "tests/notices.lua",
         "tests/leaderboard.lua",
         "tests/leaderboard_data.lua",
         "tests/leaderboard_sectors.lua",

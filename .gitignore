@@ -8,6 +8,7 @@ __pycache__/
 
 # Generated previews, exports and local video references
 /output/
+/outputs/
 /brag-output/
 /brag-output-*/
 /launch-trailer-*/

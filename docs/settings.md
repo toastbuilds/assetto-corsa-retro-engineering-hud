@@ -45,6 +45,17 @@ Telemetry displays input/FFB histories and associated driving channels. Map swit
 
 Map backgrounds use dots or a radial surface. Off-track and flag alerts depend on the simulation's reported state; four-wheel-off highlighting is suppressed in pitlane.
 
+## Race Notices
+
+Open **Retro UI Race Notices** from the CSP sidebar. The English banner has no redundant heading and shares the global theme and opacity. It is empty when no notice is active, and suppressed in pitlane, replays and after the finish. Default placement is centered below the Timer; move it and disable Auto-placement to keep a custom position. Right-click to anchor it.
+
+- **BLUE FLAG** uses the simulation's official flag. The class and physical gap come from the full Relative grid, even when its window is closed or filtered. Unknown causes stay generic; estimated gaps use `~`.
+- **REPAIR REQUIRED** shows the affected component for six seconds after significant new damage. Default thresholds are 20% bodywork, 5% suspension and 20% engine/gearbox damage. A puncture also triggers a warning. Thresholds and duration are adjustable.
+- **BOX NEXT LAP** follows a damage warning when automatic pit requests are enabled. It becomes **BOX THIS LAP** on the requested lap. **Box next lap** and **Cancel pit request** in Basics also control manual requests. Entering pitlane or resetting the session clears the request.
+- **EST. REPAIR** is an approximation for full bodywork, suspension and engine repair, using the car's `car.ini` pit rates (seconds per 10% damage), the worst body zone and suspension corner, and reported engine damage. It excludes refuelling, tyre replacement and pitlane travel. Mod-specific procedures may differ. Missing rates, gearbox damage, punctures or unavailable damage data show `--` rather than a fabricated time.
+
+Priority is new repair warning, official blue flag, then pit reminder. Personalization has eight-second previews for all three states. Notifications and automatic pit requests can be disabled independently.
+
 ## Resets and persistence
 
 Basics opens by default. Personalization and Advanced expand when needed. Presets modify composition without locking subsequent edits. Reset appearance changes presentation; Reset all restores the local instrument after confirmation. General has separate shared resets.

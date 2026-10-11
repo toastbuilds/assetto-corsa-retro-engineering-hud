@@ -1,6 +1,6 @@
 # Retro UI
 
-Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Ten independent HUD windows, one app, shared appearance settings.
+Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Eleven independent HUD windows, one app, shared appearance settings.
 
 **Free, open source, and complete.** Every layout, editor and animation is included. Optional donations support development and never unlock features.
 
@@ -22,6 +22,7 @@ Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Ten independent 
 | Laps | Current progress and completed-lap history with optional transitions |
 | Telemetry | Input traces, FFB and driving telemetry |
 | Map | Full circuit or car-centred mini map, numbered markers and flag alerts |
+| Race Notices | Blue flags with approaching class, repair warnings and next-lap pit reminders with estimated repair time |
 
 Open only the windows you need. Each window can be resized and anchored independently. Light/dark themes, units and opacity are shared through **Retro UI Settings**.
 

@@ -4,6 +4,7 @@
 
 ### Added
 
+- Race Notices: a compact English banner for blue flags with class/gap, repair warnings and next-lap pit requests. Pit notices include estimated full repair time from the car's own pit rates, with no redundant banner heading.
 - Four new analog Dial layouts: Concentric, Fan, Shelf and Spoke, each with light and dark finishes.
 - Five digital Dial variants with distinct layouts, steering details and perimeter gauges.
 - GT7 side dials that adapt their composition to the selected instrument style, including hybrid readouts and lower auxiliary arcs.

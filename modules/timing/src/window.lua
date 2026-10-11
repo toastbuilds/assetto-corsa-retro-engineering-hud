@@ -87,7 +87,7 @@ function Window:position(size)
     y = 62
   else
     x = math.max(0, (screen.x - size.x) / 2)
-    y = 62
+    y = self.placement == 'notice-center' and 180 or 62
   end
   return vec2(x, math.max(0, y)) / scale
 end

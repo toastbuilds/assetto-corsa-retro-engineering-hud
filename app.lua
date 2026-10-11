@@ -18,7 +18,8 @@ local panels = {
   laps = require('modules/laps/main'),
   leaderboard = require('modules/leaderboard/main'),
   telemetry = require('modules/telemetry/main'),
-  map = require('modules/map/main')
+  map = require('modules/map/main'),
+  notices = require('modules/notices/main')
 }
 
 GeneralSettings.initialize(DialSettings.values, Gt7Settings.values.speedUnit,
@@ -86,6 +87,7 @@ function script.update(dt)
   for _, name in ipairs({ 'relative', 'delta', 'timer', 'laps', 'leaderboard', 'telemetry' }) do
     invoke(name, 'update', dt)
   end
+  invoke('notices', 'update', dt, dialState)
 end
 
 function script.windowMain(_)
@@ -130,6 +132,7 @@ function script.lapsMain(_) drawHudWindow('laps', function() invoke('laps', 'win
 function script.leaderboardMain(_) drawHudWindow('leaderboard', function() invoke('leaderboard', 'windowMain', _) end) end
 function script.telemetryMain(_) drawHudWindow('telemetry', function() invoke('telemetry', 'windowMain', _) end) end
 function script.mapMain(_) drawHudWindow('map', function() invoke('map', 'windowMain', _) end) end
+function script.noticesMain(_) drawHudWindow('notices', function() invoke('notices', 'windowMain', _) end) end
 
 function script.deltaShow(_) invoke('delta', 'windowShow', _) end
 function script.deltaHide(_) invoke('delta', 'windowHide', _) end
@@ -148,7 +151,8 @@ local pages = {
   { id = 'laps', label = 'Laps', draw = function() invoke('laps', 'windowSettings') end },
   { id = 'leaderboard', label = 'Leaderboard', draw = function() invoke('leaderboard', 'windowSettings') end },
   { id = 'telemetry', label = 'Telemetry', draw = function() invoke('telemetry', 'settingsMain') end },
-  { id = 'map', label = 'Map', draw = function() invoke('map', 'windowSettings') end }
+  { id = 'map', label = 'Map', draw = function() invoke('map', 'windowSettings') end },
+  { id = 'notices', label = 'Race Notices', draw = function() invoke('notices', 'windowSettings') end }
 }
 
 function script.settingsMain(_)

@@ -11,7 +11,7 @@ npm run check:lua
 python tools/test-lua.py
 ```
 
-The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migration, 11 windows, CSP callbacks, geometry, timing, tyre data, hybrids, illumination, independent ABS/TC values and live/replay history changes.
+The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migration, 12 windows, CSP callbacks, geometry, timing, tyre data, hybrids, illumination, independent ABS/TC values, race notices and live/replay history changes.
 
 ## Build
 

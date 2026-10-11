@@ -599,6 +599,26 @@ end
 
 function M.getTemperatureUnit() return settings.temperatureUnit end
 
+-- All classes, independent of the Relative window's row count and filters.
+-- Preserve measured/estimated provenance instead of presenting guessed gaps as exact.
+local trafficSnapshot, trafficSnapshotSource
+function M.getTrafficSnapshot()
+  if telemetryError or not player then return nil end
+  if trafficSnapshotSource == cars then return trafficSnapshot end
+  local now, rows = ui.time(), {}
+  for _, row in ipairs(cars) do
+    if row.index ~= player.index then
+      local delta = Relative.circularSplineDelta(player.spline, row.spline)
+      local gap, measured = timing:relativeGap(player.index, row.index, now, delta)
+      rows[#rows + 1] = { index = row.index, classID = row.classID,
+        gap = gap, measured = measured, behind = delta < 0,
+        inPitlane = row.inPitlane, progress = row.progress }
+    end
+  end
+  trafficSnapshotSource, trafficSnapshot = cars, { cars = rows, player = player }
+  return trafficSnapshot
+end
+
 local function resetAppearance()
   settings.uiScale = 1
   settings.fontSize, settings.classMarkerWidth = 18, 4
