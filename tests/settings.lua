@@ -139,7 +139,7 @@ General.values.version=0
 General.initialize({theme='light',speedUnit='km/h',temperatureUnit='C',sharedUnitsVersion=0},'mph','F','C')
 assert(General.values.speedUnit=='mph' and General.values.temperatureUnit=='F','legacy separate units must migrate')
 
--- All twelve settings pages start with only Basics expanded.
+-- All thirteen settings pages start with only Basics expanded.
 local pages={
   {'general',General.draw},{'dial',Dial.draw},{'gt7',GT7.draw},{'condition',Condition.draw},
   {'relative',require('modules/relative/main').windowSettings},
@@ -149,7 +149,8 @@ local pages={
   {'leaderboard',require('modules/leaderboard/src/settings').draw},
   {'telemetry',require('modules/telemetry/src/settings').draw},
   {'map',require('modules/map/src/settings').draw},
-  {'notices',require('modules/notices/main').windowSettings}
+  {'notices',require('modules/notices/main').windowSettings},
+  {'battle',require('modules/battle/main').windowSettings}
 }
 for _,page in ipairs(pages) do
   local visible=frame(page[2])
@@ -352,4 +353,4 @@ for _,page in ipairs(pages) do
   assert(visible['Reset all##'..page[1]],'reset must remain reachable')
 end
 
-print('Settings: twelve pages, migration, sliders, presets, resets and shared opacity consumers passed')
+print('Settings: thirteen pages, migration, sliders, presets, resets and shared opacity consumers passed')

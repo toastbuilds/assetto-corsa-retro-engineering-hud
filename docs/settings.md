@@ -76,3 +76,11 @@ Analog pedal tracks fill upward in Classic Shelf, Fan and Concentric; Spoke fill
 
 
 Concentric omits numeric RPM and auxiliary readings; its auxiliary icons sit to the right of their arcs. Its steering track and lower auxiliary arc are raised. The needle draws above pedal tracks and beneath the opaque central readout.
+
+## Battle Panel
+
+Open **Retro UI Battle Panel** from the CSP sidebar. It shows the drivers directly ahead and behind in your class, ordered by race position, even when other classes or lapped traffic are nearby. Default placement is at the middle left. Global theme and opacity apply.
+
+**Basics:** scale and gap history. **Personalization:** auto-placement, stay visible and an eight-second preview. Right-click to anchor the panel.
+
+Green means you gain; red means the rival gains. Trends require one full lap of continuous data and compare the gap at the same track position over up to three laps. `~` marks estimated intervals. Rival changes, pit stops, restarts and replay seeks clear history. Lap differences and unavailable intervals retain the leaderboard labels. Class detection follows Leaderboard settings. Outside a race the panel displays its availability message.

@@ -1,6 +1,6 @@
 param(
   [string]$AssettoCorsaRoot,
-  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments', 'notices')][string]$App,
+  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments', 'notices', 'battle')][string]$App,
   [string[]]$SharedFiles = @(),
   [switch]$Finalize,
   [switch]$Validated

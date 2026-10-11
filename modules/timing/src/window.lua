@@ -85,6 +85,8 @@ function Window:position(size)
   if self.placement == 'top-right' then
     x = math.max(0, screen.x - size.x - 36)
     y = 62
+  elseif self.placement == 'middle-left' then
+    x, y = 36, math.max(62, (screen.y - size.y) / 2)
   else
     x = math.max(0, (screen.x - size.x) / 2)
     y = self.placement == 'notice-center' and 180 or 62

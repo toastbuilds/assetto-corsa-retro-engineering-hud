@@ -38,6 +38,8 @@ function M.update(_)
   end
 end
 
+function M.getRaceSnapshot() return lastSnapshot end
+
 function M.getTemperatureUnit() return Settings.values.temperatureUnit end
 
 function M.windowMain(_)
