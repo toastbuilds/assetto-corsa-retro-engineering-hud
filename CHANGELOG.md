@@ -14,6 +14,8 @@
 
 ### Improved
 
+- Race Notices: scheduled stops announce at finish-line crossings three and two laps early for five seconds; the final reminder stays visible. Ignored repair warnings and their automatic pit requests clear after the damaged lap, with new damage able to trigger a fresh warning.
+
 - Timer panels now center lap times and deltas more clearly, keep clock sizing stable, and show a full-width final-lap result banner.
 - Final-lap detection now also uses Assetto Corsa's native signal; result flashes last two seconds.
 - Approaching FAST rows blink while keeping their text readable.

@@ -54,26 +54,61 @@ condition.wheels[1].suspensionDamage = 0.1
 notice = tick()
 assert(notice.kind == 'repair' and notice.detail == 'FRONT SUSPENSION DAMAGE')
 assert(state.pitLap == 12, '10 completed laps means current lap 11 and a request for lap 12')
-notice = tick(6.1)
-assert(notice.kind == 'pit' and notice.title == 'BOX NEXT LAP' and notice.value == '~30 s')
+assert(tick(30).kind == 'repair', 'Repair lasts the damaged lap, not a timer')
 car.lapCount = 11
-assert(tick().title == 'BOX THIS LAP', 'The reminder must advance at the lap crossing')
+assert(tick() == nil and state.pitLap == nil,
+  'Continuing past the finish line dismisses repair and its automatic stop')
+assert(tick(10) == nil, 'Unchanged accepted damage must not repeat')
+condition.available = false
+tick()
+condition.available = true
+assert(tick() == nil, 'A temporary telemetry loss must not rearm accepted damage')
+condition.wheels[1].suspensionDamage = 0.2
+assert(tick().kind == 'repair' and state.pitLap == 13, 'New damage can request a fresh stop')
+car.lapCount = 12
+assert(tick() == nil and state.pitLap == nil, 'A new repair is also dismissed after its lap')
+condition.wheels[1].suspensionDamage = 0
+assert(tick() == nil)
+assert(state:requestPit(car, false, 17))
+assert(tick() == nil, 'A scheduled reminder waits for a finish-line crossing')
+assert(not state:requestPit(car, false, 12) and state.pitLap == 17, 'Past targets must not replace a plan')
+car.lapCount = 13
+notice = tick()
+assert(notice.title == 'BOX IN 3 LAPS' and notice.value == '~0 s')
+assert(tick(4.8).kind == 'pit', 'The crossing reminder remains during its five-second window')
+sim.isPaused = true
+assert(tick(10).kind == 'pit', 'Pause does not consume a pit reminder')
+sim.isPaused = false
+assert(tick(0.3) == nil, 'Early pit reminders disappear after five seconds')
+car.lapCount = 14
+assert(tick().title == 'BOX IN 2 LAPS')
+assert(tick(5.1) == nil)
+car.lapCount = 15
+assert(tick().title == 'BOX NEXT LAP')
+assert(tick(30).title == 'BOX NEXT LAP', 'The last lap before the stop keeps its reminder visible')
+car.lapCount = 16
+assert(tick().title == 'BOX THIS LAP', 'The planned pit lap begins at the crossing')
+assert(tick(30).title == 'BOX THIS LAP', 'The final reminder stays visible')
 sim.raceFlagType, sim.raceFlagCause = 12, 2
 assert(tick().kind == 'blue', 'Blue flags take precedence over routine pit reminders')
-condition.wheels[1].suspensionDamage = 0.2
+condition.wheels[1].suspensionDamage = 0.25
 assert(tick().kind == 'repair', 'New significant damage takes precedence over blue flags')
 sim.raceFlagType = nil
-tick(6.1)
+car.lapCount = 17
+assert(tick(0.5).title == 'BOX THIS LAP' and state.pitLap == 17,
+  'Accepting damage must preserve a manually scheduled stop')
 state:cancelPit()
 assert(tick() == nil, 'Cancel must not immediately recreate an automatic pit request')
-condition.wheels[1].suspensionDamage = 0.25
-assert(tick().kind == 'repair' and state.pitLap == 13, 'New damage can request a fresh stop')
+condition.wheels[1].suspensionDamage = 0.3
+assert(tick().kind == 'repair' and state.pitLap == 19, 'New damage can request another stop')
 car.isInPitlane = true
 assert(tick() == nil and state.pitLap == nil, 'Pit entry clears all notices and requests')
 condition.wheels[1].suspensionDamage = 0
 car.isInPitlane = false
 assert(tick() == nil, 'Repaired cars must not retain an old warning')
 assert(state:requestPit(car))
+assert(tick() == nil, 'An immediate request also waits for the next crossing')
+car.lapCount = car.lapCount + 1
 assert(tick().value == '~0 s', 'An undamaged manual stop has zero repair time')
 condition.available = false
 assert(tick().value == '--', 'Unavailable damage telemetry is not a zero-second repair')
@@ -112,7 +147,7 @@ assert(Repair.estimate(amounts, {}) == nil, 'Unknown car rates must not invent a
 amounts.blown = true
 assert(Repair.estimate(amounts, rates) == nil, 'Tyre replacement is outside repair-time estimate')
 assert(Repair.format(76) == '~1:16' and Repair.format(nil) == '--')
-defaults.scale, defaults.repairHold, defaults.engineDamageThreshold = math.huge, 0/0, -3
+defaults.scale, defaults.engineDamageThreshold = math.huge, -3
 Settings.normalize()
-assert(defaults.scale == 1 and defaults.repairHold == 6 and defaults.engineDamageThreshold == 0.01)
-print('Race Notices: flag attribution, priority, repairs, lap plans, cancel, resets, replay, pause and estimates passed')
+assert(defaults.scale == 1 and defaults.engineDamageThreshold == 0.01)
+print('Race Notices: flag attribution, priority, lap-based repair dismissal, scheduled crossing reminders, cancel, resets, replay, pause and estimates passed')

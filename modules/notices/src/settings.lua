@@ -3,7 +3,7 @@ local M = {}
 local DEFAULTS = {
   scale = 1, autoPlacement = true, locked = true,
   blueEnabled = true, repairEnabled = true, pitEnabled = true,
-  autoPitForDamage = true, repairHold = 6,
+  autoPitForDamage = true,
   bodyDamageThreshold = 0.20, suspensionDamageThreshold = 0.05, engineDamageThreshold = 0.20
 }
 local ok, stored = pcall(ac.storage, DEFAULTS, 'retro-ui.notices.')
@@ -11,13 +11,13 @@ M.values = ok and type(stored) == 'table' and stored or {}
 for key, value in pairs(DEFAULTS) do if M.values[key] == nil then M.values[key] = value end end
 
 function M.normalize()
-  for _, key in ipairs({ 'scale', 'repairHold', 'bodyDamageThreshold',
+  for _, key in ipairs({ 'scale', 'bodyDamageThreshold',
       'suspensionDamageThreshold', 'engineDamageThreshold' }) do
     local value = tonumber(M.values[key])
     if not value or value ~= value or math.abs(value) == math.huge then value = DEFAULTS[key] end
     local low, high = 0.01, 1
     if key == 'scale' then low, high = 0.65, 1.5
-    elseif key == 'repairHold' then low, high = 2, 15 end
+    end
     M.values[key] = math.max(low, math.min(high, value))
   end
   for key, value in pairs(DEFAULTS) do
@@ -35,6 +35,8 @@ local function slider(label, key, low, high, format, percent)
   if changed then M.values[key] = value / factor end
 end
 
+local plannedLap
+
 function M.draw(state, requestPit, preview)
   M.normalize()
   ui.header('Race Notices')
@@ -44,11 +46,19 @@ function M.draw(state, requestPit, preview)
     checkbox('Repair notices', 'repairEnabled')
     checkbox('Pit notices', 'pitEnabled')
     checkbox('Request a pit stop after damage', 'autoPitForDamage')
+    local currentLap = math.floor(state.lastLap or 0) + 1
+    plannedLap = math.max(currentLap + 1, plannedLap or currentLap + 4)
+    local selected = ui.slider('Pit stop lap', plannedLap, currentLap + 1,
+      math.max(currentLap + 50, plannedLap), 'LAP %.0f', 1)
+    plannedLap = math.floor(selected + 0.5)
+    if ui.button('Schedule pit stop##notices.schedule') then requestPit(plannedLap) end
+    ui.sameLine()
     if ui.button('Box next lap##notices.request') then requestPit() end
     ui.sameLine()
     if ui.button('Cancel pit request##notices.cancel') then state:cancelPit() end
     if state.pitLap then ui.text('Pit request: lap ' .. state.pitLap) end
     ui.textWrapped('Repair warnings appear first, then blue flags, then pit reminders. The panel is hidden when there is no notice.')
+    ui.textWrapped('Pit reminders appear at the finish line three and two laps before the stop, for five seconds each. On the last lap before the stop, BOX NEXT LAP stays visible, followed by BOX THIS LAP on the planned pit lap. Repair warnings last until the next finish-line crossing, then are dismissed if you continue without pitting.')
   end)
   SettingsUI.section('notices', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')
@@ -61,7 +71,6 @@ function M.draw(state, requestPit, preview)
     slider('Bodywork warning', 'bodyDamageThreshold', 1, 100, '%.0f%%', true)
     slider('Suspension warning', 'suspensionDamageThreshold', 1, 100, '%.0f%%', true)
     slider('Engine / gearbox warning', 'engineDamageThreshold', 1, 100, '%.0f%%', true)
-    slider('Repair notice duration', 'repairHold', 2, 15, '%.0f s')
     ui.textWrapped('Estimated repair time (~) assumes full bodywork, suspension and engine repairs using the car\'s pit rates and worst damaged zones. It excludes fuel, tyres and driving through pitlane. -- means the estimate is unavailable.')
   end)
   ui.separator()

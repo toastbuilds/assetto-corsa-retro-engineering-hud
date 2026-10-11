@@ -32,8 +32,8 @@ function M.update(dt, telemetry)
   controller:update(Settings.values)
 end
 
-function M.requestPitStop()
-  return state:requestPit(ac.getCar(0))
+function M.requestPitStop(targetLap)
+  return state:requestPit(ac.getCar(0), false, targetLap)
 end
 
 function M.windowMain()
