@@ -11,6 +11,9 @@ return {
   rightWheelX = 224,
   tyreWidth = 22,
   tyreHeight = 54,
+  tyreLifeSegments = 12,
+  tyreLifeSegmentGap = 1,
+  tyreLifeRailWidth = 8,
 
   -- Temperature offsets from the selected compound/profile working window.
   tyreDarkBlueOffset = 25,

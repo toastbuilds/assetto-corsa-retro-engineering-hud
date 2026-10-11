@@ -23,7 +23,7 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 
 ## Car Condition
 
-Choose wheel life, pressure, ideal-pressure delta or temperature as the main readout. Core/surface mixing starts at 80/20 and can be adjusted. Physical tyre references take priority over estimated values.
+Choose wheel life, pressure, ideal-pressure delta or temperature as the main readout. Remaining tyre life appears as a 12 segment vertical bar beside each wheel, with lit segments showing the remaining tread and the numeric value retained. Core/surface mixing starts at 80/20 and can be adjusted. Physical tyre references take priority over estimated values.
 
 The detail panel opens on hover or during pitlane visits and can be kept open. It shows compound, stint, per-axle references and grip information when available. Estimated references use `~`; incomplete stint history uses **FROM OBSERVATION**.
 

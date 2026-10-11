@@ -329,15 +329,25 @@ local function drawTyre(origin, scale, x, y, name, wheel, state, settings)
     function(sampleX) return tyreEffectColor(colorAt(sampleX)) end)
   ui.drawRect(topLeft, bottomRight, stateColor, 4 * scale, nil, 2.4 * scale)
 
-  -- Remaining tread is a separate state channel so temperature never hides wear.
-  local railWidth = 4
-  local railX = x < Layout.carCenterX and x - halfWidth - 9 or x + halfWidth + 5
-  local railTop = point(origin, scale, railX, y - halfHeight)
-  local railBottom = point(origin, scale, railX + railWidth, y + halfHeight)
-  ui.drawRectFilled(railTop, railBottom, C.inactive)
+  -- Remaining tread stays separate from temperature and uses the same
+  -- individually lit blocks as the pedal inspired segmented bar concept.
+  local segmentCount = Layout.tyreLifeSegments
+  local segmentGap = Layout.tyreLifeSegmentGap
+  local railWidth = Layout.tyreLifeRailWidth
+  local railX = x < Layout.carCenterX and x - halfWidth - 15 or x + halfWidth + 3
+  local railTop = point(origin, scale, railX - 2, y - halfHeight - 2)
+  local railBottom = point(origin, scale, railX + railWidth + 2, y + halfHeight + 2)
+  ui.drawRect(railTop, railBottom, C.outline, 3 * scale, nil, 1.1 * scale)
   local remaining = wheel and wheel.wearAvailable and U.clamp(wheel.remaining, 0, 1) or 0
-  local fillTop = y + halfHeight - Layout.tyreHeight * remaining
-  ui.drawRectFilled(point(origin, scale, railX, fillTop), railBottom, C.primary)
+  local litSegments = math.floor(remaining * segmentCount + 0.5)
+  local segmentHeight = (Layout.tyreHeight - segmentGap * (segmentCount - 1)) / segmentCount
+  for segment = 1, segmentCount do
+    local bottom = y + halfHeight - (segment - 1) * (segmentHeight + segmentGap)
+    local top = bottom - segmentHeight
+    ui.drawRectFilled(point(origin, scale, railX, top),
+      point(origin, scale, railX + railWidth, bottom),
+      segment <= litSegments and C.primary or C.inactive, 0.7 * scale)
+  end
   local lifeX = x < Layout.carCenterX and 34 or Layout.width - 34
   local value, unit = Readouts.wheel(wheel, settings, state.condition.isGT3, y == Layout.frontWheelY)
   if value then

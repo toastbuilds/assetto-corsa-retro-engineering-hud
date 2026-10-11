@@ -6,6 +6,7 @@
 
 - Battle Panel: class rivals ahead and behind, live intervals, gap history and trends at matching track positions over up to three laps. English UI, shared theme/opacity, independent scaling and placement.
 - Race Notices: a compact English banner for blue flags with class/gap, repair warnings and next-lap pit requests. Pit notices include estimated full repair time from the car's own pit rates, with no redundant banner heading.
+- Car Condition: remaining tyre life uses a 12 segment vertical bar beside each tyre, while retaining the numeric readout.
 - Four new analog Dial layouts: Concentric, Fan, Shelf and Spoke, each with light and dark finishes.
 - Five digital Dial variants with distinct layouts, steering details and perimeter gauges.
 - GT7 side dials that adapt their composition to the selected instrument style, including hybrid readouts and lower auxiliary arcs.
