@@ -14,7 +14,7 @@ function Display.size(settings)
   return vec2(220, 9 + (settings.rows or 10) * 37)
 end
 
-local function drawRow(row, y, width, height, colors, scale, current)
+local function drawRow(row, y, width, height, colors, scale, current, fade)
   local tl = vec2(6 * scale, y)
   local br = vec2(width - 6 * scale, y + height)
   local status = row.invalid and 'invalid' or row.status or 'current'
@@ -26,12 +26,12 @@ local function drawRow(row, y, width, height, colors, scale, current)
   end
   local numberWidth = 46 * scale
   local timeTL = vec2(tl.x + numberWidth + 4 * scale, y)
-  TimingUI.chamferRect(timeTL, br, 5 * scale, fill, colors.outlineDim, scale)
+  TimingUI.chamferRect(timeTL, br, 5 * scale, fill, colors.outlineDim, scale, fade)
   TimingUI.chamferRect(tl, vec2(tl.x + numberWidth, br.y), 5 * scale,
-    colors.surface, colors.outlineDim, 1 * scale)
+    colors.surface, colors.outlineDim, 1 * scale, fade)
   local centerY = y + height / 2
   TimingUI.centeredText(string.format('%02d', row.number or 0), 17 * scale,
-    vec2(tl.x + numberWidth / 2, centerY), colors.primary)
+    vec2(tl.x + numberWidth / 2, centerY), colors.primary, fade)
   if current then
     local progress = math.max(0, math.min(1, tonumber(row.progress) or 0))
     local progressTL = timeTL + vec2(5 * scale, 5 * scale)
@@ -50,8 +50,10 @@ local function drawRow(row, y, width, height, colors, scale, current)
         segmentIndex <= filled and activeColor or inactiveColor)
     end
   else
+    TimingUI.beginFade(fade)
     ui.drawRectFilled(vec2(timeTL.x + 7 * scale, centerY - 7 * scale),
       vec2(timeTL.x + 10 * scale, centerY + 7 * scale), accent)
+    TimingUI.endFade(fade, accent)
     local timeText = TimingUI.formatTime(row.time)
     local timeSize = 18 * scale
     local textLeft = timeTL.x + 19 * scale
@@ -62,10 +64,10 @@ local function drawRow(row, y, width, height, colors, scale, current)
       measured = ui.measureDWriteText(timeText, timeSize)
     end
     TimingUI.leftText(timeText, timeSize, vec2(textLeft, centerY - measured.y / 2),
-      row.invalid and colors.red or colors.primary)
+      row.invalid and colors.red or colors.primary, fade)
   end
   if row.inPits then
-    TimingUI.centeredText('P', 15 * scale, vec2(br.x - 16 * scale, centerY), colors.amber)
+    TimingUI.centeredText('P', 15 * scale, vec2(br.x - 16 * scale, centerY), colors.amber, fade)
   end
 end
 
@@ -99,12 +101,8 @@ function Display.draw(snapshot, settings, visual)
   for i = 1, math.min(visibleRows, #snapshot.history) do
     local rowY = y - (rowHeight + rowGap) * remaining
     local fade = i == visibleRows and #snapshot.history > visibleRows
-    if fade then ui.beginGradientShade() end
-    drawRow(snapshot.history[i], rowY, width, rowHeight, colors, scale, false)
-    if fade then
-      ui.endGradientShade(vec2(0,rowY),vec2(0,rowY+rowHeight*0.8),
-        rgbm(1,1,1,1),rgbm(1,1,1,0.2),true)
-    end
+      and { top = vec2(0, rowY), bottom = vec2(0, rowY + rowHeight * 0.8) } or nil
+    drawRow(snapshot.history[i], rowY, width, rowHeight, colors, scale, false, fade)
     y = y + rowHeight + rowGap
   end
 

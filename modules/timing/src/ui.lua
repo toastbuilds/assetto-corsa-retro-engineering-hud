@@ -7,7 +7,20 @@ local function point(tl, x, y)
   return tl + vec2(x, y)
 end
 
-function TimingUI.chamferRect(tl, br, chamfer, fill, stroke, strokeWidth)
+-- CSP gradient shading replaces RGB, even when useAlpha is enabled.
+-- Shade each primitive with its own RGB and multiply only its existing alpha.
+function TimingUI.beginFade(fade)
+  if fade then ui.beginGradientShade() end
+end
+
+function TimingUI.endFade(fade, color)
+  if fade then
+    ui.endGradientShade(fade.top, fade.bottom,
+      rgbm(color.r, color.g, color.b, 1), rgbm(color.r, color.g, color.b, 0.2), true)
+  end
+end
+
+function TimingUI.chamferRect(tl, br, chamfer, fill, stroke, strokeWidth, fade)
   local width, height = br.x - tl.x, br.y - tl.y
   local c = math.min(chamfer, math.min(width / 3, height / 3))
   local function path()
@@ -22,18 +35,26 @@ function TimingUI.chamferRect(tl, br, chamfer, fill, stroke, strokeWidth)
     ui.pathLineTo(point(tl, 0, c))
   end
   path()
+  TimingUI.beginFade(fade)
   ui.pathFillConvex(fill)
+  TimingUI.endFade(fade, fill)
   path()
+  TimingUI.beginFade(fade)
   ui.pathStroke(stroke, true, strokeWidth or 1)
+  TimingUI.endFade(fade, stroke)
 end
 
-function TimingUI.centeredText(text, size, center, color)
+function TimingUI.centeredText(text, size, center, color, fade)
   local measured = ui.measureDWriteText(tostring(text), size)
+  TimingUI.beginFade(fade)
   ui.dwriteDrawText(tostring(text), size, center - measured / 2, color)
+  TimingUI.endFade(fade, color)
 end
 
-function TimingUI.leftText(text, size, pos, color)
+function TimingUI.leftText(text, size, pos, color, fade)
+  TimingUI.beginFade(fade)
   ui.dwriteDrawText(tostring(text), size, pos, color)
+  TimingUI.endFade(fade, color)
 end
 
 function TimingUI.formatTime(timeMs)

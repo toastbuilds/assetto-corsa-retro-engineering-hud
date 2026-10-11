@@ -396,6 +396,10 @@ function rgbm(red, green, blue, alpha) return { r = red, g = green, b = blue, mu
 ac.storage = function(defaults) return defaults end
 
 local drawnText, drawnPanels, drawnMarkers, currentPath = {}, {}, {}, {}
+local shadeActive, shadeCount, shadeColors, lastShadeY = false, 0, {}, nil
+local function recordShadeColor(color)
+  if shadeActive then shadeColors[#shadeColors + 1] = color end
+end
 local drawAlpha, alphaStack = 1, {}
 local windowWidth, windowHeight = 220, 379
 ui.windowWidth = function() return windowWidth end
@@ -411,11 +415,13 @@ ui.pushDWriteFont = function() end
 ui.popDWriteFont = function() end
 ui.measureDWriteText = function(value, size) return vec2(#value * size * 0.6, size * 1.35) end
 ui.dwriteDrawText = function(value, size, position, color)
+  recordShadeColor(color)
   drawnText[#drawnText + 1] = { value = value, size = size, position = position, color = color, alpha = drawAlpha }
 end
 ui.pathClear = function() currentPath = {} end
 ui.pathLineTo = function(point) currentPath[#currentPath + 1] = point end
 ui.pathFillConvex = function(color)
+  recordShadeColor(color)
   local minimum, maximum = vec2(math.huge, math.huge), vec2(-math.huge, -math.huge)
   for _, point in ipairs(currentPath) do
     minimum.x, minimum.y = math.min(minimum.x, point.x), math.min(minimum.y, point.y)
@@ -423,19 +429,26 @@ ui.pathFillConvex = function(color)
   end
   drawnPanels[#drawnPanels + 1] = { minimum = minimum, maximum = maximum, color = color }
 end
-ui.pathStroke = function() end
+ui.pathStroke = function(color) recordShadeColor(color) end
 ui.drawRectFilled = function(minimum, maximum, color)
+  recordShadeColor(color)
   drawnMarkers[#drawnMarkers + 1] = { minimum = minimum, maximum = maximum, color = color }
 end
 
-local shadeActive, shadeCount = false,0
-ui.beginGradientShade = function() assert(not shadeActive); shadeActive=true end
-ui.endGradientShade = function(first,last,top,bottom,multiply)
- assert(shadeActive and multiply==true)
+ui.beginGradientShade = function() assert(not shadeActive); shadeActive=true; shadeColors={} end
+ui.endGradientShade = function(first,last,top,bottom,useAlpha)
+ assert(shadeActive and useAlpha==true)
  assert(first.x==last.x and last.y>first.y,'fade must be vertical')
- assert(top.r==1 and top.g==1 and top.b==1 and top.mult==1)
- assert(bottom.r==1 and bottom.g==1 and bottom.b==1 and bottom.mult==0.2,'preserve RGB, multiply alpha to 20 percent')
- shadeActive=false; shadeCount=shadeCount+1
+ assert(top.mult==1 and bottom.mult==0.2,'multiply existing alpha down to 20 percent')
+ assert(#shadeColors>0,'gradient must contain drawn geometry or text')
+ for _,color in ipairs(shadeColors) do
+  assert(top.r==color.r and top.g==color.g and top.b==color.b
+    and bottom.r==color.r and bottom.g==color.g and bottom.b==color.b,
+    'CSP replaces RGB: each gradient must retain the original primitive color')
+ end
+ if shadeCount==0 or first.y~=lastShadeY then shadeCount=shadeCount+1 end
+ lastShadeY=first.y
+ shadeActive=false
 end
 local LapsDisplay = require('modules/laps/src/display')
 local Theme = require('modules/timing/src/theme')
