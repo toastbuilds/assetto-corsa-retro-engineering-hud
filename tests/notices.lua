@@ -28,9 +28,10 @@ local traffic = { player = { progress = 10.5 }, cars = {
   { index = 2, classID = 'LMP2', gap = 1.8, measured = true, behind = true, progress = 11.4 },
   { index = 3, classID = 'HY', gap = 1.0, measured = false, behind = true, progress = 11.45 }
 } }
+local fuel
 local state = State.new()
 local function tick(dt)
-  state:update(dt or 0.1, car, sim, condition, traffic, settings, rates)
+  state:update(dt or 0.1, car, sim, condition, traffic, settings, rates, fuel)
   return state.notice
 end
 
@@ -53,92 +54,132 @@ assert(tick(0.5) == nil, 'Flag clear must release the short hold')
 condition.wheels[1].suspensionDamage = 0.1
 notice = tick()
 assert(notice.kind == 'repair' and notice.detail == 'FRONT SUSPENSION DAMAGE')
-assert(state.pitLap == 12, '10 completed laps means current lap 11 and a request for lap 12')
 assert(tick(30).kind == 'repair', 'Repair lasts the damaged lap, not a timer')
 car.lapCount = 11
-assert(tick() == nil and state.pitLap == nil,
-  'Continuing past the finish line dismisses repair and its automatic stop')
+assert(tick() == nil, 'Continuing past the finish line dismisses repair')
 assert(tick(10) == nil, 'Unchanged accepted damage must not repeat')
 condition.available = false
 tick()
 condition.available = true
 assert(tick() == nil, 'A temporary telemetry loss must not rearm accepted damage')
 condition.wheels[1].suspensionDamage = 0.2
-assert(tick().kind == 'repair' and state.pitLap == 13, 'New damage can request a fresh stop')
+assert(tick().kind == 'repair', 'New damage can trigger a fresh warning')
 car.lapCount = 12
-assert(tick() == nil and state.pitLap == nil, 'A new repair is also dismissed after its lap')
+assert(tick() == nil, 'A new repair is also dismissed after its lap')
 condition.wheels[1].suspensionDamage = 0
 assert(tick() == nil)
-assert(state:requestPit(car, false, 17))
-assert(tick() == nil, 'A scheduled reminder waits for a finish-line crossing')
-assert(not state:requestPit(car, false, 12) and state.pitLap == 17, 'Past targets must not replace a plan')
+fuel = {available=true, estimatedLaps=4, fuel=9}
 car.lapCount = 13
+assert(tick() == nil, 'More than three complete fuel laps do not warn')
+fuel.estimatedLaps, fuel.fuel = 3, 7
+assert(tick() == nil, 'The fuel reminder waits for a finish-line crossing')
+car.lapCount = 14
 notice = tick()
 assert(notice.title == 'BOX IN 3 LAPS' and notice.value == '~0 s')
+assert(notice.detail == '~3 FULL LAPS OF FUEL', 'The detail uses fuel autonomy, not a planned pit lap')
 assert(tick(4.8).kind == 'pit', 'The crossing reminder remains during its five-second window')
 sim.isPaused = true
 assert(tick(10).kind == 'pit', 'Pause does not consume a pit reminder')
 sim.isPaused = false
 assert(tick(0.3) == nil, 'Early pit reminders disappear after five seconds')
-car.lapCount = 14
+fuel.estimatedLaps, fuel.fuel = 2, 5
+assert(tick() == nil, 'Mid-lap autonomy changes must not restart the timer')
+car.lapCount = 15
 assert(tick().title == 'BOX IN 2 LAPS')
 assert(tick(5.1) == nil)
-car.lapCount = 15
-assert(tick().title == 'BOX NEXT LAP')
-assert(tick(30).title == 'BOX NEXT LAP', 'The last lap before the stop keeps its reminder visible')
+fuel.estimatedLaps, fuel.fuel = 1, 3
 car.lapCount = 16
-assert(tick().title == 'BOX THIS LAP', 'The planned pit lap begins at the crossing')
+assert(tick().title == 'BOX THIS LAP', 'The last complete lap of fuel asks to pit this lap')
 assert(tick(30).title == 'BOX THIS LAP', 'The final reminder stays visible')
+fuel.estimatedLaps, fuel.fuel = 0, 1
+assert(tick().kind == 'pit', 'The final reminder persists when fuel drops below a complete lap')
 sim.raceFlagType, sim.raceFlagCause = 12, 2
 assert(tick().kind == 'blue', 'Blue flags take precedence over routine pit reminders')
 condition.wheels[1].suspensionDamage = 0.25
 assert(tick().kind == 'repair', 'New significant damage takes precedence over blue flags')
 sim.raceFlagType = nil
 car.lapCount = 17
-assert(tick(0.5).title == 'BOX THIS LAP' and state.pitLap == 17,
-  'Accepting damage must preserve a manually scheduled stop')
-state:cancelPit()
-assert(tick() == nil, 'Cancel must not immediately recreate an automatic pit request')
-condition.wheels[1].suspensionDamage = 0.3
-assert(tick().kind == 'repair' and state.pitLap == 19, 'New damage can request another stop')
-car.isInPitlane = true
-assert(tick() == nil and state.pitLap == nil, 'Pit entry clears all notices and requests')
-condition.wheels[1].suspensionDamage = 0
-car.isInPitlane = false
-assert(tick() == nil, 'Repaired cars must not retain an old warning')
-assert(state:requestPit(car))
-assert(tick() == nil, 'An immediate request also waits for the next crossing')
-car.lapCount = car.lapCount + 1
-assert(tick().value == '~0 s', 'An undamaged manual stop has zero repair time')
+assert(tick(0.5).title == 'BOX THIS LAP', 'Accepted damage must not silence low-fuel reminders')
 condition.available = false
 assert(tick().value == '--', 'Unavailable damage telemetry is not a zero-second repair')
 condition.available = true
+fuel.estimatedLaps, fuel.fuel = 5, 12
+assert(tick() == nil, 'Refuelling clears the permanent reminder immediately')
+fuel.estimatedLaps, fuel.fuel = 3, 7
+car.lapCount = 18
+assert(tick().kind == 'pit', 'A new stint can produce a fresh crossing reminder')
+fuel.available = false
+assert(tick() == nil, 'Unavailable fuel telemetry clears the warning')
+fuel.available, fuel.estimatedLaps = true, nil
+car.lapCount = 19
+assert(tick() == nil, 'Unknown consumption does not invent a remaining-lap estimate')
+fuel.estimatedLaps, fuel.fuel = 1, 3
+fuel.finishAvailable, fuel.fuelNeeded = true, 2
+car.lapCount = 20
+assert(tick() == nil, 'Enough fuel to finish must not request an unnecessary stop')
+fuel.finishAvailable = false
+car.lapCount = 21
+assert(tick().kind == 'pit')
+car.isInPitlane = true
+assert(tick() == nil and state.pitFuelLaps == nil, 'Pit entry clears all notices')
+condition.wheels[1].suspensionDamage = 0
+car.isInPitlane = false
+assert(tick() == nil, 'Pit exit waits for another crossing')
+car.lapCount = 22
+assert(tick().value == '~0 s', 'A healthy car has zero estimated repair time')
 sim.isReplayActive = true
-assert(tick() == nil and state.pitLap == nil, 'Live notices must not survive entering replay')
+assert(tick() == nil and state.pitFuelLaps == nil, 'Live notices must not survive entering replay')
 sim.isReplayActive = false
 tick()
-state:requestPit(car)
+car.lapCount = 23
+assert(tick().kind == 'pit')
 sim.currentSessionIndex = 2
-assert(tick() == nil and state.pitLap == nil, 'Session changes clear manual plans')
-state:requestPit(car)
+assert(tick() == nil, 'Session changes clear fuel reminders')
+car.lapCount = 24
+assert(tick().kind == 'pit')
 sim.currentSessionTime = 0
-assert(tick() == nil and state.pitLap == nil, 'Restarts with increasing sim time still clear plans')
-state:requestPit(car)
+assert(tick() == nil, 'Restarts clear fuel reminders')
+car.lapCount = 25
+assert(tick().kind == 'pit')
 car.resetCounter = 1
-assert(tick() == nil and state.pitLap == nil, 'Teleport/reset clears plans')
-state:requestPit(car)
+assert(tick() == nil, 'Teleport/reset clears reminders')
 car.isRaceFinished = true
 assert(tick() == nil, 'Finished races must not show reminders')
 car.isRaceFinished = false
+fuel = nil
 settings.repairEnabled = false
 condition.wheels[1].suspensionDamage = 0.5
-assert(tick() == nil, 'Disabled repairs do not schedule automatic stops')
+assert(tick() == nil, 'Disabled repairs do not show warnings')
 settings.repairEnabled = true
 assert(tick().kind == 'repair', 'Enabling notices while damaged must show the warning')
 local before = state.clock
 sim.isPaused = true
 tick(10)
 assert(state.clock == before, 'Pause must not consume a repair warning')
+
+-- Feed the same measured-consumption engine used by the live leaderboard.
+local Fuel = require('modules/leaderboard/src/fuel')
+local fuelCar = {fuel=9,maxFuel=30,lapCount=0,isLastLapValid=true,previousLapTimeMs=90000}
+local fuelSim = {currentSessionIndex=0,isSessionStarted=true}
+local fuelState, fuelNotices = Fuel.new(), State.new()
+local healthy = {available=true,body={},wheels={},engineDamage=0,gearboxDamage=0}
+ac.getCar = function() return fuelCar end
+ui = {time=function() return 0 end}
+local function fuelTick()
+  local measured = Fuel.update(fuelState, {sim=fuelSim}, {fuelReserve=1})
+  fuelNotices:update(0.1, fuelCar, fuelSim, healthy, nil, settings, rates, measured)
+  return fuelNotices.notice
+end
+assert(fuelTick() == nil, 'No measured lap means no fabricated fuel reminder')
+fuelCar.fuel = 7
+assert(fuelTick() == nil)
+fuelCar.lapCount = 1
+assert(fuelTick().title == 'BOX IN 3 LAPS' and fuelState.average == 2,
+  'Observed consumption and reserve must drive the finish-line reminder')
+fuelCar.fuel = 4
+fuelTick()
+fuelCar.lapCount = 2
+assert(fuelTick().title == 'BOX THIS LAP', 'The next measured lap can leave only one complete lap of fuel')
 
 local amounts = Repair.damage({ available = true, body = { front = 0.2, rear = 0.1 },
   wheels = {{ suspensionDamage = 0.1 }}, engineDamage = 0.3, gearboxDamage = 0 })
@@ -150,4 +191,4 @@ assert(Repair.format(76) == '~1:16' and Repair.format(nil) == '--')
 defaults.scale, defaults.engineDamageThreshold = math.huge, -3
 Settings.normalize()
 assert(defaults.scale == 1 and defaults.engineDamageThreshold == 0.01)
-print('Race Notices: flag attribution, priority, lap-based repair dismissal, scheduled crossing reminders, cancel, resets, replay, pause and estimates passed')
+print('Race Notices: flag attribution, priority, lap-based repair dismissal, fuel-driven crossing reminders, refuelling, resets, replay, pause and estimates passed')

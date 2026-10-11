@@ -10,31 +10,14 @@ local function finite(value)
 end
 
 function M.new()
-  return setmetatable({ clock = 0, previousDamage = 0 }, M)
+  return setmetatable({ clock = 0 }, M)
 end
 
 function M:reset()
-  self.pitLap, self.repairLap, self.previousDamage = nil, nil, 0
+  self.repairLap, self.pitFuelLaps, self.lastFuel = nil, nil, nil
   self.pitNoticeLap, self.pitNoticeUntil, self.previousAmounts = nil, 0, nil
-  self.previousReason, self.autoDamagePit, self.declinedDamage, self.repairSeconds = nil, false, nil, nil
+  self.previousReason, self.repairSeconds = nil, nil
   self.notice, self.blue, self.blueUntil = nil, nil, 0
-end
-
-function M:requestPit(car, automatic, targetLap)
-  local lap = finite(U.read(car, 'lapCount'))
-  if not lap or U.read(car, 'isInPitlane', false) or U.read(car, 'isRaceFinished', false) then return false end
-  local nextLap = math.floor(lap) + 2 -- lapCount is completed laps.
-  if targetLap ~= nil and (not finite(targetLap) or math.floor(targetLap) < nextLap) then return false end
-  self.pitLap = targetLap and math.floor(targetLap) or nextLap
-  self.pitNoticeLap, self.pitNoticeUntil = nil, 0
-  self.autoDamagePit = automatic == true
-  return true
-end
-
-function M:cancelPit()
-  self.pitLap = nil
-  self.pitNoticeLap, self.pitNoticeUntil = nil, 0
-  self.autoDamagePit, self.declinedDamage = false, self.previousDamage
 end
 
 local function repairReason(d, settings)
@@ -71,7 +54,7 @@ local function blueNotice(sim, traffic)
     value = value, label = 'BEHIND' }
 end
 
-function M:update(dt, car, sim, condition, traffic, settings, repairRates)
+function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel)
   if not U.read(sim, 'isPaused', false) then
     self.clock = self.clock + math.max(0, finite(dt) or 0)
   end
@@ -96,11 +79,8 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates)
 
   local amounts = Repair.damage(condition)
   local reason = repairReason(amounts, settings)
-  local severity = math.max(amounts.body, amounts.suspension, amounts.engine,
-    amounts.gearbox, amounts.blown and 1 or 0)
   if crossed and self.repairLap and lap > self.repairLap then
-    self.repairLap, self.declinedDamage = nil, severity
-    if self.autoDamagePit then self:cancelPit() end
+    self.repairLap = nil
   end
   local newDamage = amounts.available and reason and not self.previousReason
   if amounts.available and reason and self.previousAmounts then
@@ -111,33 +91,32 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates)
   end
   if settings.repairEnabled and reason then
     if newDamage then
-      self.repairLap, self.declinedDamage = lap and math.floor(lap) or nil, nil
+      self.repairLap = lap and math.floor(lap) or nil
     end
-    if self.repairLap and settings.autoPitForDamage and not self.pitLap
-        and (not self.declinedDamage or severity > self.declinedDamage + 0.025) then
-      self:requestPit(car, true)
-    end
-  elseif self.autoDamagePit then
-    self.pitLap = nil
-    self.autoDamagePit = false
   end
-  if amounts.available and not reason then self.repairLap, self.declinedDamage = nil, nil end
-  if not settings.autoPitForDamage and self.autoDamagePit then
-    self.pitLap, self.autoDamagePit = nil, false
-  end
+  if amounts.available and not reason then self.repairLap = nil end
   if amounts.available then
-    self.previousDamage, self.previousReason = severity, settings.repairEnabled and reason or nil
+    self.previousReason = settings.repairEnabled and reason or nil
     self.previousAmounts = amounts
   end
   self.repairSeconds = Repair.estimate(amounts, repairRates)
 
   local currentLap = lap and math.floor(lap) + 1
-  if crossed and self.pitLap and currentLap then
-    local untilPit = self.pitLap - currentLap
-    if untilPit >= 1 and untilPit <= 3 then
-      self.pitNoticeLap = currentLap
-      self.pitNoticeUntil = untilPit == 1 and math.huge or self.clock + 5
-    else self.pitNoticeLap, self.pitNoticeUntil = nil, 0 end
+  local remaining = fuel and fuel.available and finite(fuel.estimatedLaps)
+  if remaining and remaining >= 0 then remaining = math.floor(remaining) else remaining = nil end
+  local litres = fuel and finite(fuel.fuel)
+  local refuelled = litres and self.lastFuel and litres > self.lastFuel + 0.05
+  local enoughToFinish = fuel and fuel.finishAvailable and finite(fuel.fuelNeeded)
+    and litres and litres >= fuel.fuelNeeded
+  self.lastFuel = litres
+  if not remaining or remaining > 3 or refuelled or enoughToFinish then
+    self.pitFuelLaps, self.pitNoticeLap, self.pitNoticeUntil = nil, nil, 0
+  elseif crossed and currentLap then
+    self.pitFuelLaps, self.pitNoticeLap = remaining, currentLap
+    self.pitNoticeUntil = remaining <= 1 and math.huge or self.clock + 5
+  elseif self.pitFuelLaps and remaining > self.pitFuelLaps then
+    -- A revised consumption estimate can also remove the need to stop.
+    self.pitFuelLaps, self.pitNoticeLap, self.pitNoticeUntil = nil, nil, 0
   end
 
   if settings.repairEnabled and reason and self.repairLap then
@@ -150,13 +129,13 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates)
     if blue then self.blue, self.blueUntil = blue, self.clock + 0.4 end
     if self.blue and self.clock < self.blueUntil then self.notice = self.blue; return end
   else self.blue = nil end
-  if settings.pitEnabled and self.pitLap and currentLap and
-      (currentLap >= self.pitLap or self.pitNoticeLap == currentLap and self.clock < self.pitNoticeUntil) then
-    local untilPit = self.pitLap - currentLap
-    local title = untilPit <= 0 and 'BOX THIS LAP' or untilPit == 1 and 'BOX NEXT LAP'
-      or string.format('BOX IN %d LAPS', untilPit)
+  if settings.pitEnabled and self.pitFuelLaps and self.pitNoticeLap == currentLap
+      and self.clock < self.pitNoticeUntil then
+    local title = self.pitFuelLaps <= 1 and 'BOX THIS LAP'
+      or string.format('BOX IN %d LAPS', self.pitFuelLaps)
     self.notice = { kind = 'pit', title = title,
-      detail = string.format('LAP %d%s', self.pitLap, reason and (' / ' .. reason) or ''),
+      detail = string.format('~%d FULL %s OF FUEL%s', remaining,
+        remaining == 1 and 'LAP' or 'LAPS', reason and (' / ' .. reason) or ''),
       value = Repair.format(self.repairSeconds), label = 'EST. REPAIR' }
   end
 end

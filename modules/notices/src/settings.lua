@@ -3,7 +3,6 @@ local M = {}
 local DEFAULTS = {
   scale = 1, autoPlacement = true, locked = true,
   blueEnabled = true, repairEnabled = true, pitEnabled = true,
-  autoPitForDamage = true,
   bodyDamageThreshold = 0.20, suspensionDamageThreshold = 0.05, engineDamageThreshold = 0.20
 }
 local ok, stored = pcall(ac.storage, DEFAULTS, 'retro-ui.notices.')
@@ -35,9 +34,7 @@ local function slider(label, key, low, high, format, percent)
   if changed then M.values[key] = value / factor end
 end
 
-local plannedLap
-
-function M.draw(state, requestPit, preview)
+function M.draw(state, preview)
   M.normalize()
   ui.header('Race Notices')
   SettingsUI.section('notices', 'basics', 'Basics', true, function()
@@ -45,20 +42,8 @@ function M.draw(state, requestPit, preview)
     checkbox('Blue flag notices', 'blueEnabled')
     checkbox('Repair notices', 'repairEnabled')
     checkbox('Pit notices', 'pitEnabled')
-    checkbox('Request a pit stop after damage', 'autoPitForDamage')
-    local currentLap = math.floor(state.lastLap or 0) + 1
-    plannedLap = math.max(currentLap + 1, plannedLap or currentLap + 4)
-    local selected = ui.slider('Pit stop lap', plannedLap, currentLap + 1,
-      math.max(currentLap + 50, plannedLap), 'LAP %.0f', 1)
-    plannedLap = math.floor(selected + 0.5)
-    if ui.button('Schedule pit stop##notices.schedule') then requestPit(plannedLap) end
-    ui.sameLine()
-    if ui.button('Box next lap##notices.request') then requestPit() end
-    ui.sameLine()
-    if ui.button('Cancel pit request##notices.cancel') then state:cancelPit() end
-    if state.pitLap then ui.text('Pit request: lap ' .. state.pitLap) end
     ui.textWrapped('Repair warnings appear first, then blue flags, then pit reminders. The panel is hidden when there is no notice.')
-    ui.textWrapped('Pit reminders appear at the finish line three and two laps before the stop, for five seconds each. On the last lap before the stop, BOX NEXT LAP stays visible, followed by BOX THIS LAP on the planned pit lap. Repair warnings last until the next finish-line crossing, then are dismissed if you continue without pitting.')
+    ui.textWrapped('Pit reminders use complete laps of fuel remaining. At the finish line, three or two laps trigger a five-second reminder. One lap or less keeps BOX THIS LAP visible. Fuel consumption and reserve follow Leaderboard settings; reminders wait for a measured consumption estimate and are suppressed when fuel is enough to finish. Repair warnings last until the next finish-line crossing, then are dismissed if you continue without pitting.')
   end)
   SettingsUI.section('notices', 'personalization', 'Personalization', false, function()
     checkbox('Auto-placement', 'autoPlacement')

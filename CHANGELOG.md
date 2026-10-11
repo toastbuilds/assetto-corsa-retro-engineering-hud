@@ -5,7 +5,7 @@
 ### Added
 
 - Battle Panel: class rivals ahead and behind, live intervals, gap history and trends at matching track positions over up to three laps. English UI, shared theme/opacity, independent scaling and placement.
-- Race Notices: a compact English banner for blue flags with class/gap, repair warnings and next-lap pit requests. Pit notices include estimated full repair time from the car's own pit rates, with no redundant banner heading.
+- Race Notices: a compact English banner for blue flags with class/gap, repair warnings and automatic fuel-based pit reminders. Pit notices include estimated full repair time from the car's own pit rates, with no redundant banner heading.
 - Car Condition: remaining tyre life uses a 12 segment vertical bar beside each tyre, while retaining the numeric readout.
 - Four new analog Dial layouts: Concentric, Fan, Shelf and Spoke, each with light and dark finishes.
 - Five digital Dial variants with distinct layouts, steering details and perimeter gauges.
@@ -14,7 +14,7 @@
 
 ### Improved
 
-- Race Notices: scheduled stops announce at finish-line crossings three and two laps early for five seconds; the final reminder stays visible. Ignored repair warnings and their automatic pit requests clear after the damaged lap, with new damage able to trigger a fresh warning.
+- Race Notices: fuel autonomy triggers five-second reminders at finish-line crossings with three or two complete laps remaining; the final fuel lap keeps BOX THIS LAP visible. Ignored repair warnings clear after the damaged lap, with new damage able to trigger a fresh warning.
 
 - Timer panels now center lap times and deltas more clearly, keep clock sizing stable, and show a full-width final-lap result banner.
 - Final-lap detection now also uses Assetto Corsa's native signal; result flashes last two seconds.
