@@ -270,7 +270,11 @@ pending['>  Personalization##notices.personalization']=true
 frame(pages[12][2])
 pending['Preview Blue flag##notices.blue']=true
 frame(pages[12][2])
-local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain'}
+pending['>  Personalization##battle.personalization']=true
+frame(pages[13][2])
+pending['Preview battle##battle.preview']=true
+frame(pages[13][2])
+local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain','battleMain'}
 local function assertGlobalOpacity(callback)
   General.values.opacity=1
   local _,full=frame(script[callback])

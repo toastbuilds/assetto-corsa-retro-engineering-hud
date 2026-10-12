@@ -14,6 +14,8 @@
 
 ### Improved
 
+- Battle Panel: the right readout shows signed seconds gained or lost per lap in green/red. Enlarged graphs replace the explanatory trend text and rise for gains or fall for losses against either rival.
+
 - Race Notices: fuel autonomy triggers five-second reminders at finish-line crossings with three or two complete laps remaining; the final fuel lap keeps BOX THIS LAP visible. Ignored repair warnings clear after the damaged lap, with new damage able to trigger a fresh warning.
 
 - Timer panels now center lap times and deltas more clearly, keep clock sizing stable, and show a full-width final-lap result banner.

@@ -35,19 +35,27 @@ function M.draw(snapshot, settings)
     TimingUI.chamferRect(p(22, top + 24), p(75, top + 58), 3 * scale, ink(c.panelRaised), ink(c.outlineSoft), scale)
     text('P' .. row.position, 31, top + 29, 19, 'primary', 38)
     text(row.driver, 87, top + 28, 21, 'primary', 178)
-    text(row.value, 398, top + 23, 28, 'primary', 120, true)
-    text(row.trend, 22, top + 68, 15, row.role, 376)
+    text(row.value, 398, top + 20, 34, row.role, 132, true)
+    if row.rate ~= nil or row.value == '--' then text('s/LAP', 398, top + 55, 10, row.role, 80, true) end
     if settings.showGraphs and #row.points > 1 then
       local points = row.points
+      local direction = row.graphDirection or 1
       local low, high = math.huge, -math.huge
-      for _, point in ipairs(points) do low, high = math.min(low, point.gap), math.max(high, point.gap) end
+      for _, point in ipairs(points) do
+        local value = point.gap * direction
+        low, high = math.min(low, value), math.max(high, value)
+      end
       high = math.max(high, low + 0.3)
       local span = math.max(0.001, points[#points].progress - points[1].progress)
-      local function at(point) return p(24 + (point.progress - points[1].progress) / span * 235,
-        top + 115 - (point.gap - low) / (high - low) * 20) end
-      for i = 2, #points do ui.drawLine(at(points[i - 1]), at(points[i]), ink(c[row.role]), 1.5 * scale) end
-      text(row.laps > 0 and ('LAST ' .. row.laps .. (row.laps == 1 and ' LAP' or ' LAPS')) or 'LIVE GAP',
-        398, top + 99, 11, 'secondary', 116, true)
+      local function at(point) return p(24 + (point.progress - points[1].progress) / span * 374,
+        top + 115 - (point.gap * direction - low) / (high - low) * 42) end
+      for _, line in ipairs({ 73, 94, 115 }) do
+        ui.drawLine(p(24, top + line), p(398, top + line), ink(c.outlineDim), 0.7 * scale)
+      end
+      for i = 2, #points do ui.drawLine(at(points[i - 1]), at(points[i]), ink(c[row.role]), 1.8 * scale) end
+      ui.drawCircleFilled(at(points[#points]), 2.2 * scale, ink(c[row.role]), 12)
+      text(row.laps > 0 and ('LAST ' .. row.laps .. (row.laps == 1 and ' LAP' or ' LAPS')) or 'LIVE HISTORY',
+        398, top, 11, 'secondary', 116, true)
     end
   end
   rival(snapshot.ahead, 'AHEAD', 57)
