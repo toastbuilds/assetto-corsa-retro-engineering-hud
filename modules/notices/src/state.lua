@@ -1,6 +1,7 @@
 local U = require('src/utils')
 local Repair = require('modules/notices/src/repair')
 local FlagCause = require('src/flag_cause')
+local BattleAlert = require('modules/notices/src/battle')
 local M = {}
 M.__index = M
 
@@ -54,7 +55,7 @@ local function blueNotice(sim, traffic)
     value = value, label = 'BEHIND' }
 end
 
-function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel)
+function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel, battle)
   if not U.read(sim, 'isPaused', false) then
     self.clock = self.clock + math.max(0, finite(dt) or 0)
   end
@@ -137,7 +138,9 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel)
       detail = string.format('~%d FULL %s OF FUEL%s', remaining,
         remaining == 1 and 'LAP' or 'LAPS', reason and (' / ' .. reason) or ''),
       value = Repair.format(self.repairSeconds), label = 'EST. REPAIR' }
+    return
   end
+  if settings.battleEnabled then self.notice = BattleAlert.notice(battle) end
 end
 
 return M

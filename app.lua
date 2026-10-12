@@ -88,8 +88,8 @@ function script.update(dt)
   for _, name in ipairs({ 'relative', 'delta', 'timer', 'laps', 'leaderboard', 'telemetry' }) do
     invoke(name, 'update', dt)
   end
-  invoke('notices', 'update', dt, dialState)
   invoke('battle', 'update', dt)
+  invoke('notices', 'update', dt, dialState)
 end
 
 function script.windowMain(_)

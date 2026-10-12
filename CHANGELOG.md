@@ -4,6 +4,8 @@
 
 ### Added
 
+- Rear Battle notices warn only about the class rival behind: closing faster than 1 s/lap, or at least 0.5 s/lap with a predicted catch under two laps. The banner shows loss per lap and estimated laps to catch, with amber/red severity and an independent toggle/preview.
+
 - Battle Panel: class rivals ahead and behind, live intervals, gap history and trends at matching track positions over up to three laps. English UI, shared theme/opacity, independent scaling and placement.
 - Race Notices: a compact English banner for blue flags with class/gap, repair warnings and automatic fuel-based pit reminders. Pit notices include estimated full repair time from the car's own pit rates, with no redundant banner heading.
 - Car Condition: remaining tyre life uses a 12 segment vertical bar beside each tyre, while retaining the numeric readout.

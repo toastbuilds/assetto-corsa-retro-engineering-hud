@@ -270,6 +270,8 @@ pending['>  Personalization##notices.personalization']=true
 frame(pages[12][2])
 pending['Preview Blue flag##notices.blue']=true
 frame(pages[12][2])
+pending['Preview Battle##notices.battle']=true
+frame(pages[12][2])
 pending['>  Personalization##battle.personalization']=true
 frame(pages[13][2])
 pending['Preview battle##battle.preview']=true

@@ -23,7 +23,7 @@ Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Eleven independe
 | Telemetry | Input traces, FFB and driving telemetry |
 | Map | Full circuit or car-centred mini map, numbered markers and flag alerts |
 | Battle Panel | Class rivals ahead and behind, signed time gained/lost per lap and enlarged history graphs |
-| Race Notices | Blue flags with approaching class, repair warnings and automatic fuel-autonomy pit reminders with estimated repair time |
+| Race Notices | Blue flags with approaching class, repair warnings and automatic fuel-autonomy pit reminders with estimated repair time and rear battle warnings |
 
 Open only the windows you need. Each window can be resized and anchored independently. Light/dark themes, units and opacity are shared through **Retro UI Settings**.
 

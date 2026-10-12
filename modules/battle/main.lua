@@ -12,6 +12,7 @@ function M.update(_)
   state:update(Leaderboard.getRaceSnapshot())
   controller:update(Settings.values)
 end
+function M.getBattleSnapshot() return state.snapshot end
 function M.windowMain()
   Display.draw(ui.time() < previewUntil and State.preview() or state.snapshot, Settings.values)
 end

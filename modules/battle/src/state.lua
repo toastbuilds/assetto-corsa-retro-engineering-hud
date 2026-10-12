@@ -51,6 +51,7 @@ function M:rival(row, position, side, progress, now, final)
   local value = gain and string.format('%s%s', estimated and '~' or '',
     gain == 0 and '0.0' or string.format('%+.1f', gain)) or (not available and row.status) or '--'
   return { driver = row.driver:upper(), position = position, value = value, rate = gain,
+    gapSeconds = gap, estimated = estimated, physicallyBehind = finite(row.intervalSeconds) and row.intervalSeconds <= 0,
     role = role, points = points, graphDirection = side == 'ahead' and -1 or 1,
     laps = laps, status = row.status }
 end

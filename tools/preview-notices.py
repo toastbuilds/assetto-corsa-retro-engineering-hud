@@ -13,16 +13,18 @@ spec.loader.exec_module(preview)
 def main():
     output = ROOT / 'outputs'
     output.mkdir(exist_ok=True)
-    lua = preview.LuaRuntime(unpack_returned_tuples=True)
-    harness = lua.execute((ROOT / 'tests/gt7_layouts.lua').read_text(encoding='utf-8-sig'))
-    lua.globals().ui.measureDWriteText = lambda text, size: lua.globals().vec2(
-        preview.font(size).getlength(str(text)) / preview.FACTOR, size)
+    lua, harness = preview.create_harness()
     renderer = lua.eval("require('modules/notices/src/display')")
     general = lua.eval("require('src/general_settings')")
+    battle = lua.eval("require('modules/notices/src/battle')")
+    def rear_notice(rate, gap):
+        return battle.notice(lua.table_from({'behind': lua.table_from(dict(
+            driver='COSTA', position=6, rate=rate, gapSeconds=gap, physicallyBehind=True))}))
+    battle_notices = [rear_notice(-1.2, 6), rear_notice(-0.6, 0.8)]
     notices = [
         dict(kind='blue', title='BLUE FLAG', detail='LMP2 APPROACHING', value='1.8 s', label='BEHIND'),
         dict(kind='repair', title='REPAIR REQUIRED', detail='FRONT SUSPENSION DAMAGE', value='BOX', label='REPAIR'),
-        dict(kind='pit', title='BOX NEXT LAP', detail='LAP 12 / FRONT SUSPENSION DAMAGE', value='~32 s', label='EST. REPAIR'),
+        dict(kind='pit', title='BOX THIS LAP', detail='~1 FULL LAP OF FUEL / FRONT SUSPENSION DAMAGE', value='~32 s', label='EST. REPAIR'),
     ]
     for theme in ('dark', 'light'):
         general['values']['theme'] = theme
@@ -40,6 +42,16 @@ def main():
                     lua.table_from([width, height]))
                 canvas.paste(preview.raster(calls, width, height, background), (x, 66 + index * 110))
         path = output / f'race-notices-{theme}.png'
+        canvas.save(path)
+        print(path)
+        battle_output = ROOT / 'output'
+        battle_output.mkdir(exist_ok=True)
+        canvas = Image.new('RGB', (990, 308), background)
+        for index, notice in enumerate(battle_notices):
+            calls = harness['drawRenderer'](renderer, notice, lua.table_from({'scale': 1}),
+                lua.table_from([990, 144]))
+            canvas.paste(preview.raster(calls, 990, 144, background), (0, index * 164))
+        path = battle_output / f'rear-battle-alert-{theme}.png'
         canvas.save(path)
         print(path)
 

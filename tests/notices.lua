@@ -181,6 +181,70 @@ fuelTick()
 fuelCar.lapCount = 2
 assert(fuelTick().title == 'BOX THIS LAP', 'The next measured lap can leave only one complete lap of fuel')
 
+local BattleAlert = require('modules/notices/src/battle')
+local rear = {driver='COSTA',position=6,rate=-0.6,gapSeconds=0.8,status='LIVE',physicallyBehind=true}
+local battle = {behind=rear}
+local warning = BattleAlert.notice(battle)
+assert(warning.kind == 'battle' and warning.urgent and warning.value == '~1.3')
+assert(warning.detail == 'P6 COSTA / LOSING 0.6 s/LAP')
+rear.rate, rear.gapSeconds = -1, 5
+assert(BattleAlert.notice(battle) == nil, 'Exactly 1 s/lap alone must not trigger the fast-closing rule')
+rear.rate = -1.01
+assert(not BattleAlert.notice(battle).urgent, 'More than 1 s/lap warns even when the rival is far away')
+rear.rate, rear.gapSeconds = -0.5, 1
+assert(BattleAlert.notice(battle) == nil, 'Exactly two laps to catch is outside the imminent rule')
+rear.gapSeconds = 0.8
+assert(BattleAlert.notice(battle).urgent, '0.5 s/lap and under two laps to catch triggers')
+rear.rate = -0.49
+assert(BattleAlert.notice(battle) == nil, 'A closing rate below 0.5 must not warn')
+rear.rate = 0.6
+assert(BattleAlert.notice(battle) == nil, 'Gaining on the rear car must clear the alert')
+battle.behind, battle.ahead = nil, rear
+assert(BattleAlert.notice(battle) == nil, 'The car ahead must never generate this alert')
+battle.behind, battle.ahead = rear, nil
+rear.rate = nil
+assert(BattleAlert.notice(battle) == nil, 'Incomplete lap history must not invent a threat')
+rear.rate, rear.gapSeconds = -0.6, nil
+assert(BattleAlert.notice(battle) == nil, 'A missing gap must not invent a catch forecast')
+rear.gapSeconds, rear.physicallyBehind = 0.8, false
+assert(BattleAlert.notice(battle) == nil, 'A class rival physically ahead is not a rear threat')
+rear.physicallyBehind, rear.status = true, 'PIT'
+assert(BattleAlert.notice(battle) == nil, 'A rival in pits must not generate a threat')
+rear.status, battle.final = 'LIVE', true
+assert(BattleAlert.notice(battle) == nil, 'Final results must not generate battle alerts')
+battle.final, rear.estimated = false, true
+assert(BattleAlert.notice(battle).detail:find('LOSING ~0.6', 1, true), 'Estimated closing rates must be identified')
+local rearState, rearCar, rearSim = State.new(), {lapCount=0}, {currentSessionIndex=0,isSessionStarted=true}
+local function rearTick(rearFuel)
+  rearState:update(0.5, rearCar, rearSim, healthy, nil, settings, rates, rearFuel, battle)
+  return rearState.notice
+end
+assert(rearTick().kind == 'battle', 'Eligible rear threats enter the actual notices queue')
+settings.battleEnabled = false
+assert(rearTick() == nil, 'Rear battle notices can be disabled independently')
+settings.battleEnabled = true
+rearCar.lapCount = 1
+assert(rearTick({available=true,estimatedLaps=1,fuel=3}).kind == 'pit', 'Fuel reminders retain priority over battle alerts')
+rearSim.raceFlagType = 12
+assert(rearTick().kind == 'blue', 'Official blue flags retain priority over battle alerts')
+
+local BattleState = require('modules/battle/src/state')
+ac.SessionType = {Race=2}
+local liveBattle = BattleState.new()
+local livePlayer = {index=0,classID='GT3',progress=0,status='LIVE'}
+local liveRear = {index=1,driver='COSTA',carID='gt3',classID='GT3',status='LIVE',intervalSource='history'}
+for i=0,10 do
+  livePlayer.progress = i/10
+  liveRear.intervalSeconds = -(1.4 - 0.6 * livePlayer.progress)
+  liveBattle:update({localRow=livePlayer,rows={livePlayer,liveRear},session={type=2},
+    timeline={time=i*0.5},historyReset=i==0})
+  if i<10 then assert(BattleAlert.notice(liveBattle.snapshot)==nil, 'Live data needs a full observed lap') end
+end
+assert(BattleAlert.notice(liveBattle.snapshot).value == '~1.3', 'Live Battle gap and rate must reach the notice forecast')
+liveRear.intervalSeconds = 0.8
+liveBattle:update({localRow=livePlayer,rows={livePlayer,liveRear},session={type=2},timeline={time=5.5}})
+assert(BattleAlert.notice(liveBattle.snapshot)==nil, 'A physically passed rival clears the live rear alert')
+
 local amounts = Repair.damage({ available = true, body = { front = 0.2, rear = 0.1 },
   wheels = {{ suspensionDamage = 0.1 }}, engineDamage = 0.3, gearboxDamage = 0 })
 assert(math.abs(Repair.estimate(amounts, rates) - 76) < 0.00001, 'Rates are seconds per 10% damage')
@@ -191,4 +255,4 @@ assert(Repair.format(76) == '~1:16' and Repair.format(nil) == '--')
 defaults.scale, defaults.engineDamageThreshold = math.huge, -3
 Settings.normalize()
 assert(defaults.scale == 1 and defaults.engineDamageThreshold == 0.01)
-print('Race Notices: flag attribution, priority, lap-based repair dismissal, fuel-driven crossing reminders, refuelling, resets, replay, pause and estimates passed')
+print('Race Notices: flags, priorities, repairs, fuel, rear battle thresholds/live data, resets and estimates passed')

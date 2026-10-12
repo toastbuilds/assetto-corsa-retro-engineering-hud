@@ -4,6 +4,8 @@ local Repair = require('modules/notices/src/repair')
 local Display = require('modules/notices/src/display')
 local Relative = require('modules/relative/main')
 local Leaderboard = require('modules/leaderboard/main')
+local Battle = require('modules/battle/main')
+local BattleAlert = require('modules/notices/src/battle')
 local Window = require('modules/timing/src/window')
 local M = {}
 local state = State.new()
@@ -13,7 +15,8 @@ local cachedCar, cachedRates, previewNotice, previewUntil
 local previews = {
   blue = { kind = 'blue', title = 'BLUE FLAG', detail = 'LMP2 APPROACHING', value = '1.8 s', label = 'BEHIND' },
   repair = { kind = 'repair', title = 'REPAIR REQUIRED', detail = 'FRONT SUSPENSION DAMAGE', value = 'BOX', label = 'REPAIR' },
-  pit = { kind = 'pit', title = 'BOX THIS LAP', detail = '~1 FULL LAP OF FUEL / FRONT SUSPENSION DAMAGE', value = '~32 s', label = 'EST. REPAIR' }
+  pit = { kind = 'pit', title = 'BOX THIS LAP', detail = '~1 FULL LAP OF FUEL / FRONT SUSPENSION DAMAGE', value = '~32 s', label = 'EST. REPAIR' },
+  battle = BattleAlert.notice({behind={driver='COSTA',position=6,rate=-0.6,gapSeconds=0.8}})
 }
 
 function M.update(dt, telemetry)
@@ -31,7 +34,7 @@ function M.update(dt, telemetry)
   local traffic = Relative.getTrafficSnapshot and Relative.getTrafficSnapshot() or nil
   local snapshot = Leaderboard.getRaceSnapshot()
   state:update(dt, car, sim, telemetry and telemetry.condition, traffic, Settings.values, cachedRates,
-    snapshot and snapshot.fuel)
+    snapshot and snapshot.fuel, Battle.getBattleSnapshot())
   controller:update(Settings.values)
 end
 
