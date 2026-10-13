@@ -160,14 +160,15 @@ local function gearSelector(c)
   local gear=Selector.gear(s)
   local count=Selector.count(s.gearCount,gear)
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
-  local gap=math.min(1.5,step*0.12)
+  local direction=step<0 and -1 or 1
+  local gap=math.min(1.5,math.abs(step)*0.12)
   local ring=c.layout.selectorRing
   local inner,outer,radius=ring[1],ring[2],ring[3]
-  local size=math.min(ring[4],step*2.2*radius/228)
+  local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
   for i=0,count do
     local selected=gear==(i==0 and -1 or i)
-    local a=Selector.startAngle+i*step+gap
-    local b=Selector.startAngle+(i+1)*step-gap
+    local a=Selector.startAngle+i*step+gap*direction
+    local b=Selector.startAngle+(i+1)*step-gap*direction
     local ink=selected and C.amber or C.outline
     arc(c,310,304,radius,a,b,selected and C.coreAmber or C.panelRaised,outer-inner)
     local halo=selected and Light.halo(C.amber,c.L.segment)
@@ -209,7 +210,7 @@ local function gearSelector(c)
     circle(c,x,y,3.5,C.metal,false,0.8)
   end
   local points={}
-  for _,p in ipairs({{108,0},{82,10},{82,-10}}) do
+  for _,p in ipairs({{103,0},{82,10},{82,-10}}) do
     points[#points+1]={310+p[1]*math.cos(angle)-p[2]*math.sin(angle),
       304+p[1]*math.sin(angle)+p[2]*math.cos(angle)}
   end
@@ -313,10 +314,11 @@ local function controls(c)
   local l,s,C=c.layout,c.state,c.C
   local compact=l.compactPedals
   meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,compact and 'B' or 'BRAKE',compact)
-  if c.settings.showClutch~=false then
+  if c.settings.showClutch~=false and not l.noClutch then
     meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,compact and 'C' or 'CLUTCH',compact or l.id=='column' or l.id=='radial' or l.id=='orbit' or l.haloRpm)
   end
-  meter(c,l.pedals[3],U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact)
+  local throttle=l.noClutch and l.pedals[2] or l.pedals[3]
+  meter(c,throttle,U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact)
   if c.settings.showSteering~=false then
     if l.id=='orbit' or l.steeringRing then
       local p=l.core

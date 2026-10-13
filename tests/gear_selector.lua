@@ -19,12 +19,12 @@ close(angle,Selector.angle(2,6))
 animation,angle=Selector.sample(animation,3,6,0.01,true,'car')
 local from=angle
 animation,angle=Selector.sample(animation,3,6,0.07,true,'car')
-assert(angle>from and angle<Selector.angle(3,6)+1)
+assert(angle<from and angle>=Selector.angle(3,6)-2)
 local interrupted=angle
 animation,angle=Selector.sample(animation,4,6,0.07,true,'car')
 close(angle,interrupted)
 animation,angle=Selector.sample(animation,4,6,0.17,true,'car')
-assert(angle>Selector.angle(4,6) and angle-Selector.angle(4,6)<1,'the mechanical rebound stays restrained')
+assert(angle<Selector.angle(4,6) and Selector.angle(4,6)-angle<2,'the mechanical rebound stays restrained')
 animation,angle=Selector.sample(animation,4,6,0.19,true,'car')
 close(angle,Selector.angle(4,6))
 animation,angle=Selector.sample(animation,0,6,0.20,true,'car')
@@ -61,6 +61,7 @@ for _,gear in ipairs({'N','R','1','4','8'}) do
   local neutralCount=0
   for _,call in ipairs(calls) do
     if call.kind=='text' and call.text=='N' then neutralCount=neutralCount+1 end
+    assert(not (call.kind=='text' and call.text=='CLUTCH'), 'Snap Selector omits the clutch pedal')
   end
   if gear=='N' then assert(neutralCount==1,'N is only printed in the central selector'); sawNeutral=true
   else assert(neutralCount==0) end

@@ -16,14 +16,14 @@ M.choices = {
 }
 M.layouts = {
   snap={selector=true,cleanPerimeter=true,hideRpmNumbers=true,hideAuxValues=true,
-    selectorRing={151,197,174,32},
+    noClutch=true,selectorRing={104,126,110,22},
     rpm={310,304,249,-160,-20},rpmDepth=14,rpmSegmentCount=40,rpmValueSize=22,rpmText={310,355},
-    speed={310,433,82},gear={310,298,96},core={310,304,64},steeringRing=true,
-    pedals={{192,459,52,8},{310,495,68,6},{428,459,52,8}},
+    speed={310,462,66},gear={310,298,96},core={310,304,64},steeringRing=true,
+    pedals={{192,459,52,8},{428,459,52,8}},
     barePedals=true,compactPedals=true,pedalCaptions=false,
     edgeAux={{310,304,247,155,192},{310,304,247,25,-12}},edgeBarWidth=12,edgeBarCount=16,
     edgeIcons={{109,443},{511,443}},
-    statuses={{226,510},{282,520},{338,520},{394,510}},iconStatuses=true,statusSize={40,34},
+    statuses={{177,272},{177,336},{443,272},{443,336}},iconStatuses=true,statusSize={40,34},
     warning={348,547},flag={270,547}},
   jewel={number='1D',haloRpm=true,conceptStyle='jewel',cleanPerimeter=true,hideRpmNumbers=true,
     rpm={310,304,242,-220,40},rpmText={310,487},speed={310,235,120},gear={310,389,54},
