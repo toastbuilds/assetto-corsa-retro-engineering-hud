@@ -167,7 +167,7 @@ def create_harness():
     return lua, harness
 
 
-def main(hybrid=False, styles_only=False):
+def main(hybrid=False, styles_only=False, auxiliary_only=False):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     lua, harness = create_harness()
     state = harness["state"]
@@ -185,10 +185,11 @@ def main(hybrid=False, styles_only=False):
     renders = {}
 
     def render(name, mode="analog", style="b01", lights=False, theme="dark", frame="classic", window=None, dial_scale=1, spacing=0, indicator_scale=1, no_ring=False,
-               speed_dial_style="original", rpm_dial_style="original"):
+               speed_dial_style="original", rpm_dial_style="original", auxiliary_style="original"):
         options = lua.table_from(dict(gt7SpeedNeedleMode=mode, gt7RpmNeedleMode=mode,
             gt7SpeedNeedleStyle=style, gt7RpmNeedleStyle=style,
             gt7SpeedDialStyle=speed_dial_style, gt7RpmDialStyle=rpm_dial_style,
+            gt7SpeedAuxiliaryStyle=auxiliary_style, gt7RpmAuxiliaryStyle=auxiliary_style,
             theme=theme, speedUnit="km/h",
             gt7SimulateVacuum=True, gt7VacuumMinimum=-0.5, showLights=True,
             gt7DialScale=dial_scale, gt7DialSpacing=spacing, gt7IndicatorScale=indicator_scale))
@@ -209,6 +210,57 @@ def main(hybrid=False, styles_only=False):
         renders[name] = picture
         print(f"{name}: {len(calls)} draw calls")
         return picture
+
+    if auxiliary_only:
+        caption = ImageFont.truetype(str(FONT), 15)
+        for theme in ("dark", "light"):
+            for mode in ("analog", "digital"):
+                for geometry in ("mini", "rim"):
+                    main_style = "original" if geometry == "mini" else (
+                        "track_analog" if mode == "analog" else "orbit")
+                    sheet = Image.new("RGB", (1200, 1280), "#121416")
+                    for row, channel in enumerate(("Fuel", "Turbo", "Aero", "Hybrid")):
+                        state["turboAvailable"] = channel != "Aero"
+                        state["aeroLoadNormalized"] = 0.68
+                        state["hybrid"] = lua.table_from(dict(powerKw=120, needle=0.8, charge=0.84)) if channel == "Hybrid" else None
+                        for col, auxiliary in enumerate(("original", "halo", "jewel", "spectrum")):
+                            picture = render("auxiliary-review", mode=mode, lights=True, theme=theme,
+                                speed_dial_style=main_style, rpm_dial_style=main_style, auxiliary_style=auxiliary)
+                            bounds = (0, 78, 350, 433) if channel == "Fuel" else (1090, 78, 1440, 433)
+                            crop = picture.crop(bounds).resize((280, 280), Image.Resampling.LANCZOS)
+                            sheet.paste(crop, (col * 300 + 10, row * 320))
+                            ImageDraw.Draw(sheet).text((col * 300 + 12, row * 320 + 284),
+                                f"{channel} / {auxiliary.title()}", font=caption, fill="#f2dbae")
+                    suffix = "-light" if theme == "light" else ""
+                    sheet.save(OUTPUT / f"gt7-auxiliary-{geometry}-{mode}{suffix}.png")
+        state["hybrid"], state["turboAvailable"] = None, True
+        matching = Image.new("RGB", (1800, 660), "#121416")
+        for row, mode in enumerate(("analog", "digital")):
+            for col, motif in enumerate(("halo", "jewel", "spectrum")):
+                picture = render(f"gt7-auxiliary-match-{motif}-{mode}", mode=mode, lights=True,
+                    speed_dial_style=f"{motif}_{mode}", rpm_dial_style=f"{motif}_{mode}", auxiliary_style="match")
+                for role, bounds in enumerate(((0, 78, 350, 433), (1090, 78, 1440, 433))):
+                    matching.paste(picture.crop(bounds).resize((280, 280), Image.Resampling.LANCZOS),
+                                   (col * 600 + role * 300 + 10, row * 330))
+                ImageDraw.Draw(matching).text((col * 600 + 12, row * 330 + 284),
+                    f"{motif.title()} {mode} / Match main dial", font=caption, fill="#f2dbae")
+        matching.save(OUTPUT / "gt7-auxiliary-matching.png")
+        alerts = Image.new("RGB", (1200, 1280), "#121416")
+        scenarios = ("Fuel 8% / ON", "Fuel 8% / OFF", "Battery 8%", "Fuel unavailable")
+        for row, label in enumerate(scenarios):
+            state["clock"] = 0.3 if row == 1 else 0
+            state["fuel"], state["maxFuel"] = (None, None) if row == 3 else (4, 50)
+            state["fuelNormalized"] = 0.08
+            state["hybrid"] = lua.table_from(dict(powerKw=120, needle=0.8, charge=0.08)) if row == 2 else None
+            for col, auxiliary in enumerate(("original", "halo", "jewel", "spectrum")):
+                picture = render("auxiliary-alert-review", mode="digital", lights=True, auxiliary_style=auxiliary)
+                bounds = (1090, 78, 1440, 433) if row == 2 else (0, 78, 350, 433)
+                alerts.paste(picture.crop(bounds).resize((280, 280), Image.Resampling.LANCZOS),
+                             (col * 300 + 10, row * 320))
+                ImageDraw.Draw(alerts).text((col * 300 + 12, row * 320 + 284),
+                    f"{label} / {auxiliary.title()}", font=caption, fill="#f2dbae")
+        alerts.save(OUTPUT / "gt7-auxiliary-alerts.png")
+        return
 
     if hybrid:
         state["turboAvailable"] = False
@@ -372,6 +424,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--hybrid", action="store_true", help="Preview the Triptych electric instruments only")
     parser.add_argument("--styles-only", action="store_true", help="Preview GT7 speed and RPM face compositions only")
+    parser.add_argument("--auxiliary-only", action="store_true", help="Compare GT7 auxiliary styles, channels, geometries and themes")
     args = parser.parse_args()
     OUTPUT = args.output
-    main(hybrid=args.hybrid, styles_only=args.styles_only)
+    main(hybrid=args.hybrid, styles_only=args.styles_only, auxiliary_only=args.auxiliary_only)
