@@ -7,9 +7,19 @@ M.choices = {
   {value='radial',label='3 · Radial'},
   {value='offset',label='4 · Offset'},
   {value='core_capsule',label='5D · Core Capsule'},
+  {value='halo',label='6D · Halo'},
   {value='orbit',label='6 · Orbit'}
 }
 M.layouts = {
+  halo={number='6D',haloRpm=true,cleanPerimeter=true,hideRpmNumbers=true,
+    rpm={310,304,234,-220,40},rpmText={310,176},speed={310,285,128},gear={310,429,50},
+    core={310,421,40},steeringRing=true,
+    pedals={{310,304,144,136,175},{310,499,84,6},{310,304,144,44,5}},
+    barePedals=true,pedalCaptions=false,pedalArcWidth=6,
+    edgeAux={{310,304,164,135,205},{310,304,164,45,-25}},
+    edgeIcons={{190,451},{430,451}},edgeReadings={{174,478},{446,478}},
+    statuses={{236,351},{236,395},{384,351},{384,395}},iconStatuses=true,roundStatuses=true,statusSize={36,36},
+    warning={348,539},flag={270,539}},
   bridge={number=1,rpm={310,293,245,-160,-20},rpmText={310,190},
     speed={225,302,80},gear={440,302,82},speedLabel=true,gearLabel=true,
     panels={{225,298,246,122},{440,298,170,122}},

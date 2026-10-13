@@ -6,6 +6,7 @@ local General=require('src/general_settings')
 local U=require('src/utils')
 local Auxiliary=require('ui/analog_variants').auxiliary
 local Icons=require('ui/side_instruments')
+local Halo=require('ui/halo_dial')
 local M={}
 local function pt(c,x,y) return c.origin+vec2(x*c.scale,y*c.scale) end
 local function text(c,value,size,x,y,color,bold)
@@ -82,7 +83,7 @@ local function frame(c)
     poly(c,{{299,46},{321,46},{310,76}},Light.color(C.primary,c.L.icon),true)
   end
   for i,p in ipairs(l.pedals) do
-    if #p==4 and (i~=2 or c.settings.showClutch~=false) then
+    if not l.barePedals and #p==4 and (i~=2 or c.settings.showClutch~=false) then
       local height=p[4]+(l.pedalCaptions==false and 14 or l.compactPedals and 22 or l.id=='orbit' and 16 or 38)
       local y=p[2]-(l.pedalCaptions==false and 0 or 5)
       box(c,p[1],y,p[3]+30,height,C.panel,true,math.min(15,height/2))
@@ -95,7 +96,7 @@ local function frame(c)
   end
   if l.core then
     local p=l.core
-    circle(c,p[1],p[2],p[3]+9,C.cyan,false)
+    circle(c,p[1],p[2],p[3]+9,l.haloRpm and C.outlineDim or C.cyan,false)
     circle(c,p[1],p[2],p[3],C.panel,true)
     circle(c,p[1],p[2],p[3],C.amber,false,2)
     circle(c,p[1],p[2],p[3]-7,C.outlineDim,false)
@@ -121,11 +122,16 @@ local function frame(c)
     line(c,415,139,415,402,C.outline)
     line(c,422,147,422,394,C.outlineDim)
   else
-    if not l.graduatedSteering then line(c,164,225,456,225,C.cyan) end
+    if not l.graduatedSteering and not l.haloRpm then line(c,164,225,456,225,C.cyan) end
   end
 end
 local function rpm(c)
   local l,s,C=c.layout,c.state,c.C
+  if l.haloRpm then
+    Halo.rpm(c.origin,c.scale,l,s,c.settings,C,c.L)
+    text(c,s.rpmText or '0',28,l.rpmText[1],l.rpmText[2],rpmInk(c),true)
+    return
+  end
   if l.coreCapsule then return end
   local maximum=math.max(s.rpmGaugeLimiter or s.rpmDisplayLimiter or 8000,1000)
   local limiter=math.max(s.rpmDisplayLimiter or maximum,1000)
@@ -180,14 +186,16 @@ local function meter(c,p,value,color,label,horizontal)
     for i=1,10 do
       local span=(p[5]-p[4])/10
       arc(c,p[1],p[2],p[3],p[4]+(i-0.9)*span,p[4]+(i-0.1)*span,
-        i<=math.floor(value*10+0.5) and Light.color(color,c.L.subSegment) or C.inactive,25)
+        i<=math.floor(value*10+0.5) and Light.color(color,c.L.subSegment) or C.inactive,c.layout.pedalArcWidth or 25)
     end
     local a=math.rad((p[4]+p[5])/2)
     text(c,label,12,p[1]+(p[3]-32)*math.cos(a),p[2]+(p[3]-32)*math.sin(a),C.primary)
     return
   end
-  box(c,p[1],p[2],p[3]+10,p[4]+10,C.panel,true,2)
-  box(c,p[1],p[2],p[3]+10,p[4]+10,C.amberDim,false,2)
+  if not c.layout.barePedals then
+    box(c,p[1],p[2],p[3]+10,p[4]+10,C.panel,true,2)
+    box(c,p[1],p[2],p[3]+10,p[4]+10,C.amberDim,false,2)
+  end
   local count=horizontal and (c.layout.compactPedals and 12 or 20) or 10
   for i=1,count do
     local x=p[1]-p[3]/2+(horizontal and (i-1)*p[3]/count or 0)
@@ -211,7 +219,7 @@ local function controls(c)
   local compact=l.compactPedals
   meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,compact and 'B' or 'BRAKE',compact)
   if c.settings.showClutch~=false then
-    meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,compact and 'C' or 'CLUTCH',compact or l.id=='column' or l.id=='radial' or l.id=='orbit')
+    meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,compact and 'C' or 'CLUTCH',compact or l.id=='column' or l.id=='radial' or l.id=='orbit' or l.haloRpm)
   end
   meter(c,l.pedals[3],U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact)
   if c.settings.showSteering~=false then
@@ -219,7 +227,7 @@ local function controls(c)
       local p=l.core
       local angle=-math.pi/2+U.clamp(s.steeringInput or 0,-1,1)*math.rad(145)
       local radius=p[3]+9
-      if l.id=='orbit' then
+      if l.id=='orbit' or l.haloRpm then
         for i=-16,16 do
           local a=-math.pi/2+math.rad(145)*i/16
           local length=i==0 and 9 or i%4==0 and 6 or 3
@@ -255,11 +263,13 @@ local function statuses(c)
     if i~=3 or c.settings.showLights~=false then
       local p=l.statuses[i]
       local w,h=l.statusSize and l.statusSize[1] or 58,l.statusSize and l.statusSize[2] or 44
-      box(c,p[1],p[2],w,h,C.panel,true,5)
+      if l.roundStatuses then circle(c,p[1],p[2],w/2,C.panel,true)
+      else box(c,p[1],p[2],w,h,C.panel,true,5) end
       local active=i==1 and s.tcActive or i==2 and s.absActive
         or i==3 and s.headlights and s.lightsAvailable or i==4 and (s.pitLimiter or s.pitLane)
       local color=active and C.amber or C.primary
-      box(c,p[1],p[2],w,h,active and C.amber or C.amberDim,false,5)
+      if l.roundStatuses then circle(c,p[1],p[2],w/2,active and C.amber or C.amberDim,false,1)
+      else box(c,p[1],p[2],w,h,active and C.amber or C.amberDim,false,5) end
       if l.iconStatuses then
         local ink=active and (i==3 and (s.highBeams and C.amber or C.cyan) or C.amber) or C.secondary
         Icons.statusIcon(pt(c,p[1],p[2]),c.scale,i,Light.color(ink,c.L.icon))
@@ -359,6 +369,11 @@ local function drawSideBar(c,p,a,label)
 end
 local function auxiliary(c)
   local a=Auxiliary(c.state,c.settings.analogAuxiliaryMode)
+  if c.layout.haloRpm then
+    if a and a.label=='FUEL' then a=Auxiliary(c.state,'turbo') end
+    Halo.auxiliary(c.origin,c.scale,c.layout,a,Auxiliary(c.state,'fuel'),c.state,c.C,c.L)
+    return
+  end
   if c.layout.dotAux then
     local r=c.layout.rpm
     local value=a and valueFraction(a)
