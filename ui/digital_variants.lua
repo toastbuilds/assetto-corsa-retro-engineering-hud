@@ -120,8 +120,14 @@ local function frame(c)
     poly(c,speedFace,C.panel,true)
     poly(c,speedFace,C.outline,false,1.4)
     line(c,161,344,365,344,C.amberDim,1.6)
-    poly(c,l.floatingCapsule,C.panel,true)
-    poly(c,l.floatingCapsule,C.amber,false,2)
+    local active=c.state.rpmRedline or c.state.rpmWarning
+    local animate=c.settings.animateShiftAlert
+    if c.state.rpmRedline then animate=c.settings.animateRedlineAlert end
+    local lit=active and blink(c,animate,c.state.rpmRedline and 0.12 or 0.14)
+    local fill=lit and (c.state.rpmRedline and C.coreRed or C.coreAmber) or C.panel
+    poly(c,l.floatingCapsule,fill,true)
+    poly(c,l.floatingCapsule,active and rpmInk(c) or C.amber,false,2)
+    poly(c,{{299,46},{321,46},{310,76}},Light.color(C.primary,c.L.icon),true)
   end
   if l.coreCapsule then
     local p=l.readout
@@ -497,7 +503,10 @@ function M.draw(state,settings,origin,scale)
   text(c,state.speedText or '0',speed[3],speed[1],speed[2],c.C.primary,true)
   if not layout.hideUnits then text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+7) end
   if layout.coreCapsule then capsuleReadout(c)
-  else text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmInk(c),true) end
+  else
+    local gearInk=layout.conceptStyle=='floating' and (state.rpmWarning or state.rpmRedline) and c.C.primary or rpmInk(c)
+    text(c,state.gearText or 'N',gear[3],gear[1],gear[2],gearInk,true)
+  end
   controls(c)
   auxiliary(c)
   c.statusDrawing=true
