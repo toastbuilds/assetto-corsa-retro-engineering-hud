@@ -78,7 +78,8 @@ def main():
         image = preview.raster(calls, args.size, args.size, background='#e8e8e4')
         rendered[name] = image
         suffix = '' if args.aux == 'turbo' else f'-{args.aux}'
-        image.save(out / f'{name}-{args.theme}{suffix}.png')
+        size_suffix = '' if args.size == 620 else f'-{args.size}'
+        image.save(out / f'{name}-{args.theme}{size_suffix}{suffix}.png')
 
     if args.theme == 'dark' and args.aux == 'turbo':
         cell, margin, label_h = 340, 22, 36
@@ -102,11 +103,14 @@ def main():
                     sheet.paste(image, (x, y + label_h), image.getchannel('A'))
                 else:
                     sheet.paste(image, (x, y + label_h))
-        sheet.save(out / 'comparison-dark.png')
+        comparison_name = 'comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png'
+        sheet.save(out / comparison_name)
 
     suffix = '' if args.aux == 'turbo' else f'-{args.aux}'
-    target = out / ('comparison-dark.png' if args.theme == 'dark' and args.aux == 'turbo'
-                    else f'core_capsule-{args.theme}{suffix}.png')
+    size_suffix = '' if args.size == 620 else f'-{args.size}'
+    target = out / (('comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png')
+                    if args.theme == 'dark' and args.aux == 'turbo'
+                    else f'core_capsule-{args.theme}{size_suffix}{suffix}.png')
     print(target)
 
 
