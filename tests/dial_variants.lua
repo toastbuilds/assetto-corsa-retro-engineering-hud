@@ -43,8 +43,10 @@ for id,layout in pairs(Layouts.layouts) do
           local calls=h.drawDial({analogVariant=id,theme=theme,analogAuxiliaryMode=mode,
             hudScale=window[1]==340 and 0.55 or 1.15},state,window)
           assert(contains(calls,'139') and contains(calls,'R'))
-          assert(contains(calls,'5200') == (id~='concentric'))
-          assert(contains(calls,'0') and contains(calls,'3'),'independent TC/ABS levels include zero')
+          assert(contains(calls,'5200') == (not layout.hideRpmValue))
+          if layout.iconStatuses then
+            assert(not contains(calls,'TC') and not contains(calls,'ABS'),'symbol-only states omit captions')
+          else assert(contains(calls,'0') and contains(calls,'3'),'independent TC/ABS levels include zero') end
           local images=0
           for _,call in ipairs(calls) do
             if call.kind=='image' then
@@ -54,7 +56,7 @@ for id,layout in pairs(Layouts.layouts) do
               assert(call.image:find('_'..theme..'_',1,true),'shell theme must match palette')
             end
           end
-          assert(images==2,'each variant draws background and foreground shells')
+          assert(images==(layout.nativeFace and 0 or layout.frontLayer==false and 1 or 2),'native faces and shell layers must match the selected variant')
           scenarios=scenarios+1
         end
       end
@@ -69,26 +71,26 @@ for id,layout in pairs(Layouts.layouts) do
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
   assert(not contains(calls,'TURBO'))
   if id=='concentric' then assert(not contains(calls,'0.70'))
-  else assert(contains(calls,'0.70 BAR')) end
+  else assert(contains(calls,id=='halo' and '0.70' or '0.70 BAR')) end
   local flagDrawn,rpmAlert=false,false
   local palette=require('src/theme').get('dark')
   for _,call in ipairs(calls) do
     flagDrawn=flagDrawn or (call.kind=='rect_fill' and call.color==palette.flagYellow)
     rpmAlert=rpmAlert or (call.kind=='text' and call.text=='5200' and call.color==palette.red)
   end
-  assert(flagDrawn and (rpmAlert or id=='concentric') and contains(calls,'!'),'flag, RPM and handbrake coexist')
+  assert(flagDrawn and (rpmAlert or layout.hideRpmValue) and contains(calls,'!'),'flag, RPM and handbrake coexist')
   for _,style in ipairs(require('src/instrument_config').needleOrder) do
     h.drawDial({analogVariant=id,analogNeedleStyle=style},state)
   end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,maximumKw=150,recoveryKw=100}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='auto'},state)
-  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,'-38 kW')),'hybrid auto mode includes recovery')
+  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,id=='halo' and '-38' or '-38 kW')),'hybrid auto mode includes recovery')
   state.hybrid={charge=nil,delivery=0.4,needle=0.4}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,'40%'),'delivery fallback must not fabricate kW')
+  assert(id=='concentric' or contains(calls,id=='halo' and '40' or '40%'),'delivery fallback must not fabricate kW')
   state.hybrid={charge=0.4,batteryRecovery=true,chargeRecoveryRate=0.3,needle=-0.2}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,'-0.3%/s'),'battery recovery retains its units')
+  assert(id=='concentric' or contains(calls,id=='halo' and '-0.3' or '-0.3%/s'),'battery recovery retains its units')
   state.hybrid=nil
   state.turboAvailable=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)

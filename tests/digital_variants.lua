@@ -6,7 +6,7 @@ local function has(calls,value)
   for _,c in ipairs(calls) do if c.kind=='text' and c.text==value then return true end end
   return false
 end
-assert(#Layouts.choices==6 and Layouts.get('5')==nil)
+assert(#Layouts.choices==8 and Layouts.get('halo')~=nil and Layouts.get('5')==nil)
 Settings.values.analogVariant='fan'
 Settings.values.digitalVariant='unknown'
 assert(Settings.current().digitalVariant=='original')
@@ -20,7 +20,7 @@ state.lightsAvailable,state.headlights=true,true
 state.hazardLights,state.indicatorPhase=true,true
 state.raceFlagType,state.handbrake,state.clock=2,1,0.05
 local count=0
-for id in pairs(Layouts.layouts) do
+for id,layout in pairs(Layouts.layouts) do
   Settings.values.digitalVariant=id
   assert(Settings.current().digitalVariant==id and Settings.current().analogVariant=='fan')
   for _,theme in ipairs({'dark','light'}) do
@@ -33,10 +33,12 @@ for id in pairs(Layouts.layouts) do
           local calls=h.drawDial({instrumentMode='digital',digitalVariant=id,theme=theme},state,{size,size})
           assert(has(calls,'139') and has(calls,'R') and has(calls,'5200'))
           if id=='orbit' then assert(not has(calls,'km/h') and not has(calls,'0.70 BAR')) end
-          assert(has(calls,'0') and has(calls,'3') and has(calls,'!'))
-          if id=='orbit' or id=='column' then
+          assert(has(calls,'!'))
+          if layout.iconStatuses then assert(not has(calls,'TC') and not has(calls,'ABS'))
+          else assert(has(calls,'0') and has(calls,'3')) end
+          if layout.hideAuxValues then
             assert(not has(calls,'0.70') and not has(calls,'30'))
-          else assert(has(calls,id=='offset' and '0.70' or '0.70 BAR')) end
+          else assert(has(calls,(layout.hideAuxUnits or layout.haloRpm) and '0.70' or '0.70 BAR')) end
           if id=='offset' then assert(not has(calls,'FUEL') and has(calls,'30')) end
           count=count+1
         end
@@ -50,8 +52,10 @@ for id in pairs(Layouts.layouts) do
   else assert(not has(calls,'TURBO  0.70 BAR')) end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,recoveryKw=100,maximumKw=150}
   calls=h.drawDial({instrumentMode='digital',digitalVariant=id,analogAuxiliaryMode='electric'},state)
-  if id=='orbit' or id=='column' then assert(not has(calls,'84'))
-  else assert(has(calls,id=='offset' and '84' or '-38 kW  84%')) end
+  if layout.hideAuxValues then assert(not has(calls,'84'))
+  elseif layout.haloRpm then assert(has(calls,'-38'))
+  elseif layout.edgeAux then assert(has(calls,'84'))
+  else assert(has(calls,'-38 kW  84%'),id..' must display electric power and charge') end
   state.hybrid=nil
   state.available=false
   calls=h.drawDial({instrumentMode='digital',digitalVariant=id,analogAuxiliaryMode='turbo'},state)
