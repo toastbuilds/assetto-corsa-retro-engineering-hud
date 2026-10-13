@@ -32,26 +32,26 @@ local profiles = {
   analog = {
     original = {first=140, last=400},
     shelf = {first=180, last=360},
-    fan = {first=190, last=350, fan=true},
+    fan = {first=190, last=350, fan=true, lowerArc='speed'},
     concentric = {first=140, last=400},
     spoke = {first=180, last=360},
-    track_analog = {first=190, last=350},
+    track_analog = {first=190, last=350, lowerArc=true},
     halo_analog = {first=140, last=400},
     jewel_analog = {first=140, last=400},
     spectrum_analog = {first=130, last=410},
-    snap_analog = {first=190, last=350}
+    snap_analog = {first=190, last=350, lowerArc=true}
   },
   digital = {
     original = {first=140, last=400},
-    bridge = {first=190, last=350, bridge=true},
+    bridge = {first=190, last=350, bridge=true, lowerArc='rpm'},
     column = {first=140, last=400, columns=true},
-    radial = {first=190, last=350},
+    radial = {first=190, last=350, lowerArc=true},
     offset = {first=180, last=360},
-    orbit = {first=180, last=360},
+    orbit = {first=180, last=360, lowerArc=true},
     halo_digital = {first=140, last=400},
     jewel_digital = {first=140, last=400},
     spectrum_digital = {first=130, last=410},
-    snap_digital = {first=190, last=350}
+    snap_digital = {first=190, last=350, lowerArc=true}
   }
 }
 

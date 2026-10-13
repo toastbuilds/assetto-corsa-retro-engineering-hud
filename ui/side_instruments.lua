@@ -370,6 +370,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local selectedStyle = rpm and settings.gt7RpmDialStyle or settings.gt7SpeedDialStyle
   selectedStyle = DialStyles.normalize(selectedStyle, mode, role)
   local face = DialStyles.get(selectedStyle, mode, role)
+  local useLowerArc = face.lowerArc == true or face.lowerArc == role
   local first, last = math.rad(face.first), math.rad(face.last)
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
   if digital == nil then digital = mode == 'digital' and 1 or 0 end
@@ -380,7 +381,7 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   Light.ambient(center, scale, L)
   if StyledInstruments.supports(selectedStyle, mode, role) then
     StyledInstruments.draw(selectedStyle, center, scale, state, settings, C, L,
-      digital, light, rpm, rpmColor, subGauge, lowerArcGauge, mode, role)
+      digital, light, rpm, rpmColor, subGauge, lowerArcGauge, mode, role, useLowerArc)
     return
   end
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.
@@ -491,7 +492,11 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
       center + vec2(0, 27 * scale), C.secondary, nil, L.label, scale)
     ui.popStyleVar(1)
   end
-  subGauge(center, scale, state, settings, C, digital, light, rpm, L)
+  if useLowerArc then
+    lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
+  else
+    subGauge(center, scale, state, settings, C, digital, light, rpm, L)
+  end
   -- The principal hand sits above the subinstrument, like a physical assembly.
   if digital < 1 then
     ui.pushStyleVarAlpha(1 - digital)

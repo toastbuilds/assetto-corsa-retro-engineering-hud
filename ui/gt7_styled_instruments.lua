@@ -84,7 +84,8 @@ end
 local selectorAnimations=setmetatable({}, {__mode='k'})
 local drawSnapSelector
 
-local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,rpm,rpmColor,auxiliary)
+local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,rpm,rpmColor,
+    auxiliary,lowerAuxiliary,useLowerArc)
   local motif=f.motif
   local dotsOnly=motif=='halo' or motif=='jewel'
   local pivot=center+vec2(f.x*scale,f.y*scale)
@@ -250,7 +251,9 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
     n=n+step
   end
 
-  if f.aux and auxiliary then
+  if useLowerArc then
+    lowerAuxiliary(center,scale,state,settings,C,light,rpm,L)
+  elseif f.aux and auxiliary then
     local aux=f.aux
     local auxScale=scale*aux[3]
     auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
@@ -347,11 +350,12 @@ drawSnapSelector=function(center,scale,state,settings,C,L)
 end
 
 function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, rpmColor,
-    auxiliary, lowerAuxiliary, mode, role)
+    auxiliary, lowerAuxiliary, mode, role, useLowerArc)
   local f,inspired=resolveFace(id,mode)
   if not f then return end
   if inspired then
-    drawInspired(id,f,center,scale,state,settings,C,L,digital,light,rpm,rpmColor,auxiliary)
+    drawInspired(id,f,center,scale,state,settings,C,L,digital,light,rpm,rpmColor,
+      auxiliary,lowerAuxiliary,useLowerArc)
     return
   end
   local function p(x,y) return center+vec2(x*scale,y*scale) end
@@ -464,7 +468,7 @@ end
       n=n+step
     end
   end
-  if id=='radial' or id=='orbit' then
+  if useLowerArc then
     lowerAuxiliary(center,scale,state,settings,C,light,rpm,L)
   else
     local aux=f.aux

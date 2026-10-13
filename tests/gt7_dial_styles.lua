@@ -152,6 +152,53 @@ for _,call in ipairs(snapCalls) do
 end
 assert(outwardPointer,'Snap must point outward toward the gear captions')
 
+local function lowerArcBlocks(calls,cx)
+  local count=0
+  for _,call in ipairs(calls) do
+    if call.kind=='polygon' then
+      for _,point in ipairs(call.points) do
+        local distance=math.sqrt((point.x-cx)^2+(point.y-258)^2)
+        if math.abs(distance-148)<0.1 and point.y>258 then count=count+1; break end
+      end
+    end
+  end
+  return count
+end
+
+for _,case in ipairs({
+  {'analog','rpm','track_analog',true},{'analog','rpm','snap_analog',true},
+  {'analog','speed','track_analog',true},{'analog','speed','fan',true},
+  {'digital','rpm','snap_digital',true},{'digital','rpm','bridge',true},
+  {'analog','rpm','fan',false},{'digital','speed','bridge',false}
+}) do
+  local mode,role,style,wantArc=case[1],case[2],case[3],case[4]
+  local options={gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+    gt7SpeedDialStyle='original',gt7RpmDialStyle='original'}
+  options[role=='speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle']=style
+  local calls=harness.draw('classic',options,state)
+  local cx=role=='speed' and 175 or 1265
+  assert((lowerArcBlocks(calls,cx)>=32)==wantArc,
+    'lower arc must follow the selected mode and dial role: '..style..' '..role)
+  if wantArc then
+    for _,call in ipairs(calls) do
+      assert(not (call.kind=='arc' and math.abs(call.a.x-cx)<0.1
+        and call.a.y>320 and call.radius<80),
+        'the lower rim arc must replace the auxiliary mini dial')
+    end
+    if role=='rpm' then
+      local previousHybrid=state.hybrid
+      state.hybrid={powerKw=120,needle=0.8,charge=0.84}
+      local labels={}
+      for _,call in ipairs(harness.draw('classic',options,state)) do
+        if call.kind=='text' then labels[call.text]=true end
+      end
+      state.hybrid=previousHybrid
+      assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%'],
+        'new lower arcs must retain independent electric power and battery readings: '..style)
+    end
+  end
+end
+
 for _,mode in ipairs({'analog','digital'}) do
   for _,role in ipairs({'speed','rpm'}) do
     for _,motif in ipairs({'halo','jewel','spectrum','snap','track'}) do
@@ -180,7 +227,12 @@ for _,mode in ipairs({'analog','digital'}) do
             end
           end
         end
-        assert(largeAux,'new dial styles must preserve an auxiliary gauge close to Original size: '..style)
+        if motif=='track' or motif=='snap' then
+          assert(lowerArcBlocks(harness.draw('classic',options,state),cx)>=32,
+            'short upper sweeps must preserve the lower auxiliary rim: '..style)
+        else
+          assert(largeAux,'new dial styles must preserve an auxiliary gauge close to Original size: '..style)
+        end
         if motif=='halo' or motif=='jewel' then assert(dots>=16,'dot crowns must remain visible') end
         if motif=='spectrum' then
           assert(#band>1 and band[1].color.g>band[1].color.r
