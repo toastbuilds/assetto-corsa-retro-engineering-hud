@@ -1,4 +1,4 @@
--- Shared live geometry for the standalone 6A/6D Halo faces.
+-- Shared live geometry for the standalone dot crowns and spectrum faces.
 local U=require('src/utils')
 local Theme=require('src/theme')
 local Readout=require('src/dial_readout')
@@ -10,7 +10,15 @@ local function prepare(layout)
   if layout.haloGeometry then return layout.haloGeometry end
   local r=layout.rpm
   local g={dots={},ticks={}}
-  for i=0,16 do
+  if layout.conceptStyle=='jewel' then
+    for i=0,31 do
+      local angle=-220+i*360/32
+      local a=math.rad(angle)
+      g.dots[#g.dots+1]={r[1]+r[3]*math.cos(a),r[2]+r[3]*math.sin(a),
+        (angle+220)/260,i%2==0 and 8 or 5}
+    end
+  end
+  for i=0,layout.conceptStyle=='jewel' and -1 or 16 do
     local a=math.rad(r[4]+(r[5]-r[4])*i/16)
     if i~=8 then g.dots[#g.dots+1]={r[1]+r[3]*math.cos(a),r[2]+r[3]*math.sin(a),i/16} end
   end
@@ -41,34 +49,81 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
   local fraction=U.clamp(state.rpmGaugeNormalized or (state.rpm or 0)/maximum,0,1)
   local warning=U.clamp(limiter*(state.rpmWarningFraction or 0.86)/maximum,0,1)
   local red=U.clamp(limiter*(state.rpmRedlineFraction or 0.96)/maximum,0,1)
-  for _,t in ipairs(g.ticks) do
+  local function band(radius,startAngle,endAngle,width,value,static,speedBand)
+    for i=1,96 do
+      local f=(i-0.5)/96
+      local ink=f<0.45 and C.green or f<0.78 and C.amber or C.red
+      if not speedBand then ink=f>=red and C.red or f>=warning and C.amber or f<0.45 and C.green or C.amber end
+      local active=static or f<=value
+      if active and not speedBand and (state.rpmRedline or state.rpmWarning) then ink=warningInk(state,settings,C) end
+      local a=math.rad(startAngle+(endAngle-startAngle)*(i-1)/96)
+      local b=math.rad(startAngle+(endAngle-startAngle)*i/96)
+      ui.pathClear()
+      ui.pathArcTo(p(r[1],r[2]),radius*scale,math.min(a,b),math.max(a,b),8)
+      ui.pathStroke(active and Light.color(ink,L.segment) or Theme.withAlpha(ink,0.22),false,width*scale)
+    end
+  end
+  if layout.conceptStyle=='spectrum' then
+    band(r[3]-16,r[4],r[5],32,fraction,true,layout.speedSpectrum)
+    local value=fraction
+    if layout.speedSpectrum then
+      local maximumSpeed=math.max(state.speedGaugeMaximum or 320,1)
+      value=U.clamp((tonumber(state.speedText) or state.speedValue or 0)/maximumSpeed,0,1)
+      ui.pushDWriteFont('Consolas;Weight=Bold')
+      for i=0,8 do
+        local a=math.rad(r[4]+(r[5]-r[4])*i/8)
+        Light.text(string.format('%.0f',maximumSpeed*i/8),19*scale,
+          p(r[1]+247*math.cos(a),r[2]+247*math.sin(a)),C.primary,nil,L.label,scale)
+      end
+      ui.popDWriteFont()
+      -- The lower independent band always reports engine RPM.
+      band(210,125,55,12,fraction,false)
+    end
+    local a=math.rad(r[4]+(r[5]-r[4])*value)
+    local color=layout.speedSpectrum and C.primary or (state.rpmRedline or state.rpmWarning) and warningInk(state,settings,C) or C.primary
+    -- Broad pointer crossing the colored band, separate from the analog hand.
+    local points={{r[3]+9,-8},{r[3]+9,8},{r[3]-30,0}}
+    ui.pathClear()
+    for _,v in ipairs(points) do
+      ui.pathLineTo(p(r[1]+v[1]*math.cos(a)-v[2]*math.sin(a),r[2]+v[1]*math.sin(a)+v[2]*math.cos(a)))
+    end
+    ui.pathFillConvex(Light.color(color,L.icon))
+  elseif layout.conceptStyle=='floating' then
+    band(r[3],r[4],r[5],16,fraction,false)
+  end
+  for _,t in ipairs((layout.conceptStyle=='jewel' or layout.conceptStyle=='floating') and {} or g.ticks) do
     ui.drawLine(p(t[1],t[2]),p(t[3],t[4]),t[5] and C.secondary or C.outlineDim,scale)
   end
-  for _,dot in ipairs(g.dots) do
+  for _,dot in ipairs((layout.conceptStyle=='spectrum' or layout.conceptStyle=='floating') and {} or g.dots) do
     local color=dot[3]>=red and C.red or dot[3]>=warning and C.amber
       or dot[3]<0.45 and C.green or C.amber
+    if dot[3]>1 then color=C.amber end
     local active=fraction>0 and dot[3]<=fraction
     if active and (state.rpmRedline or state.rpmWarning) then color=warningInk(state,settings,C) end
     local center=p(dot[1],dot[2])
     local halo=active and Light.halo(color,L.segment)
-    if halo then ui.drawCircleFilled(center,15*scale,halo,32) end
-    ui.drawCircleFilled(center,12*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.18),32)
-    ui.drawCircle(center,12*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.45),32,scale)
+    local radius=dot[4] or 12
+    if halo then ui.drawCircleFilled(center,(radius+3)*scale,halo,32) end
+    ui.drawCircleFilled(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.18),32)
+    ui.drawCircle(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.45),32,scale)
   end
   -- The reference's fixed twelve-o'clock chevron sits between the upper dots.
-  ui.pathClear()
-  ui.pathLineTo(p(r[1]-11,r[2]-257))
-  ui.pathLineTo(p(r[1]+11,r[2]-257))
-  ui.pathLineTo(p(r[1],r[2]-229))
-  ui.pathFillConvex(Light.color(C.primary,L.icon))
+  if not layout.conceptStyle then
+    ui.pathClear()
+    ui.pathLineTo(p(r[1]-11,r[2]-257))
+    ui.pathLineTo(p(r[1]+11,r[2]-257))
+    ui.pathLineTo(p(r[1],r[2]-229))
+    ui.pathFillConvex(Light.color(C.primary,L.icon))
+  end
   if layout.haloNumbers then
     local thousands=maximum/1000
     local step=thousands<=10 and 1 or thousands<=20 and 2 or 5
+    local labelRadius=layout.conceptStyle=='spectrum' and 188 or 194
     ui.pushDWriteFont('Consolas;Weight=Bold')
     for v=0,thousands+0.001,step do
       local a=math.rad(r[4]+(r[5]-r[4])*v/thousands)
       Light.text(string.format('%.0f',v),26*scale,
-        p(r[1]+194*math.cos(a),r[2]+194*math.sin(a)),C.primary,nil,L.label,scale)
+        p(r[1]+labelRadius*math.cos(a),r[2]+labelRadius*math.sin(a)),C.primary,nil,L.label,scale)
     end
     ui.popDWriteFont()
   end
@@ -109,7 +164,7 @@ function M.auxiliary(origin,scale,layout,left,fuel,state,C,L)
     if not reading then
       reading=a.electric and a.charge~=nil and string.format('%.0f',a.charge*100) or Readout.value(a.value)
     end
-    if reading then Light.text(reading,12*scale,p(position[1],position[2]),ink,nil,L.label,scale) end
+    if reading and not layout.hideAuxValues then Light.text(reading,12*scale,p(position[1],position[2]),ink,nil,L.label,scale) end
   end
   channel(1,left)
   channel(2,fuel)
