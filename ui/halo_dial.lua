@@ -113,9 +113,16 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
       if f>=warning then
         local ink=f>=red and C.red or C.amber
         if state.rpmRedline or state.rpmWarning then ink=warningInk(state,settings,C) end
-        ui.pathClear()
-        ui.pathArcTo(p(r[1],r[2]),r[3]*scale,math.rad(startAngle+2),math.rad(endAngle-2),16)
-        ui.pathStroke(Light.color(ink,L.segment),false,10*scale)
+        local first,last=startAngle+4,endAngle-4
+        local count=math.max(1,math.floor((last-first)/5))
+        local span=(last-first)/count
+        for block=1,count do
+          local a=first+(block-1)*span+(block>1 and 0.75 or 0)
+          local b=first+block*span-(block<count and 0.75 or 0)
+          ui.pathClear()
+          ui.pathArcTo(p(r[1],r[2]),r[3]*scale,math.rad(a),math.rad(b),16)
+          ui.pathStroke(Light.color(ink,L.segment),false,16*scale)
+        end
       end
     end
   end
