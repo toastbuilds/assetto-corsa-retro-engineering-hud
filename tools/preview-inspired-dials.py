@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--theme', choices=('dark', 'light'), default='dark')
     parser.add_argument('--size', type=int, default=620)
     parser.add_argument('--aux', choices=('turbo', 'fuel', 'electric'), default='turbo')
+    parser.add_argument('--alerts', action='store_true', help='Show flag, handbrake warning and pit limiter')
     args = parser.parse_args()
     os.chdir(ROOT)
 
@@ -40,6 +41,10 @@ def main():
     )
     for key, value in sample.items():
         state[key] = value
+    if args.alerts:
+        state['handbrake'] = 1
+        state['raceFlagType'] = 2
+        state['pitLimiter'] = True
     if args.aux == 'fuel':
         state['fuel'] = 4
         state['fuelNormalized'] = 0.08
@@ -77,11 +82,11 @@ def main():
         calls = harness['drawDial'](options, state, lua.table_from((args.size, args.size)))
         image = preview.raster(calls, args.size, args.size, background='#e8e8e4')
         rendered[name] = image
-        suffix = '' if args.aux == 'turbo' else f'-{args.aux}'
+        suffix = ('' if args.aux == 'turbo' else f'-{args.aux}') + ('-alerts' if args.alerts else '')
         size_suffix = '' if args.size == 620 else f'-{args.size}'
         image.save(out / f'{name}-{args.theme}{size_suffix}{suffix}.png')
 
-    if args.theme == 'dark' and args.aux == 'turbo':
+    if args.theme == 'dark' and args.aux == 'turbo' and not args.alerts:
         cell, margin, label_h = 340, 22, 36
         sheet = Image.new('RGB', (cell * 3 + margin * 4, (cell + label_h) * 2 + margin * 3), '#e8e8e4')
         draw = ImageDraw.Draw(sheet)
@@ -106,10 +111,10 @@ def main():
         comparison_name = 'comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png'
         sheet.save(out / comparison_name)
 
-    suffix = '' if args.aux == 'turbo' else f'-{args.aux}'
+    suffix = ('' if args.aux == 'turbo' else f'-{args.aux}') + ('-alerts' if args.alerts else '')
     size_suffix = '' if args.size == 620 else f'-{args.size}'
     target = out / (('comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png')
-                    if args.theme == 'dark' and args.aux == 'turbo'
+                    if args.theme == 'dark' and args.aux == 'turbo' and not args.alerts
                     else f'core_capsule-{args.theme}{size_suffix}{suffix}.png')
     print(target)
 
