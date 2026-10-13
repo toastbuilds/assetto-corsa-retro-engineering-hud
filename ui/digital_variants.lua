@@ -101,6 +101,18 @@ local function frame(c)
     circle(c,p[1],p[2],p[3],C.amber,false,2)
     circle(c,p[1],p[2],p[3]-7,C.outlineDim,false)
   end
+  if l.conceptStyle=='floating' then
+    local points={}
+    local angle=math.rad(12)
+    for i=0,48 do
+      local a=math.pi*2*i/48
+      local x,y=44*math.cos(a),72*math.sin(a)
+      points[#points+1]={l.gear[1]+x*math.cos(angle)-y*math.sin(angle),
+        l.gear[2]+x*math.sin(angle)+y*math.cos(angle)}
+    end
+    poly(c,points,C.panel,true)
+    poly(c,points,C.amber,false,2)
+  end
   if l.coreCapsule then
     local p=l.readout
     pill(c,p[1],p[2],p[3],p[4],C.panel,true)
