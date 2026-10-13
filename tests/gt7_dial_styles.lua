@@ -152,6 +152,24 @@ for _,call in ipairs(snapCalls) do
 end
 assert(outwardPointer,'Snap must point outward toward the gear captions')
 
+local analogSnap=harness.draw('classic',{gt7SpeedNeedleMode='analog',gt7RpmNeedleMode='analog',
+  gt7SpeedDialStyle='original',gt7RpmDialStyle='snap_analog',gt7RpmNeedleStyle='b01'},state)
+local lastSector,hand,gearCap=0,nil,nil
+for index,call in ipairs(analogSnap) do
+  if call.kind=='arc' and math.abs(call.a.x-1265)<0.01 and call.radius==79 then lastSector=index end
+  if call.kind=='circle_fill' and math.abs(call.a.x-1265)<0.01 and call.radius==45 then gearCap=index end
+  if call.kind=='polygon' then
+    local nearest,farthest=math.huge,0
+    for _,point in ipairs(call.points) do
+      local distance=math.sqrt((point.x-1265)^2+(point.y-258)^2)
+      nearest,farthest=math.min(nearest,distance),math.max(farthest,distance)
+    end
+    if nearest<30 and farthest>100 and farthest<130 then hand=hand or index end
+  end
+end
+assert(hand and gearCap and lastSector>0 and lastSector<hand and hand<gearCap,
+  'the Snap hand must sit above the gear sectors while its central cap keeps the gear legible')
+
 local function lowerArcBlocks(calls,cx)
   local count=0
   for _,call in ipairs(calls) do

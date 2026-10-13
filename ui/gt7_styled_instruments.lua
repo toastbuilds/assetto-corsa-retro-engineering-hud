@@ -260,18 +260,19 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
       state,settings,C,f.analog and 0 or 1,light,rpm,L)
   end
 
-  if f.analog then
+  local function drawMainNeedle()
     local needleFraction=rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local needleStyle=rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
     local tint=rpm and (state.rpmRedline and arcValue(1) or state.rpmWarning and C.amber or nil) or nil
     Needle.draw(pivot,scale*f.r/150,f.first+(f.last-f.first)*U.clamp(needleFraction or fraction,0,1),
       Config.needlePreset(needleStyle),C,light,tint,L)
   end
+  if f.analog and motif~='snap' then drawMainNeedle() end
 
   if motif=='snap' then
     label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,70)
     label('RPM',9,f.unit[1],f.unit[2],C.secondary,L.label)
-    drawSnapSelector(center,scale,state,settings,C,L)
+    drawSnapSelector(center,scale,state,settings,C,L,f.analog and drawMainNeedle or nil)
   else
     label(value,rpm and f.value[3]*0.92 or f.value[3],f.value[1],f.value[2],valueColor,L.value,150)
     label(rpm and 'RPM' or settings.speedUnit,11,f.unit[1],f.unit[2],C.secondary,L.label)
@@ -307,7 +308,7 @@ local function drawSelectorWedge(center,scale,inner,outer,a,b,fill,stroke)
   ui.pathStroke(stroke,false,1*scale)
 end
 
-drawSnapSelector=function(center,scale,state,settings,C,L)
+drawSnapSelector=function(center,scale,state,settings,C,L,aboveRing)
   local gear=Selector.gear(state)
   local count=Selector.count(state.gearCount,gear)
   local span=(Selector.endAngle-Selector.startAngle)/(count+1)
@@ -324,6 +325,9 @@ drawSnapSelector=function(center,scale,state,settings,C,L)
       center+vec2(64*scale*math.cos(angle),64*scale*math.sin(angle)),
       selected and C.primary or C.secondary,nil,L.number,scale)
   end
+  -- The hand crosses above the gear sectors; the central cap then hides its
+  -- axle so the large selected gear remains legible.
+  if aboveRing then aboveRing() end
   local previous=selectorAnimations[state]
   if state.available==false then previous=nil end
   local animation,angle=Selector.sample(previous,gear,count,state.clock or 0,
