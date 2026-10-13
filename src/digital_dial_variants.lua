@@ -38,7 +38,7 @@ M.layouts = {
     pedals={{192,375,50,7},{280,375,50,7},{368,375,50,7}},
     barePedals=true,compactPedals=true,pedalCaptions=false,
     edgeAux={{310,304,247,166,228},{310,304,247,14,-48}},
-    edgeIcons={{76,365},{544,365}},edgeReadings={{96,391},{524,391}},hideAuxValues=true,
+    edgeIcons={{76,365},{544,365}},edgeReadings={{96,391},{524,391}},hideAuxValues=true,edgeBarWidth=18,
     statuses={{202,177},{267,177},{332,177},{397,177}},iconStatuses=true,roundStatuses=true,statusSize={34,34},
     warning={348,539},flag={270,539}},
   halo={number='6D',haloRpm=true,cleanPerimeter=true,hideRpmNumbers=true,

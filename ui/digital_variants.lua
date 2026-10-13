@@ -102,16 +102,26 @@ local function frame(c)
     circle(c,p[1],p[2],p[3]-7,C.outlineDim,false)
   end
   if l.conceptStyle=='floating' then
-    local points={}
-    local angle=math.rad(12)
-    for i=0,48 do
-      local a=math.pi*2*i/48
-      local x,y=44*math.cos(a),72*math.sin(a)
-      points[#points+1]={l.gear[1]+x*math.cos(angle)-y*math.sin(angle),
-        l.gear[2]+x*math.sin(angle)+y*math.cos(angle)}
+    if not l.floatingCapsule then
+      local points={}
+      local angle=math.rad(12)
+      for half=0,1 do
+        for i=0,24 do
+          local a=math.pi*(1-half)+math.pi*i/24
+          local x,y=44*math.cos(a),44*math.sin(a)+(half==0 and -28 or 28)
+          points[#points+1]={l.gear[1]+x*math.cos(angle)-y*math.sin(angle),
+            l.gear[2]+x*math.sin(angle)+y*math.cos(angle)}
+        end
+      end
+      l.floatingCapsule=points
     end
-    poly(c,points,C.panel,true)
-    poly(c,points,C.amber,false,2)
+    local speedFace={{160,205},{366,205},{410,236},{394,316},{370,344},
+      {160,344},{141,325},{141,224}}
+    poly(c,speedFace,C.panel,true)
+    poly(c,speedFace,C.outline,false,1.4)
+    line(c,161,344,365,344,C.amberDim,1.6)
+    poly(c,l.floatingCapsule,C.panel,true)
+    poly(c,l.floatingCapsule,C.amber,false,2)
   end
   if l.coreCapsule then
     local p=l.readout
