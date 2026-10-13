@@ -69,9 +69,12 @@ def raster(calls, width=1440, height=500, background="#121416"):
             key = (str(call["text"]), call["size"], rgba, bold)
             if key not in glyphs:
                 face = font(call["size"],bold)
-                left, top, right, bottom = face.getbbox(key[0], anchor="lt")
+                # DWrite positions the font line box, not the visible glyph top.
+                # Preserve the ascender bearing so previews do not encourage
+                # offsets that move numerals below their centers in-game.
+                left, top, right, bottom = face.getbbox(key[0], anchor="la")
                 tile = Image.new("RGBA", (max(1, right-left), max(1, bottom-top)))
-                ImageDraw.Draw(tile).text((-left, -top), key[0], font=face, fill=rgba, anchor="lt")
+                ImageDraw.Draw(tile).text((-left, -top), key[0], font=face, fill=rgba, anchor="la")
                 glyphs[key] = tile, left, top
             tile, left, top = glyphs[key]
             x, y = xy(call["a"])
