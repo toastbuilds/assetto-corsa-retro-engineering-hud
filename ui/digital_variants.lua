@@ -350,34 +350,41 @@ local function drawSideBar(c,p,a,label)
       i<=active and Light.color(ink,c.L.segment) or c.C.inactive)
   end
 end
+local function drawPerimeterColumn(c,p,a)
+  local x,top,width,height=p[1],p[2],p[3],p[4]
+  local bottom=top+height
+  local value=a and valueFraction(a) or nil
+  local ink=a and meterColor(c,a) or c.C.outlineDim
+  local count=18
+  line(c,x-width/2-3,top-2,x+width/2+3,top-2,c.C.outlineDim)
+  line(c,x-width/2-3,bottom+2,x+width/2+3,bottom+2,c.C.outlineDim)
+  for i=1,count do
+    local y=bottom-i*height/count
+    local active=value and i<=math.floor(value*count+0.5)
+    ui.drawRectFilled(pt(c,x-width/2,y),pt(c,x+width/2,y+height/count-3),
+      active and Light.color(ink,c.L.segment) or c.C.inactive)
+  end
+  local reading
+  if a then
+    if a.label=='FUEL' and a.fraction~=nil then
+      reading=string.format('%.0f%%',a.fraction*100)
+    elseif a.electric and a.charge~=nil and not a.measuredPower then
+      reading=string.format('%.0f%%',a.charge*100)
+    else
+      reading=a.value:match('[%+%-]?%d+%.?%d*') or a.value
+    end
+  end
+  if reading then text(c,reading,13,x,top-16,ink,true) end
+  if a then edgeIcon(c,{x,bottom+19},a) end
+end
 local function auxiliary(c)
   local a=Auxiliary(c.state,c.settings.analogAuxiliaryMode)
   if c.layout.coreCapsule then
-    if not a then return end
-    local ink=meterColor(c,a)
-    local C=c.C
-    local p=c.layout.aux
-    edgeIcon(c,{191,p[2]+2},a)
-    text(c,a.value,14,p[1],p[2]-11,ink,true)
-    local fraction=a.electric and a.charge or a.fraction
-    local value=fraction and U.clamp(math.abs(fraction),0,1) or nil
-    for i=1,16 do
-      local active=value and i<=math.floor(value*16+0.5)
-      local x=259+(i-1)*12
-      ui.drawRectFilled(pt(c,x,p[2]+8),pt(c,x+9,p[2]+16),
-        active and Light.color(ink,c.L.segment) or c.C.inactive)
-    end
-    if a.electric then
-      local charge=a.charge
-      local batteryInk=charge and charge<=0.15 and C.red or C.green
-      text(c,charge and string.format('%.0f%%',charge*100) or '--%',11,482,p[2]-11,batteryInk,true)
-      for i=1,16 do
-        local active=charge and i<=math.floor(charge*16+0.5)
-        local x=259+(i-1)*12
-        ui.drawRectFilled(pt(c,x,p[2]+20),pt(c,x+9,p[2]+25),
-          active and Light.color(batteryInk,c.L.subSegment) or C.inactive)
-      end
-    end
+    local left=a
+    if left and left.label=='FUEL' then left=Auxiliary(c.state,'turbo') end
+    local fuel=Auxiliary(c.state,'fuel')
+    drawPerimeterColumn(c,c.layout.perimeterAux[1],left)
+    drawPerimeterColumn(c,c.layout.perimeterAux[2],fuel)
     return
   end
   if c.layout.dotAux then
@@ -449,10 +456,9 @@ end
 local function capsuleReadout(c)
   local l,s,C=c.layout,c.state,c.C
   local gear=l.gear
-  text(c,'GEAR',11,gear[1],418,C.secondary)
-  text(c,s.gearText or 'N',gear[3],gear[1],447,rpmInk(c),true)
-  text(c,'RPM',11,l.rpmValue[1],418,C.secondary)
-  text(c,s.rpmText or '0',25,l.rpmValue[1],449,rpmInk(c),true)
+  local centeredValueY=l.readout[2]+6
+  text(c,s.gearText or 'N',gear[3],gear[1],centeredValueY,rpmInk(c),true)
+  text(c,s.rpmText or '0',25,l.rpmValue[1],centeredValueY,rpmInk(c),true)
   local bar=l.rpmBar
   local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/math.max(s.rpmGaugeLimiter or 8000,1),0,1)
   local warning=s.rpmWarningFraction or 0.86

@@ -45,11 +45,12 @@ M.layouts = {
     edgeIcons={{87,225},{533,225}},
     warning={430,465},flag={190,465}},
   core_capsule={number='5D',coreCapsule=true,cleanPerimeter=true,speedGraduations=true,
-    speed={310,310,108},gear={206,438,44},rpmValue={317,444},rpmBar={420,436,92,14},
-    readout={310,435,350,68},aux={310,157},steering={310,390,94},graduatedSteering=true,
-    pedals={{190,490,52,8},{310,490,52,8},{430,490,52,8}},compactPedals=true,
-    statuses={{198,535},{274,535},{350,535},{426,535}},
-    warning={486,500},flag={134,500}}
+    speed={310,270,108},gear={206,410,44},rpmValue={317,410},rpmBar={420,410,92,14},
+    readout={310,410,350,64},perimeterAux={{100,190,18,174},{520,190,18,174}},
+    steering={310,349,94},graduatedSteering=true,
+    pedals={{190,465,52,8},{310,465,52,8},{430,465,52,8}},compactPedals=true,
+    statuses={{198,500},{274,500},{350,500},{426,500}},
+    warning={486,476},flag={134,476}}
 
 }
 for id,l in pairs(M.layouts) do
