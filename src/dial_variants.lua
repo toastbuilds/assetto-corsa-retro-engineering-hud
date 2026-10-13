@@ -13,7 +13,7 @@ M.choices = {
 M.layouts = {
   halo = {
     shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,
-    rpm={310,304,234,-220,40},speed={310,185,52},gear={310,429,44},hideRpmValue=true,
+    rpm={310,304,234,-220,40},speed={310,185,52},gear={310,435,44},hideRpmValue=true,
     gearBadge={310,421,40},needleLength=175,
     steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
     pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,

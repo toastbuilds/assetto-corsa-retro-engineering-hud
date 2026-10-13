@@ -12,7 +12,7 @@ M.choices = {
 }
 M.layouts = {
   halo={number='6D',haloRpm=true,cleanPerimeter=true,hideRpmNumbers=true,
-    rpm={310,304,234,-220,40},rpmText={310,176},speed={310,285,128},gear={310,429,50},
+    rpm={310,304,234,-220,40},rpmText={310,158},speed={310,285,128},gear={310,439,50},
     core={310,421,40},steeringRing=true,
     pedals={{310,304,144,136,175},{310,499,84,6},{310,304,144,44,5}},
     barePedals=true,pedalCaptions=false,pedalArcWidth=6,
