@@ -6,7 +6,7 @@ local function has(calls,value)
   for _,c in ipairs(calls) do if c.kind=='text' and c.text==value then return true end end
   return false
 end
-assert(#Layouts.choices==11 and Layouts.get('halo')~=nil and Layouts.get('5')==nil)
+assert(#Layouts.choices==12 and Layouts.get('snap')~=nil and Layouts.get('halo')~=nil and Layouts.get('5')==nil)
 Settings.values.analogVariant='fan'
 Settings.values.digitalVariant='unknown'
 assert(Settings.current().digitalVariant=='original')

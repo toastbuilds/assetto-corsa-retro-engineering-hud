@@ -11,9 +11,19 @@ M.choices = {
   {value='jewel',label='1D · Jewel'},
   {value='spectrum',label='2D · Spectrum'},
   {value='floating',label='4D · Floating'},
-  {value='orbit',label='6 · Orbit'}
+  {value='orbit',label='6 · Orbit'},
+  {value='snap',label='Snap Selector'}
 }
 M.layouts = {
+  snap={selector=true,cleanPerimeter=true,hideRpmNumbers=true,hideAuxValues=true,
+    rpm={310,304,174,-225,45},rpmDepth=14,rpmSegmentCount=40,rpmValueSize=22,rpmText={310,355},
+    speed={310,433,82},gear={310,298,96},core={310,304,64},steeringRing=true,
+    pedals={{192,459,52,8},{310,495,68,6},{428,459,52,8}},
+    barePedals=true,compactPedals=true,pedalCaptions=false,
+    edgeAux={{310,304,247,155,192},{310,304,247,25,-12}},edgeBarWidth=12,edgeBarCount=16,
+    edgeIcons={{109,443},{511,443}},
+    statuses={{226,510},{282,520},{338,520},{394,510}},iconStatuses=true,statusSize={40,34},
+    warning={348,547},flag={270,547}},
   jewel={number='1D',haloRpm=true,conceptStyle='jewel',cleanPerimeter=true,hideRpmNumbers=true,
     rpm={310,304,242,-220,40},rpmText={310,487},speed={310,235,120},gear={310,389,54},
     core={310,389,43},steering={310,324,90},graduatedSteering=true,
@@ -101,13 +111,14 @@ for id,l in pairs(M.layouts) do
   if l.rpm then
     l.rpmSegments={}
     local r=l.rpm
-    for i=1,32 do
-      local a=math.rad(r[4]+(r[5]-r[4])*(i-0.91)/32)
-      local b=math.rad(r[4]+(r[5]-r[4])*(i-0.09)/32)
+    local count,depth=l.rpmSegmentCount or 32,l.rpmDepth or 27
+    for i=1,count do
+      local a=math.rad(r[4]+(r[5]-r[4])*(i-0.91)/count)
+      local b=math.rad(r[4]+(r[5]-r[4])*(i-0.09)/count)
       local points={{r[1]+r[3]*math.cos(a),r[2]+r[3]*math.sin(a)},
         {r[1]+r[3]*math.cos(b),r[2]+r[3]*math.sin(b)},
-        {r[1]+(r[3]-27)*math.cos(b),r[2]+(r[3]-27)*math.sin(b)},
-        {r[1]+(r[3]-27)*math.cos(a),r[2]+(r[3]-27)*math.sin(a)}}
+        {r[1]+(r[3]-depth)*math.cos(b),r[2]+(r[3]-depth)*math.sin(b)},
+        {r[1]+(r[3]-depth)*math.cos(a),r[2]+(r[3]-depth)*math.sin(a)}}
       if r[5]<r[4] then points={points[4],points[3],points[2],points[1]} end
       l.rpmSegments[i]=points
     end

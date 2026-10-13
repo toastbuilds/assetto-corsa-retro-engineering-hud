@@ -7,7 +7,9 @@ local U=require('src/utils')
 local Auxiliary=require('ui/analog_variants').auxiliary
 local Icons=require('ui/side_instruments')
 local Halo=require('ui/halo_dial')
+local Selector=require('src/gear_selector')
 local M={}
+local selectors=setmetatable({}, {__mode='k'})
 local function pt(c,x,y) return c.origin+vec2(x*c.scale,y*c.scale) end
 local function text(c,value,size,x,y,color,bold)
   value=Readout.value(value)
@@ -94,7 +96,7 @@ local function frame(c)
     box(c,p[1],p[2],p[3],p[4],C.panel,true,24)
     box(c,p[1],p[2],p[3],p[4],C.cyan,false,24)
   end
-  if l.core then
+  if l.core and not l.selector then
     local p=l.core
     circle(c,p[1],p[2],p[3]+9,l.haloRpm and C.outlineDim or C.cyan,false)
     circle(c,p[1],p[2],p[3],C.panel,true)
@@ -150,8 +152,71 @@ local function frame(c)
     line(c,415,139,415,402,C.outline)
     line(c,422,147,422,394,C.outlineDim)
   else
-    if not l.graduatedSteering and not l.haloRpm then line(c,164,225,456,225,C.cyan) end
+    if not l.graduatedSteering and not l.haloRpm and not l.selector then line(c,164,225,456,225,C.cyan) end
   end
+end
+local function gearSelector(c)
+  local s,C=c.state,c.C
+  local gear=Selector.gear(s)
+  local count=Selector.count(s.gearCount,gear)
+  local step=(Selector.endAngle-Selector.startAngle)/(count+1)
+  local gap=math.min(1.5,step*0.12)
+  local size=math.min(40,step*2.2)
+  for i=0,count do
+    local selected=gear==(i==0 and -1 or i)
+    local a=Selector.startAngle+i*step+gap
+    local b=Selector.startAngle+(i+1)*step-gap
+    local ink=selected and C.amber or C.outline
+    arc(c,310,304,227.5,a,b,selected and C.coreAmber or C.panelRaised,53)
+    local halo=selected and Light.halo(C.amber,c.L.segment)
+    if halo then arc(c,310,304,254,a,b,halo,4) end
+    arc(c,310,304,254,a,b,Light.color(ink,selected and c.L.segment or nil),1.5)
+    arc(c,310,304,201,a,b,ink,1.2)
+    for _,degrees in ipairs({a,b}) do
+      local angle=math.rad(degrees)
+      line(c,310+201*math.cos(angle),304+201*math.sin(angle),
+        310+254*math.cos(angle),304+254*math.sin(angle),ink,1.2)
+    end
+    local angle=math.rad((a+b)/2)
+    text(c,i==0 and 'R' or tostring(i),size,310+228*math.cos(angle),
+      304+228*math.sin(angle)-size*0.065,selected and C.amber or C.primary,true)
+  end
+  local previous=selectors[s]
+  if s.available==false then previous=nil end
+  local animation,angle=Selector.sample(previous,gear,count,
+    s.clock or 0,c.settings.animateGearSelector,s._gearCountCarKey)
+  if s.available==false then selectors[s]=nil else selectors[s]=animation end
+  angle=math.rad(angle)
+  local alert=s.rpmRedline or s.rpmWarning
+  local animate=c.settings.animateShiftAlert
+  if s.rpmRedline then animate=c.settings.animateRedlineAlert end
+  local lit=alert and blink(c,animate,
+    s.rpmRedline and 0.12 or 0.14)
+  local ink=alert and rpmInk(c) or C.amber
+  circle(c,310,304,94,C.metalDim,true)
+  circle(c,310,304,94,C.metal,false,1.5)
+  circle(c,310,304,89,C.panelRaised,true)
+  circle(c,310,304,77,lit and (s.rpmRedline and C.coreRed or C.coreAmber) or C.panel,true)
+  circle(c,310,304,77,Light.color(ink,c.L.major),false,1.8)
+  circle(c,310,304,72,C.outlineDim,false,1)
+  -- Bolts and the plate's notch rotate together; the reading stays upright.
+  for i=0,5 do
+    local a=angle+math.pi/6+i*math.pi/3
+    local x,y=310+85*math.cos(a),304+85*math.sin(a)
+    circle(c,x,y,3.5,C.panel,true)
+    circle(c,x,y,3.5,C.metal,false,0.8)
+  end
+  local points={}
+  for _,p in ipairs({{108,0},{82,10},{82,-10}}) do
+    points[#points+1]={310+p[1]*math.cos(angle)-p[2]*math.sin(angle),
+      304+p[1]*math.sin(angle)+p[2]*math.cos(angle)}
+  end
+  poly(c,points,C.panel,true)
+  poly(c,points,Light.color(gear and gear~=0 and ink or C.outline,c.L.icon),true)
+  poly(c,points,C.outline,false,1.3)
+  local p=c.layout.gear
+  text(c,gear==nil and '—' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear),
+    p[3],p[1],p[2],alert and rpmInk(c) or C.primary,true)
 end
 local function rpm(c)
   local l,s,C=c.layout,c.state,c.C
@@ -166,7 +231,7 @@ local function rpm(c)
   local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/maximum,0,1)
   local warning=U.clamp(limiter*(s.rpmWarningFraction or 0.86)/maximum,0,1)
   local red=U.clamp(limiter*(s.rpmRedlineFraction or 0.96)/maximum,0,1)
-  local n=l.rpm and 32 or 18
+  local n=l.rpm and (l.rpmSegmentCount or 32) or 18
   for i=1,n do
     local f=(i-0.5)/n
     local color=f>=red and C.red or f>=warning and C.amber or C.primary
@@ -184,10 +249,10 @@ local function rpm(c)
   if l.rpm then
     local r=l.rpm
     arc(c,r[1],r[2],r[3]+7,r[4],r[5],C.amber)
-    arc(c,r[1],r[2],r[3]-33,r[4],r[5],C.outlineDim)
+    arc(c,r[1],r[2],r[3]-(l.rpmDepth or 27)-6,r[4],r[5],C.outlineDim)
     for i=0,(l.dotAux and -1 or 64) do
       local a=math.rad(r[4]+(r[5]-r[4])*i/64)
-      local rr=r[3]-37
+      local rr=r[3]-(l.rpmDepth or 27)-10
       line(c,r[1]+rr*math.cos(a),r[2]+rr*math.sin(a),
         r[1]+(rr-5)*math.cos(a),r[2]+(rr-5)*math.sin(a),C.amberDim)
     end
@@ -205,7 +270,7 @@ local function rpm(c)
   end
   local p=l.rpmText
   text(c,'RPM',14,p[1],p[2]-25,C.primary)
-  text(c,s.rpmText or '0',35,p[1],p[2],rpmInk(c),true)
+  text(c,s.rpmText or '0',l.rpmValueSize or 35,p[1],p[2],rpmInk(c),true)
 end
 local function meter(c,p,value,color,label,horizontal)
   local C=c.C
@@ -255,7 +320,7 @@ local function controls(c)
       local p=l.core
       local angle=-math.pi/2+U.clamp(s.steeringInput or 0,-1,1)*math.rad(145)
       local radius=p[3]+9
-      if l.id=='orbit' or l.haloRpm then
+      if l.id=='orbit' or l.haloRpm or l.selector then
         for i=-16,16 do
           local a=-math.pi/2+math.rad(145)*i/16
           local length=i==0 and 9 or i%4==0 and 6 or 3
@@ -496,6 +561,7 @@ function M.draw(state,settings,origin,scale)
     C=General.palette(Theme.get(settings.theme),settings.backgroundOpacity)}
   c.L=Light.resolve(c.C,settings.theme,state.gt7Instruments and state.gt7Instruments.light or (state.headlights and 1 or 0))
   frame(c)
+  if layout.selector then gearSelector(c) end
   rpm(c)
   local speed,gear=layout.speed,layout.gear
   if layout.speedLabel then text(c,'SPEED',14,speed[1],speed[2]-speed[3]/2-10) end
@@ -503,7 +569,7 @@ function M.draw(state,settings,origin,scale)
   text(c,state.speedText or '0',speed[3],speed[1],speed[2],c.C.primary,true)
   if not layout.hideUnits then text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+7) end
   if layout.coreCapsule then capsuleReadout(c)
-  else
+  elseif not layout.selector then
     local gearInk=layout.conceptStyle=='floating' and (state.rpmWarning or state.rpmRedline) and c.C.primary or rpmInk(c)
     text(c,state.gearText or 'N',gear[3],gear[1],gear[2],gearInk,true)
   end

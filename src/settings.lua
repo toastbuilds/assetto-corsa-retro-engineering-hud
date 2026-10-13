@@ -20,6 +20,7 @@ M.values = ac.storage({
   instrumentMode = 'digital',
   analogVariant = 'original',
   digitalVariant = 'original',
+  animateGearSelector = true,
   theme = 'dark',
   analogAuxiliaryMode = 'auto',
   analogNeedleStyle = 'a01',
@@ -152,7 +153,7 @@ function M.current()
   if M.values.digitalVariant ~= digital then M.values.digitalVariant = digital end
   local values = {}
   for _, key in ipairs({'hudScale', 'instrumentMode', 'analogVariant', 'digitalVariant', 'analogAuxiliaryMode', 'analogNeedleStyle',
-      'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'debug'}) do
+      'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'animateGearSelector', 'debug'}) do
     values[key] = M.values[key]
   end
   return GeneralSettings.apply(values)
@@ -173,6 +174,9 @@ function M.draw()
     end
   end)
   SettingsUI.section('dial', 'personalization', 'Personalization', false, function()
+    if M.values.instrumentMode=='digital' and M.values.digitalVariant=='snap' then
+      checkbox('Animate gear selector', 'animateGearSelector')
+    end
     if M.values.instrumentMode == 'analog' then
       SettingsUI.needle('dial', 'needleStyle', 'RPM needle', M.values.analogNeedleStyle,
         InstrumentConfig, function(value) M.values.analogNeedleStyle = value end)
@@ -196,7 +200,7 @@ function M.draw()
   SettingsUI.resetAll('dial', function()
     resetVisualSettings()
     M.values.instrumentMode, M.values.analogAuxiliaryMode = 'digital', 'auto'
-    for _, key in ipairs({'showSteering', 'showClutch', 'showLights', 'showTcAbsLevels'}) do
+    for _, key in ipairs({'showSteering', 'showClutch', 'showLights', 'showTcAbsLevels', 'animateGearSelector'}) do
       M.values[key] = true
     end
     M.values.debug = false

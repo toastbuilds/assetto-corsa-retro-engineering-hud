@@ -164,19 +164,32 @@ for _,page in ipairs(pages) do
 end
 
 -- Variants are local analog selections and remain stored while digital is shown.
+local function variantIndex(module,value)
+  for index,item in ipairs(require(module).choices) do
+    if item.value==value then return index-1 end
+  end
+  error('Missing variant: '..value)
+end
 Dial.values.instrumentMode='analog'
-pending['##dial.variant']=4
+pending['##dial.variant']=variantIndex('src/dial_variants','spoke')
 local variantItems=frame(Dial.draw)
 assert(variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
 Dial.values.instrumentMode='digital'
 variantItems=frame(Dial.draw)
 assert(not variantItems['##dial.variant'] and Dial.current().analogVariant=='spoke')
-pending['##dial.digitalVariant']=5
+pending['##dial.digitalVariant']=variantIndex('src/digital_dial_variants','orbit')
 variantItems=frame(Dial.draw)
 assert(variantItems['##dial.digitalVariant'] and Dial.current().digitalVariant=='orbit')
 Dial.values.instrumentMode='analog'
 frame(Dial.draw)
 assert(Dial.current().digitalVariant=='orbit' and Dial.current().analogVariant=='spoke')
+Dial.values.instrumentMode='digital'
+pending['##dial.digitalVariant']=variantIndex('src/digital_dial_variants','snap')
+frame(Dial.draw)
+assert(Dial.current().digitalVariant=='snap')
+Dial.values.instrumentMode='analog'
+frame(Dial.draw)
+assert(Dial.current().digitalVariant=='snap' and Dial.current().analogVariant=='spoke')
 pending['Reset appearance##dial']=true
 frame(Dial.draw)
 assert(Dial.current().analogVariant=='original')
