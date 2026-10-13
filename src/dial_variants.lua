@@ -6,10 +6,22 @@ M.choices = {
   {value='shelf', label='1 · Classic Shelf'},
   {value='fan', label='3 · Fan'},
   {value='track', label='3A · Track'},
+  {value='halo', label='6A · Halo'},
   {value='concentric', label='5 · Concentric'},
   {value='spoke', label='6 · Spoke'}
 }
 M.layouts = {
+  halo = {
+    shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,
+    rpm={310,304,234,-220,40},speed={310,185,52},gear={310,429,44},hideRpmValue=true,
+    gearBadge={310,421,40},needleLength=175,
+    steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
+    pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,
+    edgeAux={{310,304,164,135,205},{310,304,164,45,-25}},
+    edgeIcons={{190,451},{430,451}},edgeReadings={{174,478},{446,478}},
+    statuses={{216,306},{216,359},{404,306},{404,359}},statusRadius=18,iconStatuses=true,
+    warning={348,539},flag={270,539}
+  },
   track = {
     shell='shelf',frontLayer=false,
     rpm={310,300,239,-195,25}, speed={310,158,52}, gear={310,410,38},

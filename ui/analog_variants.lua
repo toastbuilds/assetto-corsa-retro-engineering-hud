@@ -8,6 +8,7 @@ local Config = require('src/instrument_config')
 local Needle = require('ui/instrument_needle')
 local Hybrid = require('src/hybrid')
 local Icons = require('ui/side_instruments')
+local Halo = require('ui/halo_dial')
 local M = {}
 -- CSP can expose the app root as __dirname inside required modules. Test both
 -- root and module contexts against a real asset instead of assuming ui/.
@@ -108,6 +109,10 @@ end
 
 local function drawRpm(c)
   local l,s,C=c.layout,c.state,c.colors
+  if l.haloRpm then
+    Halo.rpm(c.origin,c.scale,l,s,c.settings,C,c.L)
+    return
+  end
   local r=l.rpm
   local limiter=math.max(s.rpmDisplayLimiter or 8000,1000)
   local maximum=math.max(s.rpmGaugeLimiter or math.ceil(limiter/1000)*1000,1000)
@@ -151,7 +156,7 @@ local function drawNeedle(c)
   local preset=style=='a01' and classicHand or Config.needlePreset(style)
   Needle.draw(point(c,r[1],r[2]),c.scale*(l.needleLength or (r[3]-40))/preset.length,
     l.startAngle+(l.endAngle-l.startAngle)*U.clamp(s.analogNeedleNormalized or 0,0,1),
-    preset,C,c.L.light,s.rpmWarning and rpmColor(c) or nil)
+    preset,C,c.L.light,(s.rpmWarning or s.rpmRedline) and rpmColor(c) or nil)
 end
 
 local function bar(c,x,y,w,h,fraction,color,signed)
@@ -176,6 +181,11 @@ local function auxColor(c,a)
 end
 local function drawAuxiliary(c)
   local a=M.auxiliary(c.state,c.settings.analogAuxiliaryMode)
+  if c.layout.haloRpm then
+    if a and a.label=='FUEL' then a=M.auxiliary(c.state,'turbo') end
+    Halo.auxiliary(c.origin,c.scale,c.layout,a,M.auxiliary(c.state,'fuel'),c.state,c.colors,c.L)
+    return
+  end
   if c.layout.pairedAux then
     local function channel(a,start,finish,iconX,iconY,radius)
       if not a then return end
@@ -409,7 +419,7 @@ function M.draw(state,settings,origin,scale)
     ui.drawCircleFilled(center,266*scale,c.colors.void,96)
     ui.drawCircleFilled(center,266*scale,c.colors.surface,96)
   end
-  ui.drawImage(images.back,origin,finish,tint)
+  if not layout.nativeFace then ui.drawImage(images.back,origin,finish,tint) end
   drawRpm(c)
   if layout.id=='concentric' then
     drawControls(c)
