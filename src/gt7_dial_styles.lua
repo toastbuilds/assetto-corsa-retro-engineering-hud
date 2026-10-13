@@ -25,7 +25,6 @@ M.digital = {
   {value='halo_digital', label='Halo'},
   {value='jewel_digital', label='Jewel'},
   {value='spectrum_digital', label='Spectrum'},
-  {value='floating_capsule', label='Floating Capsule'},
   {value='snap_digital', label='Snap Selector'}
 }
 
@@ -39,7 +38,7 @@ local profiles = {
     track_analog = {first=190, last=350},
     halo_analog = {first=140, last=400},
     jewel_analog = {first=140, last=400},
-    spectrum_analog = {first=160, last=380},
+    spectrum_analog = {first=130, last=410},
     snap_analog = {first=190, last=350}
   },
   digital = {
@@ -51,8 +50,7 @@ local profiles = {
     orbit = {first=180, last=360},
     halo_digital = {first=140, last=400},
     jewel_digital = {first=140, last=400},
-    spectrum_digital = {first=190, last=350},
-    floating_capsule = {first=180, last=360},
+    spectrum_digital = {first=130, last=410},
     snap_digital = {first=190, last=350}
   }
 }

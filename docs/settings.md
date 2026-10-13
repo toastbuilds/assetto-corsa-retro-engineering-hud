@@ -18,7 +18,7 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 - Select one of 24 analog needle geometries. The standalone RPM needle and GT7 speed/RPM needles keep separate selections.
 - Adjust GT7 side dial scale/spacing and status indicator size.
 - Choose GT7 presets or customize central speed, gear, steering, RPM bar, pedal position/style, radar and flags independently.
-- GT7 side dials add Track, Halo, Jewel and Spectrum in Analog, plus Halo, Jewel, Spectrum and Floating Capsule in Digital. Snap Selector is available on the RPM dial only; its speed dial remains independently selectable. Floating Capsule carries the compact part of Core Capsule without duplicating readouts already shown elsewhere in GT7.
+- GT7 side dials add Track, Halo, Jewel and Spectrum in Analog, plus Halo, Jewel and Spectrum in Digital. Halo uses a dot crown with a top notch; Jewel adds the original inner graduations and leaves the bottom clear. Spectrum uses a continuous theme-colored green/amber/red band spanning 280 degrees, with a face-colored value marker in Digital. The new styles retain a large lower fuel or turbo/AERO/battery dial. Snap Selector is available on the RPM dial only, with its pointer facing the gear labels and a restored lower auxiliary gauge; its speed dial remains independently selectable. Removed Floating Capsule selections fall back to Original.
 - Select Grip limit, FFB, Pedal history or Hidden for the lower panel.
 - Set the standalone auxiliary gauge to Auto, Turbo, Fuel or Electric. Auto prioritizes supported hybrid telemetry where appropriate.
 - Optional vacuum simulation uses throttle and boost; it is not a measured manifold vacuum channel.

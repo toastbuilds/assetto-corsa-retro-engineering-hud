@@ -268,6 +268,23 @@ def main(hybrid=False, styles_only=False):
         state["fuelNormalized"], state["fuel"] = 0.6, 30
         state["hybrid"] = lua.table_from(dict(powerKw=120, needle=0.8, charge=0.84))
         render("gt7-orbit-hybrid", mode="digital", speed_dial_style="orbit", rpm_dial_style="orbit", lights=True)
+        state["hybrid"] = None
+        state["rpmText"], state["rpm"], state["rpmGaugeNormalized"] = "7800", 7800, 0.98
+        state["gt7RpmNeedleNormalized"], state["rpmRedline"], state["rpmWarning"] = 0.98, True, True
+        warning_sheet = Image.new("RGB", (1200, 1280), "#121416")
+        warning_font = ImageFont.truetype(str(FONT), 15)
+        for row, (mode, phase) in enumerate((("analog", 0), ("analog", 0.13),
+                                            ("digital", 0), ("digital", 0.13))):
+            state["clock"] = phase
+            for column, motif in enumerate(("halo", "jewel", "spectrum", "snap")):
+                picture = render(f"gt7-{motif}-{mode}-redline-{row % 2}", mode=mode,
+                                 rpm_dial_style=f"{motif}_{mode}", lights=True)
+                crop = picture.crop((1090, 78, 1440, 433))
+                warning_sheet.paste(crop.resize((280, 280), Image.Resampling.LANCZOS),
+                                    (column * 300 + 10, row * 320))
+                ImageDraw.Draw(warning_sheet).text((column * 300 + 12, row * 320 + 284),
+                    f"{motif.title()} {mode} / {phase:.2f}s", font=warning_font, fill="#f2dbae")
+        warning_sheet.save(OUTPUT / "gt7-inspired-redline-comparison.png")
         return
 
     for theme in ("dark", "light"):

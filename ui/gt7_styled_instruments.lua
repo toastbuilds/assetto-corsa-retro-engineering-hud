@@ -47,18 +47,17 @@ end
 
 local inspiredFaces = {
   analog = {
-    track_analog={analog=true,motif='track',x=0,y=0,r=147,value={0,40,44},unit={0,68},aux={0,138,0.34}},
-    halo_analog={analog=true,motif='halo',x=0,y=-4,r=147,value={0,34,47},unit={0,62},aux={0,138,0.34}},
-    jewel_analog={analog=true,motif='jewel',x=0,y=0,r=147,value={0,34,47},unit={0,62},aux={0,138,0.34}},
-    spectrum_analog={analog=true,motif='spectrum',x=0,y=-4,r=147,value={0,40,46},unit={0,68},aux={0,138,0.34}},
-    snap_analog={analog=true,motif='snap',x=0,y=0,r=147,value={0,105,22},unit={0,124}}
+    track_analog={analog=true,motif='track',x=0,y=0,r=147,value={0,28,42},unit={0,56},aux={0,128,0.92}},
+    halo_analog={analog=true,motif='halo',x=0,y=-4,r=147,value={0,28,44},unit={0,56},aux={0,128,0.92}},
+    jewel_analog={analog=true,motif='jewel',x=0,y=0,r=147,value={0,28,44},unit={0,56},aux={0,128,0.92}},
+    spectrum_analog={analog=true,motif='spectrum',x=0,y=0,r=147,value={0,28,44},unit={0,56},aux={0,128,0.92}},
+    snap_analog={analog=true,motif='snap',x=0,y=0,r=147,value={-8,58,20},unit={38,59},aux={0,134,0.9}}
   },
   digital = {
-    halo_digital={motif='halo',x=0,y=-4,r=147,value={0,12,54},unit={0,43},aux={0,138,0.34}},
-    jewel_digital={motif='jewel',x=0,y=-4,r=147,value={0,16,54},unit={0,47},aux={0,138,0.34}},
-    spectrum_digital={motif='spectrum',x=0,y=-4,r=147,value={0,20,52},unit={0,51},aux={0,138,0.34}},
-    floating_capsule={motif='floating',x=0,y=-2,r=147,value={0,22,50},unit={0,51},aux={0,138,0.34}},
-    snap_digital={motif='snap',x=0,y=0,r=147,value={0,105,23},unit={0,124}}
+    halo_digital={motif='halo',x=0,y=-4,r=147,value={0,-10,54},unit={0,22},aux={0,106,1}},
+    jewel_digital={motif='jewel',x=0,y=-4,r=147,value={0,-10,54},unit={0,22},aux={0,106,1}},
+    spectrum_digital={motif='spectrum',x=0,y=0,r=147,value={0,-10,54},unit={0,22},aux={0,106,1}},
+    snap_digital={motif='snap',x=0,y=0,r=147,value={-8,58,20},unit={38,59},aux={0,134,0.9}}
   }
 }
 
@@ -87,6 +86,7 @@ local drawSnapSelector
 
 local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,rpm,rpmColor,auxiliary)
   local motif=f.motif
+  local dotsOnly=motif=='halo' or motif=='jewel'
   local pivot=center+vec2(f.x*scale,f.y*scale)
   local function p(x,y) return center+vec2(x*scale,y*scale) end
   local function line(x1,y1,x2,y2,color,width)
@@ -100,11 +100,8 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   local function label(value,size,x,y,color,style,maxWidth)
     Light.text(value,size*scale,p(x,y),color,maxWidth and maxWidth*scale,style or L.label,scale)
   end
-  local function circle(x,y,r,color,width)
-    ui.drawCircle(p(x,y),r*scale,Light.color(color,L.inner),48,width*scale)
-  end
-  local function filledCircle(x,y,r,color)
-    ui.drawCircleFilled(p(x,y),r*scale,Light.color(color,L.segment),32)
+  local function filledCircle(x,y,r,color,style)
+    ui.drawCircleFilled(p(x,y),r*scale,Light.color(color,style or L.segment),32)
   end
   local maximum=rpm and math.max((state.rpmGaugeLimiter or 8000)/1000,1)
     or (state.speedGaugeMaximum or 320)
@@ -129,26 +126,29 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   local valueColor=rpm and state.rpmRedline and C.red or C.primary
 
   ui.drawCircleFilled(center,f.r*scale,Theme.withAlpha(C.panel,0.88),72)
-  arc(f.r-23,f.first,f.last,C.panelRaised,20)
-  if light>0 then
+  if not dotsOnly and motif~='spectrum' then
+    arc(f.r-23,f.first,f.last,C.panelRaised,20)
+  end
+  if light>0 and not dotsOnly then
     arc(f.r+3,f.first,(f.first+f.last)/2,L.ringCold,1)
     arc(f.r+3,(f.first+f.last)/2,f.last,L.ringWarm,1)
   end
 
-  if f.analog then
+  if f.analog and not dotsOnly then
     local divisions=math.max(1,math.ceil(maximum/step*10))
     for i=0,divisions do
       local fraction=i/divisions
       local a=f.first+(f.last-f.first)*fraction
       local major=i%10==0 or i==divisions
       if not (rpm and fraction>=redline) then
-        local inner=f.r-(major and 17 or i%5==0 and 11 or 7)
+        local outer=motif=='spectrum' and f.r+10 or f.r
+        local inner=outer-(major and 12 or i%5==0 and 7 or 4)
         local ink=i%5==0 and C.primary or C.secondary
         line(f.x+inner*math.cos(a),f.y+inner*math.sin(a),
-          f.x+f.r*math.cos(a),f.y+f.r*math.sin(a),ink,major and 2.8 or 0.85)
+          f.x+outer*math.cos(a),f.y+outer*math.sin(a),ink,major and 2.8 or 0.85)
       end
     end
-    if rpm then
+    if rpm and motif~='spectrum' then
       for i=1,28 do
         local a=f.first+(f.last-f.first)*(i-0.88)/28
         local b=f.first+(f.last-f.first)*(i-0.12)/28
@@ -157,14 +157,13 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
         end
       end
     end
-  else
+  elseif not f.analog and not dotsOnly and motif~='spectrum' then
     for i=1,40 do
       local a=f.first+(f.last-f.first)*(i-0.86)/40
       local b=f.first+(f.last-f.first)*(i-0.14)/40
       local progress=i/40
       local active=progress<=fraction
       local color=active and arcValue(progress) or (rpm and progress>=redline and C.redDim or C.inactive)
-      if motif=='spectrum' and not active then color=Theme.withAlpha(progressInk(progress),0.30) end
       arc(f.r-7,a,b,color,12,3)
     end
   end
@@ -182,37 +181,68 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
     end
   elseif motif=='halo' then
     for i=0,16 do
-      local progress=i/16
-      local a=f.first+(f.last-f.first)*progress
-      local radius=i%4==0 and 4.5 or 3.2
-      local ink=progress<=fraction and arcValue(progress) or C.outlineDim
-      filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),radius,ink)
+      if i~=8 then
+        local progress=i/16
+        local a=f.first+(f.last-f.first)*progress
+        local active=progress<=fraction or (rpm and state.rpmRedline and progress>=redline)
+        local ink=active and arcValue(progress) or (rpm and progress>=redline and C.redDim or C.outlineDim)
+        filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),6,ink,
+          active and L.segment or L.printedWarning)
+      end
     end
+    ui.pathClear()
+    ui.pathLineTo(p(f.x-7,f.y-f.r-7))
+    ui.pathLineTo(p(f.x+7,f.y-f.r-7))
+    ui.pathLineTo(p(f.x,f.y-f.r+12))
+    ui.pathFillConvex(Light.color(C.primary,L.major))
   elseif motif=='jewel' then
-    for i=0,31 do
-      local progress=i/32
-      local a=math.rad(-90+i*360/32)
-      local ink=progress<=fraction and arcValue(progress) or Theme.withAlpha(progressInk(progress),0.28)
-      filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),i%2==0 and 3.6 or 2.6,ink)
+    for i=0,24 do
+      local progress=i/24
+      local a=f.first+(f.last-f.first)*progress
+      local active=progress<=fraction or (rpm and state.rpmRedline and progress>=redline)
+      local ink=active and arcValue(progress) or Theme.withAlpha(progressInk(progress),0.28)
+      filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),i%2==0 and 5 or 3.3,ink,
+        active and L.segment or L.printedWarning)
+    end
+    for i=0,80 do
+      local a=f.first+(f.last-f.first)*i/80
+      local outer=Config.dial.innerRadius
+      local inner=outer-Config.dial.innerTickLength
+      line(f.x+inner*math.cos(a),f.y+inner*math.sin(a),
+        f.x+outer*math.cos(a),f.y+outer*math.sin(a),C.secondary,Config.dial.innerTickWidth)
+      if i%10==0 then
+        filledCircle(f.x+(inner+outer)/2*math.cos(a),f.y+(inner+outer)/2*math.sin(a),
+          Config.dial.innerDotRadius,C.primary)
+      end
     end
   elseif motif=='spectrum' then
-    for i=1,52 do
-      local progress=(i-0.5)/52
-      local a=f.first+(f.last-f.first)*(i-0.9)/52
-      local b=f.first+(f.last-f.first)*(i-0.1)/52
-      local ink=progress<=fraction and arcValue(progress) or Theme.withAlpha(progressInk(progress),0.23)
-      arc(f.r-31,a,b,ink,8,3)
+    local green=Light.color(C.green,L.segment)
+    local amber=Light.color(C.amber,L.segment)
+    local red=Light.color(C.red,L.segment)
+    -- Adjacent slices overlap slightly so the spectrum reads as one solid band.
+    for i=1,96 do
+      local progress=(i-0.5)/96
+      local a=f.first+(f.last-f.first)*(i-1)/96
+      local b=math.min(f.last,f.first+(f.last-f.first)*i/96+0.002)
+      local ink=progress<0.55 and Light.mix(green,amber,progress/0.55)
+        or Light.mix(amber,red,(progress-0.55)/0.45)
+      if rpm and state.rpmRedline and progress>=redline then ink=arcValue(progress) end
+      arc(f.r-10,a,b,ink,22,3)
     end
-  elseif motif=='floating' then
-    local x,y,size=f.value[1],f.value[2],f.value[3]
-    ui.drawRectFilled(p(x-69,y-35),p(x+69,y+34),Theme.withAlpha(C.panelRaised,0.96),15*scale)
-    ui.drawRect(p(x-69,y-35),p(x+69,y+34),Light.color(C.cyan,L.inner),15*scale,nil,1.1*scale)
-    line(x-49,y-27,x+49,y-27,C.outlineSoft,1)
+    if not f.analog then
+      local a=f.first+(f.last-f.first)*fraction
+      local radial,tangent=vec2(math.cos(a),math.sin(a)),vec2(-math.sin(a),math.cos(a))
+      ui.pathClear()
+      ui.pathLineTo(pivot+radial*((f.r+2)*scale)-tangent*(5*scale))
+      ui.pathLineTo(pivot+radial*((f.r+2)*scale)+tangent*(5*scale))
+      ui.pathLineTo(pivot+radial*((f.r-23)*scale))
+      ui.pathFillConvex(Theme.withAlpha(C.panel,1))
+    end
   end
 
   local labelRadius=f.r-39
   local n=0
-  while n<=maximum+step*0.01 do
+  while not (motif=='spectrum' and not f.analog) and n<=maximum+step*0.01 do
     local progress=n/math.max(maximum,1)
     local a=f.first+(f.last-f.first)*progress
     label(tostring(U.round(n)),f.analog and 14 or 12,
@@ -230,22 +260,14 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   if f.analog then
     local needleFraction=rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local needleStyle=rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
-    local tint=rpm and (state.rpmRedline and C.red or state.rpmWarning and C.amber or nil) or nil
+    local tint=rpm and (state.rpmRedline and arcValue(1) or state.rpmWarning and C.amber or nil) or nil
     Needle.draw(pivot,scale*f.r/150,f.first+(f.last-f.first)*U.clamp(needleFraction or fraction,0,1),
       Config.needlePreset(needleStyle),C,light,tint,L)
   end
 
-  if motif=='floating' then
-    label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,126)
-    label(rpm and 'RPM' or settings.speedUnit,11,f.unit[1],f.unit[2],C.secondary,L.label)
-  elseif motif=='snap' then
-    if f.analog then
-      label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,90)
-      label('RPM',10,f.unit[1],f.unit[2],C.secondary,L.label)
-    else
-      label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,115)
-      label('RPM',10,f.unit[1],f.unit[2],C.secondary,L.label)
-    end
+  if motif=='snap' then
+    label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,70)
+    label('RPM',9,f.unit[1],f.unit[2],C.secondary,L.label)
     drawSnapSelector(center,scale,state,settings,C,L)
   else
     label(value,rpm and f.value[3]*0.92 or f.value[3],f.value[1],f.value[2],valueColor,L.value,150)
@@ -307,8 +329,8 @@ drawSnapSelector=function(center,scale,state,settings,C,L)
   local a=math.rad(angle)
   local tangent=vec2(-math.sin(a),math.cos(a))
   local radial=vec2(math.cos(a),math.sin(a))
-  local tip=center+radial*(45*scale)
-  local base=center+radial*(53*scale)
+  local tip=center+radial*(55*scale)
+  local base=center+radial*(45*scale)
   ui.drawCircleFilled(center,45*scale,C.panel,48)
   ui.drawCircle(center,45*scale,Light.color(C.amber,L.major),48,1.5*scale)
   local points={tip,base+tangent*(4.5*scale),base-tangent*(4.5*scale)}

@@ -7,8 +7,10 @@ assert(DialStyles.normalize('shelf', 'analog') == 'shelf')
 assert(DialStyles.normalize('shelf', 'digital') == 'original')
 assert(DialStyles.normalize('bridge', 'digital') == 'bridge')
 assert(DialStyles.normalize('bridge', 'analog') == 'original')
-assert(#DialStyles.analog == 10 and #DialStyles.digital == 11)
-assert(#DialStyles.choices('analog','speed') == 9 and #DialStyles.choices('digital','speed') == 10)
+assert(#DialStyles.analog == 10 and #DialStyles.digital == 10)
+assert(#DialStyles.choices('analog','speed') == 9 and #DialStyles.choices('digital','speed') == 9)
+assert(DialStyles.normalize('floating_capsule','digital')=='original',
+  'removed Floating Capsule settings must migrate to Original')
 assert(DialStyles.normalize('snap_analog','analog','rpm') == 'snap_analog')
 assert(DialStyles.normalize('snap_digital','digital','speed') == 'original',
   'Snap Selector must not be available on the speed dial')
@@ -139,13 +141,71 @@ end
 assert(centerGear and rpmReadout,
   'the RPM Snap Selector must keep the gear in the center and RPM below it')
 
+local outwardPointer=false
+for _,call in ipairs(snapCalls) do
+  if call.kind=='polygon' and #call.points==3 then
+    local a,b=call.points[1],call.points[2]
+    local tip=math.sqrt((a.x-1265)^2+(a.y-258)^2)
+    local base=math.sqrt((b.x-1265)^2+(b.y-258)^2)
+    if tip>49 and tip<60 and base<46 and tip>base+5 then outwardPointer=true end
+  end
+end
+assert(outwardPointer,'Snap must point outward toward the gear captions')
+
+for _,mode in ipairs({'analog','digital'}) do
+  for _,role in ipairs({'speed','rpm'}) do
+    for _,motif in ipairs({'halo','jewel','spectrum','snap','track'}) do
+      if not (motif=='track' and mode=='digital') and not (motif=='snap' and role=='speed') then
+        local style=motif..'_'..mode
+        local options={gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+          gt7SpeedDialStyle='original',gt7RpmDialStyle='original'}
+        options[role=='speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle']=style
+        local cx=role=='speed' and 175 or 1265
+        local largeAux,dots,band=false,0,{}
+        for _,call in ipairs(harness.draw('classic',options,state)) do
+          if call.kind=='arc' and math.abs(call.a.x-cx)<0.01 then
+            if call.a.y>325 and call.radius>60 then largeAux=true end
+            if math.abs(call.a.y-258)<8 and call.radius>100 then
+              if motif=='halo' or motif=='jewel' then
+                assert(call.thickness<=1,'dot crowns must not draw an underlying track or scale: '..style)
+              elseif motif=='spectrum' and call.thickness==22 then band[#band+1]=call end
+            end
+          elseif call.kind=='circle_fill' then
+            local distance=math.sqrt((call.a.x-cx)^2+(call.a.y-258)^2)
+            local crownDot=(motif=='halo' and math.abs(call.radius-6)<0.01)
+              or (motif=='jewel' and (math.abs(call.radius-5)<0.01 or math.abs(call.radius-3.3)<0.01))
+            if crownDot and distance>130 and distance<150 then
+              dots=dots+1
+              assert(call.a.y<365,'dot crowns must leave the lower alert area clear')
+            end
+          end
+        end
+        assert(largeAux,'new dial styles must preserve an auxiliary gauge close to Original size: '..style)
+        if motif=='halo' or motif=='jewel' then assert(dots>=16,'dot crowns must remain visible') end
+        if motif=='spectrum' then
+          assert(#band>1 and band[1].color.g>band[1].color.r
+            and band[#band].color.r>band[#band].color.g,'Spectrum must progress from green to red')
+          assert(math.abs(band[#band].endAngle-band[1].startAngle-math.rad(280))<0.001,
+            'Spectrum must use the extended 280-degree sweep')
+          for i=2,#band do
+            assert(band[i].startAngle<=band[i-1].endAngle,'Spectrum must have no gaps between color slices')
+          end
+        end
+      end
+    end
+  end
+end
+
 local function redlineTone(calls,wantAmber)
   for _,call in ipairs(calls) do
     local color=call.color
-    if call.kind=='arc' and color and call.a and math.abs(call.a.x-1265)<0.001
-        and math.abs(call.a.y-258)<8 and call.radius>136 and call.radius<146 then
-      if wantAmber and color.r>0.75 and color.g>0.3 and color.g<0.85 and color.b<0.55 then return true end
-      if not wantAmber and color.r>0.75 and color.g<0.3 and color.b<0.3 then return true end
+    local circleDistance=call.a and math.sqrt((call.a.x-1265)^2+(call.a.y-258)^2) or 0
+    local mainArc=call.kind=='arc' and call.a and math.abs(call.a.x-1265)<0.001
+        and math.abs(call.a.y-258)<8 and call.radius>136 and call.radius<146
+    local mainDot=call.kind=='circle_fill' and circleDistance>130 and circleDistance<150
+    if color and (mainArc or mainDot) then
+      if wantAmber and color.r>0.75 and color.g>0.5 and color.g<0.85 and color.b<0.55 then return true end
+      if not wantAmber and color.r>0.75 and color.r-color.g>0.4 and color.b<0.35 then return true end
     end
   end
   return false
@@ -157,7 +217,7 @@ state.rpmWarning,state.rpmRedline=true,true
 for _,entry in ipairs({
   {'analog','halo_analog'},{'analog','jewel_analog'},{'analog','spectrum_analog'},
   {'analog','snap_analog'},{'digital','halo_digital'},{'digital','jewel_digital'},
-  {'digital','spectrum_digital'},{'digital','floating_capsule'},{'digital','snap_digital'}
+  {'digital','spectrum_digital'},{'digital','snap_digital'}
 }) do
   local mode,style=entry[1],entry[2]
   local options={gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
