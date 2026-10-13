@@ -350,6 +350,11 @@ local function status(c,position,label,level,available,active,color)
   ui.drawCircleFilled(p,radius,C.panel,32)
   ui.drawCircle(p,radius,active and color or (available and C.amberDim or C.outlineDim),32,(active and 2 or 1)*c.scale)
   local ink=active and color or (available and C.primary or C.secondary)
+  if c.layout.iconStatuses then
+    local kind=label=='TC' and 1 or label=='ABS' and 2 or label=='PIT' and 4 or 3
+    Icons.statusIcon(p,c.scale,kind,Light.color(ink,c.L.icon))
+    return
+  end
   local levels=c.settings.showTcAbsLevels~=false and (label=='TC' or label=='ABS')
   text(c,label,label=='ABS' and 12 or 14,x,y-(levels and 7 or 0),ink,active)
   if levels then text(c,level~=nil and tostring(level) or '—',12,x,y+10,ink) end
@@ -361,10 +366,12 @@ local function drawStatuses(c)
   if c.settings.showLights~=false then
     local p=l.statuses[3]
     status(c,p,'',nil,s.lightsAvailable,s.headlights and s.lightsAvailable,s.highBeams and C.amber or C.cyan)
-    local ink=s.headlights and s.lightsAvailable and (s.highBeams and C.amber or C.cyan) or C.secondary
-    arc(c,p[1]-1,p[2],8,-90,90,ink,2)
-    line(c,p[1]-1,p[2]-8,p[1]-1,p[2]+8,ink,2)
-    for j=-1,1 do line(c,p[1]-13,p[2]+j*5,p[1]-5,p[2]+j*4,ink,1) end
+    if not l.iconStatuses then
+      local ink=s.headlights and s.lightsAvailable and (s.highBeams and C.amber or C.cyan) or C.secondary
+      arc(c,p[1]-1,p[2],8,-90,90,ink,2)
+      line(c,p[1]-1,p[2]-8,p[1]-1,p[2]+8,ink,2)
+      for j=-1,1 do line(c,p[1]-13,p[2]+j*5,p[1]-5,p[2]+j*4,ink,1) end
+    end
   end
   status(c,l.statuses[4],'PIT',nil,s.pitLimiter~=nil or s.pitLane,s.pitLimiter==true or s.pitLane,C.amber)
   local p=l.warning

@@ -12,12 +12,12 @@ M.choices = {
 M.layouts = {
   track = {
     shell='shelf',frontLayer=false,
-    rpm={310,300,239,-195,25}, speed={310,369,52}, gear={310,451,38},
-    rpmValue={310,158},rpmValueSize=18,aux={139,405,104,70},auxStyle='screen',auxIcon=true,
+    rpm={310,300,239,-195,25}, speed={310,158,52}, gear={310,410,38},
+    hideRpmValue=true,aux={139,405,104,70},auxStyle='screen',auxIcon=true,
     steeringRing={310,300,56},graduatedSteeringRing=true,clutch={310,506,76},
-    pedals={{207,490,207,434},{413,490,413,434}},pedalStyle='line',pedalWidth=7.5,gearBadge={310,451,34},
-    statuses={{240,270},{240,326},{380,270},{380,326}},statusRadius=18,
-    turns={{229,310},{391,310}},warning={481,500},flag={139,500},needleLength=154
+    pedals={{207,490,207,434},{413,490,413,434}},pedalStyle='line',pedalWidth=7.5,gearBadge={310,410,34},
+    statuses={{220,270},{220,326},{400,270},{400,326}},statusRadius=18,iconStatuses=true,
+    turns={{229,310},{391,310}},warning={348,538},flag={270,538},needleLength=154
   },
   shelf = {
     rpm={310,310,264,-185,5}, speed={310,418,54}, gear={154,420,56},
