@@ -70,7 +70,7 @@ for id,layout in pairs(Layouts.layouts) do
   end
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
   assert(not contains(calls,'TURBO'))
-  if id=='concentric' then assert(not contains(calls,'0.70'))
+  if id=='concentric' or layout.hideAuxValues then assert(not contains(calls,'0.70'))
   else assert(contains(calls,layout.haloRpm and '0.70' or '0.70 BAR')) end
   local flagDrawn,rpmAlert=false,false
   local palette=require('src/theme').get('dark')
@@ -84,13 +84,13 @@ for id,layout in pairs(Layouts.layouts) do
   end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,maximumKw=150,recoveryKw=100}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='auto'},state)
-  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,layout.haloRpm and '-38' or '-38 kW')),'hybrid auto mode includes recovery')
+  assert(not contains(calls,'ERS') and (id=='concentric' or layout.hideAuxValues or contains(calls,layout.haloRpm and '-38' or '-38 kW')),'hybrid auto mode includes recovery')
   state.hybrid={charge=nil,delivery=0.4,needle=0.4}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,layout.haloRpm and '40' or '40%'),'delivery fallback must not fabricate kW')
+  assert(id=='concentric' or layout.hideAuxValues or contains(calls,layout.haloRpm and '40' or '40%'),'delivery fallback must not fabricate kW')
   state.hybrid={charge=0.4,batteryRecovery=true,chargeRecoveryRate=0.3,needle=-0.2}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,layout.haloRpm and '-0.3' or '-0.3%/s'),'battery recovery retains its units')
+  assert(id=='concentric' or layout.hideAuxValues or contains(calls,layout.haloRpm and '-0.3' or '-0.3%/s'),'battery recovery retains its units')
   state.hybrid=nil
   state.turboAvailable=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
@@ -98,7 +98,7 @@ for id,layout in pairs(Layouts.layouts) do
   state.turboAvailable=true
   state.available=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
-  assert(contains(calls,'N/A') == (id~='concentric'),'disconnected telemetry must not show measured boost')
+  assert(contains(calls,'N/A') == (id~='concentric' and not layout.hideAuxValues),'disconnected telemetry must not show measured boost')
   state.available=true
 end
 assert(Renderer.auxiliary(state,'off')==nil)

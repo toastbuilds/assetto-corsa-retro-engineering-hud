@@ -74,15 +74,16 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
       -- The lower independent band always reports engine RPM.
       band(210,125,55,12,fraction,false)
     end
-    local a=math.rad(r[4]+(r[5]-r[4])*value)
-    local color=layout.speedSpectrum and C.primary or (state.rpmRedline or state.rpmWarning) and warningInk(state,settings,C) or C.primary
-    -- Broad pointer crossing the colored band, separate from the analog hand.
-    local points={{r[3]+9,-8},{r[3]+9,8},{r[3]-30,0}}
-    ui.pathClear()
-    for _,v in ipairs(points) do
-      ui.pathLineTo(p(r[1]+v[1]*math.cos(a)-v[2]*math.sin(a),r[2]+v[1]*math.sin(a)+v[2]*math.cos(a)))
+    if layout.speedSpectrum then
+      local a=math.rad(r[4]+(r[5]-r[4])*value)
+      -- An opaque face-colored notch stays distinct from every band color.
+      local points={{r[3]+1,-8},{r[3]+1,8},{r[3]-32,0}}
+      ui.pathClear()
+      for _,v in ipairs(points) do
+        ui.pathLineTo(p(r[1]+v[1]*math.cos(a)-v[2]*math.sin(a),r[2]+v[1]*math.sin(a)+v[2]*math.cos(a)))
+      end
+      ui.pathFillConvex(Theme.withAlpha(C.surface,1))
     end
-    ui.pathFillConvex(Light.color(color,L.icon))
   elseif layout.conceptStyle=='floating' then
     band(r[3],r[4],r[5],16,fraction,false)
   end
