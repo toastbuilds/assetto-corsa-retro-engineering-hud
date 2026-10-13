@@ -16,8 +16,8 @@ M.layouts = {
     hideRpmValue=true,aux={139,405,104,70},auxStyle='screen',auxIcon=true,
     steeringRing={310,300,56},graduatedSteeringRing=true,clutch={310,506,76},
     pedals={{207,490,207,434},{413,490,413,434}},pedalStyle='line',pedalWidth=7.5,gearBadge={310,410,34},
-    statuses={{220,270},{220,326},{400,270},{400,326}},statusRadius=18,iconStatuses=true,
-    turns={{229,310},{391,310}},warning={348,538},flag={270,538},needleLength=154
+    statuses={{232,270},{232,326},{412,270},{412,326}},statusRadius=18,iconStatuses=true,
+    turns={{229,310},{391,310}},warning={348,538},flag={270,538},needleLength=169.4
   },
   shelf = {
     rpm={310,310,264,-185,5}, speed={310,418,54}, gear={154,420,56},
