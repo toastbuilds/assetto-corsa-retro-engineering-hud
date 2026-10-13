@@ -96,8 +96,10 @@ local function sanitizeComposition()
   for _, key in ipairs({ 'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle' }) do
     M.values[key] = InstrumentConfig.normalizeNeedleStyle(M.values[key])
   end
-  M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, M.values.gt7SpeedNeedleMode)
-  M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, M.values.gt7RpmNeedleMode)
+  M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle,
+    M.values.gt7SpeedNeedleMode, 'speed')
+  M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle,
+    M.values.gt7RpmNeedleMode, 'rpm')
 end
 sanitizeComposition()
 
@@ -187,20 +189,20 @@ function M.draw()
     SettingsUI.choice('gt7', 'speedNeedle', 'Speed dial mode', M.values.gt7SpeedNeedleMode,
       modes, function(value)
         M.values.gt7SpeedNeedleMode = value
-        M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, value)
+        M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, value, 'speed')
       end)
     SettingsUI.choice('gt7', 'rpmNeedle', 'RPM dial mode', M.values.gt7RpmNeedleMode,
       modes, function(value)
         M.values.gt7RpmNeedleMode = value
-        M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, value)
+        M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, value, 'rpm')
       end)
   end)
   SettingsUI.section('gt7', 'personalization', 'Personalization', false, function()
     SettingsUI.section('gt7', 'dials', 'Side dials', true, function()
       choice('speedDialStyle', 'Speed dial style',
-        M.values.gt7SpeedNeedleMode == 'analog' and DialStyles.analog or DialStyles.digital)
+        DialStyles.choices(M.values.gt7SpeedNeedleMode, 'speed'))
       choice('rpmDialStyle', 'RPM dial style',
-        M.values.gt7RpmNeedleMode == 'analog' and DialStyles.analog or DialStyles.digital)
+        DialStyles.choices(M.values.gt7RpmNeedleMode, 'rpm'))
       if M.values.gt7SpeedNeedleMode == 'analog' then
         SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
           InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)

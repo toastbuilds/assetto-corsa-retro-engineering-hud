@@ -235,28 +235,29 @@ def main(hybrid=False, styles_only=False):
         return
 
     dial_style_module = lua.eval("require('src/gt7_dial_styles')")
-    for mode, theme, choices in ((mode, theme, dial_style_module[mode])
-                                 for mode in ("analog", "digital") for theme in ("dark", "light")):
-        choices = [choices[i] for i in range(1, len(choices) + 1)]
-        columns, cell_w, cell_h = 4, 300, 310
-        rows = math.ceil(len(choices) / columns)
-        speed_sheet = Image.new("RGB", (columns * cell_w, rows * cell_h), "#121416")
-        rpm_sheet = Image.new("RGB", speed_sheet.size, "#121416")
+    for mode, theme in ((mode, theme) for mode in ("analog", "digital") for theme in ("dark", "light")):
         label_face = ImageFont.truetype(str(FONT), 15)
-        for index, item in enumerate(choices):
-            style_id = item["value"]
-            x, y = (index % columns) * cell_w, (index // columns) * cell_h
-            picture = render("style-review", mode=mode, lights=True, theme=theme,
-                speed_dial_style=style_id, rpm_dial_style="original")
-            speed_sheet.paste(picture.crop((0, 78, 350, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
-            ImageDraw.Draw(speed_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
-            picture = render("style-review", mode=mode, lights=True, theme=theme,
-                speed_dial_style="original", rpm_dial_style=style_id)
-            rpm_sheet.paste(picture.crop((1090, 78, 1440, 433)).resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
-            ImageDraw.Draw(rpm_sheet).text((x+12, y+282), f"{item['label']}", font=label_face, fill="#f2dbae")
-        suffix = "-light" if theme == "light" else ""
-        speed_sheet.save(OUTPUT / f"gt7-speed-style-{mode}{suffix}.png")
-        rpm_sheet.save(OUTPUT / f"gt7-rpm-style-{mode}{suffix}.png")
+        for role in ("speed", "rpm"):
+            choices = dial_style_module.choices(mode, role)
+            choices = [choices[i] for i in range(1, len(choices) + 1)]
+            columns, cell_w, cell_h = 4, 300, 310
+            rows = math.ceil(len(choices) / columns)
+            sheet = Image.new("RGB", (columns * cell_w, rows * cell_h), "#121416")
+            for index, item in enumerate(choices):
+                style_id = item["value"]
+                x, y = (index % columns) * cell_w, (index // columns) * cell_h
+                if role == "speed":
+                    picture = render("style-review", mode=mode, lights=True, theme=theme,
+                        speed_dial_style=style_id, rpm_dial_style="original")
+                    crop = picture.crop((0, 78, 350, 433))
+                else:
+                    picture = render("style-review", mode=mode, lights=True, theme=theme,
+                        speed_dial_style="original", rpm_dial_style=style_id)
+                    crop = picture.crop((1090, 78, 1440, 433))
+                sheet.paste(crop.resize((280, 280), Image.Resampling.LANCZOS), (x+10, y))
+                ImageDraw.Draw(sheet).text((x+12, y+282), item["label"], font=label_face, fill="#f2dbae")
+            suffix = "-light" if theme == "light" else ""
+            sheet.save(OUTPUT / f"gt7-{role}-style-{mode}{suffix}.png")
     if styles_only:
         render("gt7-mixed-analog", speed_dial_style="shelf", rpm_dial_style="spoke", lights=True)
         render("gt7-mixed-digital", mode="digital", speed_dial_style="offset", rpm_dial_style="orbit", lights=True)

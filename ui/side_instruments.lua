@@ -366,9 +366,10 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local radius = layout.dialRadius
   local visual = state.gt7Instruments
   local mode = rpm and settings.gt7RpmNeedleMode or settings.gt7SpeedNeedleMode
+  local role = rpm and 'rpm' or 'speed'
   local selectedStyle = rpm and settings.gt7RpmDialStyle or settings.gt7SpeedDialStyle
-  selectedStyle = DialStyles.normalize(selectedStyle, mode)
-  local face = DialStyles.get(selectedStyle, mode)
+  selectedStyle = DialStyles.normalize(selectedStyle, mode, role)
+  local face = DialStyles.get(selectedStyle, mode, role)
   local first, last = math.rad(face.first), math.rad(face.last)
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
   if digital == nil then digital = mode == 'digital' and 1 or 0 end
@@ -377,9 +378,9 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
   local L = Light.resolve(C, settings.theme, light)
   ui.drawCircleFilled(center, radius * scale, Theme.withAlpha(C.panel, math.min(0.96, backdropOpacity + 0.18)), 72)
   Light.ambient(center, scale, L)
-  if StyledInstruments.supports(selectedStyle) then
+  if StyledInstruments.supports(selectedStyle, mode, role) then
     StyledInstruments.draw(selectedStyle, center, scale, state, settings, C, L,
-      digital, light, rpm, rpmColor, subGauge, lowerArcGauge)
+      digital, light, rpm, rpmColor, subGauge, lowerArcGauge, mode, role)
     return
   end
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.
