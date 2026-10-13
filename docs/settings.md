@@ -9,10 +9,10 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 ## Dial and GT7
 
 - Switch between analog and digital modes. GT7 speed and RPM dials can use different modes.
-- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Track (3A), Concentric or Spoke. Original remains the upgrade default.
+- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Track (3A), Halo (6A), Concentric or Spoke. Original remains the upgrade default.
 - Retired analog variants 2 and 4 revert to Original. Analog 5 Concentric has a transparent opening and an opaque central speed face; its center stays opaque when background opacity is reduced.
-- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset, 5D Core Capsule and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
-- The five analog variants include brake/throttle tracks, optional clutch and steering, independent TC/ABS levels, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
+- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset, 5D Core Capsule, 6D Halo and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
+- Analog variants include brake/throttle tracks, optional clutch and steering, TC/ABS states, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
 - Select one of 24 analog needle geometries. The standalone RPM needle and GT7 speed/RPM needles keep separate selections.
 - Adjust GT7 side dial scale/spacing and status indicator size.
 - Choose GT7 presets or customize central speed, gear, steering, RPM bar, pedal position/style, radar and flags independently.
@@ -64,6 +64,8 @@ Basics opens by default. Personalization and Advanced expand when needed. Preset
 Stored settings keep their existing keys when upgrading to the single complete package. Feature availability no longer depends on a package edition.
 
 All standalone variants reuse the original bezel turn indicators and lower lamp. Variant faces use the shared theme palette and GT7 instrument illumination, including the headlight transition and flasher response. Digital 6 Orbit has a dedicated upper-left turbo/AERO/battery gauge and upper-right fuel gauge.
+
+Halo 6A/6D share a corona of sixteen progressive RPM dots and a fixed top chevron. Halo 6A keeps the analog RPM numbers, selectable needle and upper speed; Halo 6D has larger central speed, exact RPM above and a circular gear badge below. Thin interior tracks show turbo/AERO or battery charge on the left, fuel on the right, brake/throttle just inside those tracks, and optional clutch below. Electric power remains a numeric readout beside the battery icon. Both use symbol-only states and preserve redline, shift, fuel, race flag and handbrake alerts; the digital steering marker follows the gear ring, while analog steering uses the needle hub ring.
 
 Analog 3A Track uses a clean circular RPM scale with a distinct redline sector, a large upper speed readout, a raised lower gear badge and a compact auxiliary screen. It omits numeric RPM; its four status symbols sit in two columns spaced away from the inner steering ring, without level numbers, and its flag/warning indicators sit at the bottom. Digital 5D Core Capsule emphasizes the central speed and groups gear and exact RPM in a lower capsule; turbo/AERO/battery and fuel share a 230-degree upper bezel sweep, rising from their lower ends toward a triangular top divider, with icons below their arcs and no auxiliary units. Its pedal strips use colors without letters, its status cards use icons without level numbers, and flag/warning indicators sit beneath those cards. Both keep the shared bezel and the standalone dial's pedal, steering, clutch and status readouts.
 

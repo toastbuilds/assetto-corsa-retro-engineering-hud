@@ -17,6 +17,9 @@ def main():
     parser.add_argument('--theme', choices=('dark', 'light'), default='dark')
     parser.add_argument('--size', type=int, default=620)
     parser.add_argument('--aux', choices=('turbo', 'fuel', 'electric'), default='turbo')
+    parser.add_argument('--family', choices=('inspired', 'halo'), default='inspired')
+    parser.add_argument('--rpm', type=float, default=0.65, help='Normalized RPM fraction')
+    parser.add_argument('--clock', type=float, default=0.05, help='Alert animation time')
     parser.add_argument('--alerts', action='store_true', help='Show flag, handbrake warning and pit limiter')
     args = parser.parse_args()
     os.chdir(ROOT)
@@ -41,6 +44,14 @@ def main():
     )
     for key, value in sample.items():
         state[key] = value
+    fraction = max(0, min(args.rpm, 1))
+    state['rpm'] = round(fraction * 8000)
+    state['rpmText'] = str(round(fraction * 8000))
+    state['analogNeedleNormalized'] = fraction
+    state['rpmGaugeNormalized'] = fraction
+    state['rpmWarning'] = fraction >= 0.86
+    state['rpmRedline'] = fraction >= 0.96
+    state['clock'] = args.clock
     if args.alerts:
         state['handbrake'] = 1
         state['raceFlagType'] = 2
@@ -73,6 +84,28 @@ def main():
         'digital_original': dict(instrumentMode='digital', digitalVariant='original'),
         'core_capsule': dict(instrumentMode='digital', digitalVariant='core_capsule'),
     }
+    if args.family == 'halo':
+        references = {
+            'track': reference_dial((1178, 675, 1512, 1009), (166, 166), 154),
+            'capsule': reference_dial((808, 675, 1138, 1005), (168, 168), 156),
+        }
+        render_specs = {
+            'analog_original': dict(instrumentMode='analog', analogVariant='track'),
+            'track': dict(instrumentMode='analog', analogVariant='halo'),
+            'digital_original': dict(instrumentMode='digital', digitalVariant='core_capsule'),
+            'core_capsule': dict(instrumentMode='digital', digitalVariant='halo'),
+        }
+    filenames = {'analog_original': 'halo-baseline-track', 'track': 'halo-analog',
+                 'digital_original': 'halo-baseline-capsule', 'core_capsule': 'halo-digital'} if args.family == 'halo' else {}
+    suffix = ('' if args.aux == 'turbo' else f'-{args.aux}') + ('-alerts' if args.alerts else '')
+    if args.rpm != 0.65:
+        suffix += f'-rpm-{round(fraction * 100)}'
+    if args.clock != 0.05:
+        suffix += f'-phase-{args.clock}'
+    size_suffix = '' if args.size == 620 else f'-{args.size}'
+    normal_comparison = args.theme == 'dark' and args.aux == 'turbo' and not args.alerts and args.rpm == 0.65 and args.clock == 0.05
+    comparison_prefix = 'comparison-halo' if args.family == 'halo' else 'comparison'
+    comparison_name = f'{comparison_prefix}-dark.png' if args.size == 620 else f'{comparison_prefix}-in-game-{args.theme}-{args.size}.png'
     rendered = {}
     for name, selection in render_specs.items():
         options = lua.table_from(dict(
@@ -82,12 +115,10 @@ def main():
         calls = harness['drawDial'](options, state, lua.table_from((args.size, args.size)))
         image = preview.raster(calls, args.size, args.size, background='#e8e8e4')
         rendered[name] = image
-        suffix = ('' if args.aux == 'turbo' else f'-{args.aux}') + ('-alerts' if args.alerts else '')
-        size_suffix = '' if args.size == 620 else f'-{args.size}'
-        image.save(out / f'{name}-{args.theme}{size_suffix}{suffix}.png')
+        image.save(out / f'{filenames.get(name, name)}-{args.theme}{size_suffix}{suffix}.png')
 
-    if args.theme == 'dark' and args.aux == 'turbo' and not args.alerts:
-        cell, margin, label_h = 340, 22, 36
+    if normal_comparison:
+        cell, margin, label_h = min(args.size, 340), 22, 36
         sheet = Image.new('RGB', (cell * 3 + margin * 4, (cell + label_h) * 2 + margin * 3), '#e8e8e4')
         draw = ImageDraw.Draw(sheet)
         font = ImageFont.truetype('C:/Windows/Fonts/consola.ttf', 16)
@@ -97,6 +128,13 @@ def main():
             ('DIGITAL · 5D', references['capsule'], rendered['digital_original'], rendered['core_capsule'],
              ('Referencia 5D', 'Dial actual · Original', 'Nuevo · Core Capsule')),
         )
+        if args.family == 'halo':
+            rows = (
+                ('ANALÓGICO · 6A', references['track'], rendered['analog_original'], rendered['track'],
+                 ('Referencia 6A', 'Actual · Track', 'Nuevo · Halo')),
+                ('DIGITAL · 6D', references['capsule'], rendered['digital_original'], rendered['core_capsule'],
+                 ('Referencia 6D', 'Actual · Core Capsule', 'Nuevo · Halo')),
+            )
         for row, (title, reference, original, proposal, labels) in enumerate(rows):
             y = margin + row * (cell + label_h + margin)
             draw.text((margin, y), title, font=font, fill='#343434')
@@ -108,14 +146,9 @@ def main():
                     sheet.paste(image, (x, y + label_h), image.getchannel('A'))
                 else:
                     sheet.paste(image, (x, y + label_h))
-        comparison_name = 'comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png'
         sheet.save(out / comparison_name)
 
-    suffix = ('' if args.aux == 'turbo' else f'-{args.aux}') + ('-alerts' if args.alerts else '')
-    size_suffix = '' if args.size == 620 else f'-{args.size}'
-    target = out / (('comparison-dark.png' if args.size == 620 else f'comparison-in-game-{args.theme}-{args.size}.png')
-                    if args.theme == 'dark' and args.aux == 'turbo' and not args.alerts
-                    else f'core_capsule-{args.theme}{size_suffix}{suffix}.png')
+    target = out / (comparison_name if normal_comparison else f'{filenames.get("core_capsule", "core_capsule")}-{args.theme}{size_suffix}{suffix}.png')
     print(target)
 
 
