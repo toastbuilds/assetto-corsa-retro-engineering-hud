@@ -6,7 +6,7 @@ local function has(calls,value)
   for _,c in ipairs(calls) do if c.kind=='text' and c.text==value then return true end end
   return false
 end
-assert(#Layouts.choices==8 and Layouts.get('halo')~=nil and Layouts.get('5')==nil)
+assert(#Layouts.choices==11 and Layouts.get('halo')~=nil and Layouts.get('5')==nil)
 Settings.values.analogVariant='fan'
 Settings.values.digitalVariant='unknown'
 assert(Settings.current().digitalVariant=='original')
@@ -59,7 +59,7 @@ for id,layout in pairs(Layouts.layouts) do
   state.hybrid=nil
   state.available=false
   calls=h.drawDial({instrumentMode='digital',digitalVariant=id,analogAuxiliaryMode='turbo'},state)
-  if id=='orbit' or id=='column' then assert(not has(calls,'N/A'))
+  if layout.hideAuxValues then assert(not has(calls,'N/A'))
   else assert(has(calls,'N/A')) end
   state.available=true
 end

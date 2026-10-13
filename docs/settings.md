@@ -9,9 +9,9 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 ## Dial and GT7
 
 - Switch between analog and digital modes. GT7 speed and RPM dials can use different modes.
-- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Track (3A), Halo (6A), Concentric or Spoke. Original remains the upgrade default.
+- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Track (3A), Halo (6A), Jewel (1A), Spectrum (2A), Concentric or Spoke. Original remains the upgrade default.
 - Retired analog variants 2 and 4 revert to Original. Analog 5 Concentric has a transparent opening and an opaque central speed face; its center stays opaque when background opacity is reduced.
-- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset, 5D Core Capsule, 6D Halo and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
+- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset, 5D Core Capsule, 6D Halo, 1D Jewel, 2D Spectrum, 4D Floating and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
 - Analog variants include brake/throttle tracks, optional clutch and steering, TC/ABS states, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
 - Select one of 24 analog needle geometries. The standalone RPM needle and GT7 speed/RPM needles keep separate selections.
 - Adjust GT7 side dial scale/spacing and status indicator size.
@@ -66,6 +66,14 @@ Stored settings keep their existing keys when upgrading to the single complete p
 All standalone variants reuse the original bezel turn indicators and lower lamp. Variant faces use the shared theme palette and GT7 instrument illumination, including the headlight transition and flasher response. Digital 6 Orbit has a dedicated upper-left turbo/AERO/battery gauge and upper-right fuel gauge.
 
 Halo 6A/6D share a corona of sixteen progressive RPM dots and a fixed top chevron. Halo 6A keeps the analog RPM numbers, selectable needle and upper speed; Halo 6D has larger central speed, exact RPM above and a circular gear badge below. Thin interior tracks show turbo/AERO or battery charge on the left, fuel on the right, brake/throttle just inside those tracks, and optional clutch below. Electric power remains a numeric readout beside the battery icon. Both use symbol-only states and preserve redline, shift, fuel, race flag and handbrake alerts; the digital steering marker follows the gear ring, while analog steering uses the needle hub ring.
+
+Jewel 1A/1D use a full circular crown of alternating large and small dots. RPM illuminates the numbered sweep progressively; small lower decorative dots complete the crown within the shared circular bezel. Jewel 1A keeps upper speed and the analog needle; Jewel 1D uses central speed, a lower gear badge and exact RPM below, with a graduated horizontal steering line.
+
+Spectrum 2A/2D use a broad green/amber/red band. Spectrum 2A places the RPM hand and numbered scale inside the band; its outer pointer follows RPM. Spectrum 2D makes the outer band a speedometer, using the car's existing speed scale and selected km/h or mph units, and reports RPM independently on the lower arc and numeric readout. Steering follows the gear ring.
+
+Floating 4D places speed toward the left of an inclined gear capsule, symbol states above, thin pedals below the speed and RPM on the lower arc. Turbo/AERO/battery and fuel occupy the outer sides, identified by icons without numeric auxiliary values. Steering uses the upper graduated line. All five faces preserve the original bezel lamps, theme illumination, fuel thresholds and existing visibility settings.
+
+Reference comparisons can be regenerated with `python tools/preview-inspired-dials.py --family final --size 320`; add `--theme light`, `--aux electric`, or `--aux fuel --alerts --rpm 1` for alternate states. Images are written to `output/dial-inspirations`.
 
 Analog 3A Track uses a clean circular RPM scale with a distinct redline sector, a large upper speed readout, a raised lower gear badge and a compact auxiliary screen. It omits numeric RPM; its four status symbols sit in two columns spaced away from the inner steering ring, without level numbers, and its flag/warning indicators sit at the bottom. Digital 5D Core Capsule emphasizes the central speed and groups gear and exact RPM in a lower capsule; turbo/AERO/battery and fuel share a 230-degree upper bezel sweep, rising from their lower ends toward a triangular top divider, with icons below their arcs and no auxiliary units. Its pedal strips use colors without letters, its status cards use icons without level numbers, and flag/warning indicators sit beneath those cards. Both keep the shared bezel and the standalone dial's pedal, steering, clutch and status readouts.
 

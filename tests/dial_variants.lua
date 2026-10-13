@@ -71,7 +71,7 @@ for id,layout in pairs(Layouts.layouts) do
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)
   assert(not contains(calls,'TURBO'))
   if id=='concentric' then assert(not contains(calls,'0.70'))
-  else assert(contains(calls,id=='halo' and '0.70' or '0.70 BAR')) end
+  else assert(contains(calls,layout.haloRpm and '0.70' or '0.70 BAR')) end
   local flagDrawn,rpmAlert=false,false
   local palette=require('src/theme').get('dark')
   for _,call in ipairs(calls) do
@@ -84,13 +84,13 @@ for id,layout in pairs(Layouts.layouts) do
   end
   state.hybrid={charge=0.84,powerKw=-38,needle=-0.55,maximumKw=150,recoveryKw=100}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='auto'},state)
-  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,id=='halo' and '-38' or '-38 kW')),'hybrid auto mode includes recovery')
+  assert(not contains(calls,'ERS') and (id=='concentric' or contains(calls,layout.haloRpm and '-38' or '-38 kW')),'hybrid auto mode includes recovery')
   state.hybrid={charge=nil,delivery=0.4,needle=0.4}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,id=='halo' and '40' or '40%'),'delivery fallback must not fabricate kW')
+  assert(id=='concentric' or contains(calls,layout.haloRpm and '40' or '40%'),'delivery fallback must not fabricate kW')
   state.hybrid={charge=0.4,batteryRecovery=true,chargeRecoveryRate=0.3,needle=-0.2}
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='electric'},state)
-  assert(id=='concentric' or contains(calls,id=='halo' and '-0.3' or '-0.3%/s'),'battery recovery retains its units')
+  assert(id=='concentric' or contains(calls,layout.haloRpm and '-0.3' or '-0.3%/s'),'battery recovery retains its units')
   state.hybrid=nil
   state.turboAvailable=false
   calls=h.drawDial({analogVariant=id,analogAuxiliaryMode='turbo'},state)

@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--theme', choices=('dark', 'light'), default='dark')
     parser.add_argument('--size', type=int, default=620)
     parser.add_argument('--aux', choices=('turbo', 'fuel', 'electric'), default='turbo')
-    parser.add_argument('--family', choices=('inspired', 'halo'), default='inspired')
+    parser.add_argument('--family', choices=('inspired', 'halo', 'final'), default='inspired')
     parser.add_argument('--rpm', type=float, default=0.65, help='Normalized RPM fraction')
     parser.add_argument('--clock', type=float, default=0.05, help='Alert animation time')
     parser.add_argument('--alerts', action='store_true', help='Show flag, handbrake warning and pit limiter')
@@ -73,6 +73,42 @@ def main():
                                       center[0] + radius, center[1] + radius), fill=255)
         crop.putalpha(mask)
         return crop
+
+    if args.family == 'final':
+        entries = (
+            ('1A · Jewel', 'analog', 'jewel', (425, 14, 755, 344)),
+            ('1D · Jewel', 'digital', 'jewel', (42, 14, 372, 344)),
+            ('2A · Spectrum', 'analog', 'spectrum', (1178, 14, 1508, 344)),
+            ('2D · Spectrum', 'digital', 'spectrum', (807, 14, 1137, 344)),
+            ('4D · Floating', 'digital', 'floating', (807, 348, 1137, 678)),
+        )
+        cell, margin, label_h = min(args.size, 340), 22, 36
+        sheet = Image.new('RGB', (cell * 2 + margin * 3, (cell + label_h + margin) * len(entries) + margin), '#e8e8e4')
+        draw = ImageDraw.Draw(sheet)
+        label_font = ImageFont.truetype('C:/Windows/Fonts/consola.ttf', 16)
+        suffix = f'-{args.theme}-{args.size}'
+        suffix += '' if args.aux == 'turbo' else f'-{args.aux}'
+        suffix += '-alerts' if args.alerts else ''
+        suffix += f'-rpm-{round(fraction * 100)}' if args.rpm != 0.65 else ''
+        suffix += f'-phase-{args.clock}' if args.clock != 0.05 else ''
+        for row, (label, mode, variant, bounds) in enumerate(entries):
+            options = lua.table_from(dict(instrumentMode=mode, analogVariant=variant, digitalVariant=variant,
+                analogAuxiliaryMode=args.aux, analogNeedleStyle='a01', hudScale=1,
+                theme=args.theme, backgroundOpacity=0.72))
+            calls = harness['drawDial'](options, state, lua.table_from((args.size, args.size)))
+            rendered = preview.raster(calls, args.size, args.size, background='#e8e8e4')
+            rendered.save(out / f'{variant}-{mode}{suffix}.png')
+            reference = reference_dial(bounds, (165, 165), 158)
+            y = margin + row * (cell + label_h + margin)
+            for column, (item, caption) in enumerate(((reference, f'Referencia {label}'), (rendered, f'Implementado {label}'))):
+                x = margin + column * (cell + margin)
+                draw.text((x, y), caption, font=label_font, fill='#343434')
+                item = item.resize((cell, cell), Image.Resampling.LANCZOS)
+                sheet.paste(item, (x, y + label_h), item.getchannel('A') if item.mode == 'RGBA' else None)
+        target = out / f'comparison-final-concepts{suffix}.png'
+        sheet.save(target)
+        print(target)
+        return
 
     references = {
         'track': reference_dial((420, 343, 755, 678), (165, 165), 155),

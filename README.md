@@ -12,7 +12,7 @@ Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Eleven independe
 
 | Window | What it shows |
 | --- | --- |
-| Dial | Analog/digital speed and RPM; Original plus six analog and seven digital variants, including Track, Core Capsule and Halo 6A/6D; fuel, turbo or hybrid power, pedals, TC/ABS and lights |
+| Dial | Analog/digital speed and RPM; Original plus eight analog and ten digital variants, including Jewel 1A/1D, Spectrum 2A/2D, Floating 4D, Track, Core Capsule and Halo 6A/6D; fuel, turbo or hybrid power, pedals, TC/ABS and lights |
 | GT7 | Configurable central display and side dials; Classic, Modern, Outer Pedals and Steering Dial presets |
 | Car Condition | Tyre life, pressures, temperatures, grip references, stint and vehicle condition |
 | Multiclass Relative | Nearby cars on track, classes, relative gaps, sectors and personal records |
