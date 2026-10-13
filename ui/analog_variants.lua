@@ -220,14 +220,14 @@ local function drawSelectorHub(c,gear,count)
   if s.available==false then selectorAnimations[s]=nil else selectorAnimations[s]=animation end
   angle=math.rad(angle)
 
-  circle(c,310,304,94,C.metalDim,true)
-  circle(c,310,304,94,C.metal,false,1.5)
-  circle(c,310,304,89,C.panelRaised,true)
-  circle(c,310,304,77,C.panel,true)
-  circle(c,310,304,77,Light.color(C.amber,c.L.major),false,1.8)
-  circle(c,310,304,72,C.outlineDim,false,1)
+  circle(c,310,304,108.1,C.metalDim,true)
+  circle(c,310,304,108.1,C.metal,false,1.5)
+  circle(c,310,304,102.35,C.panelRaised,true)
+  circle(c,310,304,88.55,C.panel,true)
+  circle(c,310,304,88.55,Light.color(C.amber,c.L.major),false,1.8)
+  circle(c,310,304,82.8,C.outlineDim,false,1)
   local points={}
-  for _,p in ipairs({{103,0},{82,10},{82,-10}}) do
+  for _,p in ipairs({{118.45,0},{94.3,11.5},{94.3,-11.5}}) do
     points[#points+1]={310+p[1]*math.cos(angle)-p[2]*math.sin(angle),
       304+p[1]*math.sin(angle)+p[2]*math.cos(angle)}
   end
