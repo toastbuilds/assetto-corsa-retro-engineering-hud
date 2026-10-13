@@ -227,8 +227,10 @@ local function drawSelectorHub(c,gear,count,cue)
   circle(c,310,304,108.1,C.metalDim,true)
   circle(c,310,304,108.1,C.metal,false,1.5)
   circle(c,310,304,102.35,C.panelRaised,true)
-  circle(c,310,304,88.55,C.panel,true)
-  circle(c,310,304,88.55,Light.color(C.amber,c.L.major),false,1.8)
+  local cueFill=cue and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panel
+  local cueInk=cue and (cue.direction=='up' and C.red or C.shiftBlue) or C.amber
+  circle(c,310,304,88.55,cueFill,true)
+  circle(c,310,304,88.55,Light.color(cueInk,c.L.major),false,1.8)
   circle(c,310,304,82.8,C.outlineDim,false,1)
   local points={}
   for _,p in ipairs({{118.45,0},{94.3,11.5},{94.3,-11.5}}) do

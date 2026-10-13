@@ -44,7 +44,7 @@ function M.shiftCue(state)
   if not finite(fraction) then return nil end
   local up=(finite(state.rpmRedlineFraction) and state.rpmRedlineFraction or 0.96)*1.02
   if gear<count and fraction>=up then return {gear=gear+1,direction='up'} end
-  if gear>1 and fraction<=0.45 then return {gear=gear-1,direction='down'} end
+  if gear>1 and fraction<=0.55 then return {gear=gear-1,direction='down'} end
   return nil
 end
 function M.angle(gear,count)

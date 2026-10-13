@@ -220,7 +220,7 @@ def main(hybrid=False, styles_only=False, auxiliary_only=False, snap_shifts_only
                      ("Digital / individual", "digital", "individual"),
                      ("Digital / GT7", "digital", "gt7"))
         for row, (label, mode, family) in enumerate(scenarios):
-            for col, (cue_label, rpm) in enumerate((("UPSHIFT", 7840), ("DOWNSHIFT", 3600))):
+            for col, (cue_label, rpm) in enumerate((("UPSHIFT", 7840), ("DOWNSHIFT", 4400))):
                 state["gearText"], state["gearCount"] = "3", 6
                 state["rpmDisplayLimiter"], state["rpmGaugeLimiter"] = 8000, 8000
                 state["rpmRedlineFraction"], state["rpm"] = 0.96, rpm

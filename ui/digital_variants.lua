@@ -200,11 +200,13 @@ local function gearSelector(c)
   local lit=alert and blink(c,animate,
     s.rpmRedline and 0.12 or 0.14)
   local ink=alert and rpmInk(c) or C.amber
+  local cueFill=cue and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or nil
+  local cueInk=cue and (cue.direction=='up' and C.red or C.shiftBlue) or nil
   circle(c,310,304,108.1,C.metalDim,true)
   circle(c,310,304,108.1,C.metal,false,1.5)
   circle(c,310,304,102.35,C.panelRaised,true)
-  circle(c,310,304,88.55,lit and (s.rpmRedline and C.coreRed or C.coreAmber) or C.panel,true)
-  circle(c,310,304,88.55,Light.color(ink,c.L.major),false,1.8)
+  circle(c,310,304,88.55,cueFill or (lit and (s.rpmRedline and C.coreRed or C.coreAmber) or C.panel),true)
+  circle(c,310,304,88.55,Light.color(cueInk or ink,c.L.major),false,1.8)
   circle(c,310,304,82.8,C.outlineDim,false,1)
   -- Bolts and the plate's notch rotate together; the reading stays upright.
   for i=0,5 do

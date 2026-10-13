@@ -46,11 +46,11 @@ assert(Selector.shiftCue(cueState)==nil,'upshift cue stays off below 2% above co
 cueState.rpm=7834
 local cue=Selector.shiftCue(cueState)
 assert(cue and cue.gear==4 and cue.direction=='up','upshift cue marks the next gear above configured redline')
-cueState.rpm=3601
-assert(Selector.shiftCue(cueState)==nil,'downshift cue stays off above 45% RPM')
-cueState.rpm=3600
+cueState.rpm=4401
+assert(Selector.shiftCue(cueState)==nil,'downshift cue stays off above 55% RPM')
+cueState.rpm=4400
 cue=Selector.shiftCue(cueState)
-assert(cue and cue.gear==2 and cue.direction=='down','downshift cue marks the previous gear at 45% RPM')
+assert(cue and cue.gear==2 and cue.direction=='down','downshift cue marks the previous gear at 55% RPM')
 cueState.gearText='1'
 assert(Selector.shiftCue(cueState)==nil,'first gear never recommends reverse')
 cueState.gearText='6'; cueState.rpm=8000

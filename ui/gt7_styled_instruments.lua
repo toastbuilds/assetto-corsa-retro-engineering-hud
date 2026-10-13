@@ -343,8 +343,10 @@ drawSnapSelector=function(center,scale,state,settings,C,L,aboveRing)
   local radial=vec2(math.cos(a),math.sin(a))
   local tip=center+radial*(55*scale)
   local base=center+radial*(45*scale)
-  ui.drawCircleFilled(center,45*scale,C.panel,48)
-  ui.drawCircle(center,45*scale,Light.color(C.amber,L.major),48,1.5*scale)
+  local cueFill=cue and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panel
+  local cueInk=cue and (cue.direction=='up' and C.red or C.shiftBlue) or C.amber
+  ui.drawCircleFilled(center,45*scale,cueFill,48)
+  ui.drawCircle(center,45*scale,Light.color(cueInk,L.major),48,1.5*scale)
   local points={tip,base+tangent*(4.5*scale),base-tangent*(4.5*scale)}
   local area=(points[1].x*points[2].y-points[2].x*points[1].y)
     +(points[2].x*points[3].y-points[3].x*points[2].y)
