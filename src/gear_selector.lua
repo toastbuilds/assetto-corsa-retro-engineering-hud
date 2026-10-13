@@ -1,5 +1,5 @@
 -- Mechanical selector presentation: live numerals never wait for the plate.
-local M = {duration=0.12, startAngle=155, endAngle=25}
+local M = {duration=0.12, startAngle=-155, endAngle=-25}
 local function finite(value)
   return type(value)=='number' and value==value and math.abs(value)<math.huge
 end

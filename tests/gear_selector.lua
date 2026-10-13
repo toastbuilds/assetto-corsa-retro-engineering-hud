@@ -19,12 +19,12 @@ close(angle,Selector.angle(2,6))
 animation,angle=Selector.sample(animation,3,6,0.01,true,'car')
 local from=angle
 animation,angle=Selector.sample(animation,3,6,0.07,true,'car')
-assert(angle<from and angle>=Selector.angle(3,6)-2)
+assert(angle>from and angle<=Selector.angle(3,6)+2)
 local interrupted=angle
 animation,angle=Selector.sample(animation,4,6,0.07,true,'car')
 close(angle,interrupted)
 animation,angle=Selector.sample(animation,4,6,0.17,true,'car')
-assert(angle<Selector.angle(4,6) and Selector.angle(4,6)-angle<2,'the mechanical rebound stays restrained')
+assert(angle>Selector.angle(4,6) and angle-Selector.angle(4,6)<2,'the mechanical rebound stays restrained')
 animation,angle=Selector.sample(animation,4,6,0.19,true,'car')
 close(angle,Selector.angle(4,6))
 animation,angle=Selector.sample(animation,0,6,0.20,true,'car')
@@ -37,6 +37,8 @@ animation,angle=Selector.sample(animation,1,6,0,true,'new-car')
 close(angle,Selector.angle(1,6))
 animation,angle=Selector.sample(animation,5,6,1,true,'new-car')
 close(angle,Selector.angle(5,6))
+assert(Selector.angle(-1,6)<Selector.angle(1,6) and Selector.angle(6,6)<0,
+  'all gear marks follow the upper arc in left-to-right order')
 
 local h=dofile('tests/gt7_layouts.lua')
 local Telemetry=require('src/telemetry')
