@@ -5,10 +5,20 @@ M.choices = {
   {value='original', label='Original'},
   {value='shelf', label='1 · Classic Shelf'},
   {value='fan', label='3 · Fan'},
+  {value='track', label='3A · Track'},
   {value='concentric', label='5 · Concentric'},
   {value='spoke', label='6 · Spoke'}
 }
 M.layouts = {
+  track = {
+    shell='shelf',frontLayer=false,
+    rpm={310,300,239,-195,25}, speed={310,369,52}, gear={310,451,38},
+    rpmValue={310,158},rpmValueSize=18,aux={139,405,104,70},auxStyle='screen',auxIcon=true,
+    steeringRing={310,300,56},graduatedSteeringRing=true,clutch={310,506,76},
+    pedals={{207,490,207,434},{413,490,413,434}},pedalStyle='line',pedalWidth=7.5,gearBadge={310,451,34},
+    statuses={{190,541},{260,541},{330,541},{400,541}},
+    turns={{229,310},{391,310}},warning={481,500},flag={139,500},needleLength=154
+  },
   shelf = {
     rpm={310,310,264,-185,5}, speed={310,418,54}, gear={154,420,56},
     aux={466,419,116,82}, auxStyle='screen',
@@ -48,10 +58,10 @@ for id, layout in pairs(M.layouts) do
   layout.id = id
   layout.images = {}
   for _, theme in ipairs({'dark','light'}) do
-    layout.images[theme] = {
-      back='assets/dial_variants/' .. id .. '_' .. theme .. '_back.png',
-      front='assets/dial_variants/' .. id .. '_' .. theme .. '_front.png'
-    }
+    layout.images[theme] = {back='assets/dial_variants/' .. (layout.shell or id) .. '_' .. theme .. '_back.png'}
+    if layout.frontLayer ~= false then
+      layout.images[theme].front='assets/dial_variants/' .. (layout.shell or id) .. '_' .. theme .. '_front.png'
+    end
   end
   local r = layout.rpm
   layout.startAngle, layout.endAngle = math.rad(r[4]), math.rad(r[5])

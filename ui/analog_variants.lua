@@ -23,7 +23,8 @@ local imagesByVariant = {}
 for id,layout in pairs(Layouts.layouts) do
   imagesByVariant[id] = {}
   for theme,images in pairs(layout.images) do
-    imagesByVariant[id][theme] = {back=imageRoot .. images.back,front=imageRoot .. images.front}
+    imagesByVariant[id][theme] = {back=imageRoot .. images.back,
+      front=images.front and (imageRoot .. images.front) or nil}
   end
 end
 
@@ -148,7 +149,7 @@ local function drawNeedle(c)
   local r=l.rpm
   local style=Config.normalizeNeedleStyle(c.settings.analogNeedleStyle,'a01')
   local preset=style=='a01' and classicHand or Config.needlePreset(style)
-  Needle.draw(point(c,r[1],r[2]),c.scale*(r[3]-40)/preset.length,
+  Needle.draw(point(c,r[1],r[2]),c.scale*(l.needleLength or (r[3]-40))/preset.length,
     l.startAngle+(l.endAngle-l.startAngle)*U.clamp(s.analogNeedleNormalized or 0,0,1),
     preset,C,c.L.light,s.rpmWarning and rpmColor(c) or nil)
 end
@@ -212,6 +213,17 @@ local function drawAuxiliary(c)
       bar(c,x-w/2+5,y+30,w-48,7,a.charge,a.charge and a.charge<=0.15 and C.red or C.green)
       text(c,a.charge and string.format('%.0f%%',a.charge*100) or '--%',10,x+w/2-17,y+33,C.primary)
     end
+    if c.layout.auxIcon then
+      local center=point(c,x,y+43)
+      local iconColor=Light.color(color,c.L.icon)
+      if a.electric then
+        ui.drawRect(center-vec2(7,5)*c.scale,center+vec2(7,5)*c.scale,iconColor,0,nil,1.3*c.scale)
+        line(c,x+9,y+41,x+9,y+45,iconColor,1)
+      else
+        local icon=a.label=='FUEL' and Icons.fuelIcon or a.label=='AERO' and Icons.aeroIcon or Icons.boostIcon
+        icon(center,c.scale*0.72,iconColor)
+      end
+    end
   else
     local dial=c.layout.auxStyle=='dial'
     local start,finish=dial and -220 or 62,dial and 50 or 118
@@ -273,15 +285,16 @@ local function drawControls(c)
   for i,p in ipairs(l.pedals) do
     local value=U.clamp(i==1 and (s.brake or 0) or (s.throttle or 0),0,1)
     local color=i==1 and C.red or C.cyan
+    local width=l.pedalWidth or 6
     if l.pedalStyle=='arc' then
       local a,b=p[4],p[5]
-      arc(c,p[1],p[2],p[3],a,b,C.inactive,6)
-      if value>0 then arc(c,p[1],p[2],p[3],a,a+(b-a)*value,color,6) end
+      arc(c,p[1],p[2],p[3],a,b,C.inactive,width)
+      if value>0 then arc(c,p[1],p[2],p[3],a,a+(b-a)*value,color,width) end
       local mid=math.rad((a+b)/2)
       text(c,i==1 and 'BRK' or 'THR',8,p[1]+(p[3]-12)*math.cos(mid),p[2]+(p[3]-12)*math.sin(mid),C.secondary)
     else
-      line(c,p[1],p[2],p[3],p[4],C.inactive,6)
-      if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,color,6) end
+      line(c,p[1],p[2],p[3],p[4],C.inactive,width)
+      if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,color,width) end
     end
   end
   if c.settings.showClutch~=false then
@@ -293,9 +306,22 @@ local function drawControls(c)
   if c.settings.showSteering~=false then
     if l.steeringRing then
       local p=l.steeringRing
-      local angle=-90+U.clamp(s.steeringInput or 0,-1,1)*145
-      arc(c,p[1],p[2],p[3],0,360,C.outlineDim,4)
+      if l.graduatedSteeringRing then
+        arc(c,p[1],p[2],p[3],-190,10,C.outlineDim,4)
+        for i=0,20 do
+          local a=math.rad(-190+i*10)
+          local length=i%5==0 and 8 or 4
+          line(c,p[1]+(p[3]-length)*math.cos(a),p[2]+(p[3]-length)*math.sin(a),
+            p[1]+(p[3]+2)*math.cos(a),p[2]+(p[3]+2)*math.sin(a),
+            i==10 and C.primary or C.secondary,i%5==0 and 2 or 1)
+        end
+      else
+        arc(c,p[1],p[2],p[3],0,360,C.outlineDim,4)
+      end
+      local angle=-90+U.clamp(s.steeringInput or 0,-1,1)*(l.graduatedSteeringRing and 100 or 145)
       arc(c,p[1],p[2],p[3],angle-7,angle+7,Light.color(C.cyan,c.L.icon),5)
+      ui.drawCircleFilled(point(c,p[1]+p[3]*math.cos(math.rad(angle)),
+        p[2]+p[3]*math.sin(math.rad(angle))),3.5*c.scale,Light.color(C.cyan,c.L.icon),24)
       return
     end
     local p=l.steering
@@ -387,7 +413,14 @@ function M.draw(state,settings,origin,scale)
     ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,
       Theme.withAlpha(Theme.get(settings.theme).panel,1),96)
   end
-  ui.drawImage(images.front,origin,finish,tint)
+  if images.front then ui.drawImage(images.front,origin,finish,tint) end
+  if layout.gearBadge then
+    local p=layout.gearBadge
+    ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,c.colors.panel,64)
+    ui.drawCircle(point(c,p[1],p[2]),p[3]*scale,c.colors.amber,64,2*scale)
+    ui.drawCircle(point(c,p[1],p[2]),(p[3]-5)*scale,c.colors.outlineDim,64,1*scale)
+    text(c,'GEAR',10,p[1],p[2]+p[3]-7,c.colors.secondary)
+  end
   local speed,gear=layout.speed,layout.gear
   text(c,state.speedText or '000',speed[3],speed[1],speed[2],c.colors.primary,true,true)
   text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+9,c.colors.primary,true)
@@ -395,7 +428,7 @@ function M.draw(state,settings,origin,scale)
   if not layout.hideRpmValue then
     local p=layout.rpmValue
     text(c,'RPM ×1000',13,p[1],p[2]-22,c.colors.primary,true)
-    text(c,state.rpmText or '0000',15,p[1],p[2],rpmColor(c),true)
+    text(c,state.rpmText or '0000',layout.rpmValueSize or 15,p[1],p[2],rpmColor(c),true)
   end
   drawAuxiliary(c)
   if layout.id~='concentric' then drawControls(c) end
