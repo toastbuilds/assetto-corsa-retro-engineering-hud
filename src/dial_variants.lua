@@ -7,10 +7,34 @@ M.choices = {
   {value='fan', label='3 · Fan'},
   {value='track', label='3A · Track'},
   {value='halo', label='6A · Halo'},
+  {value='jewel', label='1A · Jewel'},
+  {value='spectrum', label='2A · Spectrum'},
   {value='concentric', label='5 · Concentric'},
   {value='spoke', label='6 · Spoke'}
 }
 M.layouts = {
+  jewel = {
+    shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,conceptStyle='jewel',
+    rpm={310,304,242,-220,40},speed={310,185,52},gear={310,421,48},hideRpmValue=true,
+    gearBadge={310,421,42},needleLength=175,
+    steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
+    pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,
+    edgeAux={{310,304,164,135,205},{310,304,164,45,-25}},
+    edgeIcons={{190,451},{430,451}},edgeReadings={{174,478},{446,478}},
+    statuses={{216,306},{216,359},{404,306},{404,359}},statusRadius=18,iconStatuses=true,
+    warning={348,539},flag={270,539}
+  },
+  spectrum = {
+    shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,conceptStyle='spectrum',
+    rpm={310,304,234,-220,40},speed={310,182,52},gear={310,421,48},hideRpmValue=true,
+    gearBadge={310,421,42},needleLength=181,
+    steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
+    pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,
+    edgeAux={{310,304,164,135,205},{310,304,164,45,-25}},
+    edgeIcons={{190,451},{430,451}},edgeReadings={{174,478},{446,478}},
+    statuses={{216,306},{216,359},{404,306},{404,359}},statusRadius=18,iconStatuses=true,
+    warning={348,539},flag={270,539}
+  },
   halo = {
     shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,
     rpm={310,304,234,-220,40},speed={310,185,52},gear={310,421,44},hideRpmValue=true,
