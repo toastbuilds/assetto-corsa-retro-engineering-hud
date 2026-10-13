@@ -68,23 +68,26 @@ local function frame(c)
     end
   end
   if l.speedGraduations then
-    circle(c,310,304,248,C.outlineDim,false,1)
+    arc(c,310,304,248,-180,0,C.outlineDim,1)
     for i=0,79 do
       local a=math.rad(-90+i*4.5)
       local major=i%10==0
       local middle=i%5==0
       local length=major and 13 or middle and 8 or 4
       local color=major and C.primary or middle and C.secondary or C.outline
-      line(c,310+(258-length)*math.cos(a),304+(258-length)*math.sin(a),
-        310+258*math.cos(a),304+258*math.sin(a),color,major and 2 or 1)
+      if math.sin(a)<=0.001 then
+        line(c,310+(258-length)*math.cos(a),304+(258-length)*math.sin(a),
+          310+258*math.cos(a),304+258*math.sin(a),color,major and 2 or 1)
+      end
     end
     line(c,310,37,310,53,C.amber,3)
   end
   for i,p in ipairs(l.pedals) do
     if #p==4 and (i~=2 or c.settings.showClutch~=false) then
-      local height=p[4]+(l.compactPedals and 22 or l.id=='orbit' and 16 or 38)
-      box(c,p[1],p[2]-5,p[3]+30,height,C.panel,true,15)
-      box(c,p[1],p[2]-5,p[3]+30,height,C.amberDim,false,15)
+      local height=p[4]+(l.pedalCaptions==false and 14 or l.compactPedals and 22 or l.id=='orbit' and 16 or 38)
+      local y=p[2]-(l.pedalCaptions==false and 0 or 5)
+      box(c,p[1],y,p[3]+30,height,C.panel,true,math.min(15,height/2))
+      box(c,p[1],y,p[3]+30,height,C.amberDim,false,math.min(15,height/2))
     end
   end
   for _,p in ipairs(l.panels or {}) do
@@ -193,6 +196,7 @@ local function meter(c,p,value,color,label,horizontal)
     ui.drawRectFilled(pt(c,x,y),pt(c,x+(horizontal and p[3]/count-2 or p[3]),
       y+(horizontal and p[4] or p[4]/count-2)),i<=math.floor(value*count+0.5) and Light.color(color,c.L.subSegment) or C.inactive)
   end
+  if c.layout.pedalCaptions==false then return end
   if c.layout.compactPedals then
     text(c,label,10,p[1],p[2]-8,C.secondary)
   elseif horizontal and c.layout.id=='column' then
@@ -246,23 +250,65 @@ local function controls(c)
     end
   end
 end
+local function statusIcon(c,p,kind,ink)
+  local x,y=p[1],p[2]-(kind==1 and 2 or 0)
+  if kind==1 then
+    -- Car and two skid trails for traction control.
+    poly(c,{{x-9,y-1},{x-7,y-10},{x+7,y-10},{x+9,y-1},{x+9,y+5},{x-9,y+5}},ink,false,1.8)
+    line(c,x-6,y-5,x+6,y-5,ink,1.5)
+    for _,side in ipairs({-1,1}) do
+      line(c,x+side*10,y-2,x+side*10,y+3,ink,2.5)
+      line(c,x+side*5,y+8,x+side*9,y+11,ink,1.8)
+      line(c,x+side*9,y+11,x+side*5,y+14,ink,1.8)
+    end
+  elseif kind==2 then
+    -- Brake rotor between the conventional brake-warning brackets.
+    circle(c,x,y,9,ink,false,1.8)
+    circle(c,x,y,2.5,ink,true)
+    arc(c,x,y,15,140,220,ink,2)
+    arc(c,x,y,15,-40,40,ink,2)
+    for i=0,3 do
+      local a=math.rad(45+i*90)
+      line(c,x+5*math.cos(a),y+5*math.sin(a),x+8*math.cos(a),y+8*math.sin(a),ink,1.5)
+    end
+  elseif kind==3 then
+    arc(c,x-10,y,8,-90,90,ink,2)
+    line(c,x-10,y-8,x-10,y+8,ink,2)
+    for j=-1,1 do line(c,x+2,y+j*4,x+10,y+j*5,ink,2) end
+  else
+    -- Speed-limiter telltale for the pit limiter.
+    arc(c,x,y+4,12,-180,0,ink,2)
+    line(c,x-12,y+4,x-12,y+7,ink,2)
+    line(c,x+12,y+4,x+12,y+7,ink,2)
+    for i=-1,1 do
+      local a=math.rad(-90+i*60)
+      line(c,x+8*math.cos(a),y+4+8*math.sin(a),x+12*math.cos(a),y+4+12*math.sin(a),ink,1.5)
+    end
+    line(c,x,y+4,x+6,y-5,ink,2)
+    circle(c,x,y+4,2,ink,true)
+  end
+end
 local function statuses(c)
   local s,l,C=c.state,c.layout,c.C
   for i,label in ipairs({'TC','ABS','LIGHTS','PIT'}) do
     if i~=3 or c.settings.showLights~=false then
       local p=l.statuses[i]
-      box(c,p[1],p[2],58,44,C.panel,true,5)
+      local w,h=l.statusSize and l.statusSize[1] or 58,l.statusSize and l.statusSize[2] or 44
+      box(c,p[1],p[2],w,h,C.panel,true,5)
       local active=i==1 and s.tcActive or i==2 and s.absActive
         or i==3 and s.headlights and s.lightsAvailable or i==4 and (s.pitLimiter or s.pitLane)
       local color=active and C.amber or C.primary
-      box(c,p[1],p[2],58,44,active and C.amber or C.amberDim,false,5)
-      text(c,label,11,p[1],p[2]-11,C.primary)
-      if i==3 then
+      box(c,p[1],p[2],w,h,active and C.amber or C.amberDim,false,5)
+      if l.iconStatuses then
+        local ink=active and (i==3 and (s.highBeams and C.amber or C.cyan) or C.amber) or C.secondary
+        statusIcon(c,p,i,Light.color(ink,c.L.icon))
+      elseif i==3 then
         local ink=active and (s.highBeams and C.amber or C.cyan) or C.secondary
         arc(c,p[1]-10,p[2],8,-90,90,ink,2)
         line(c,p[1]-10,p[2]-8,p[1]-10,p[2]+8,ink,2)
         for j=-1,1 do line(c,p[1]+2,p[2]+j*5,p[1]+10,p[2]+j*6,ink,2) end
       else
+        text(c,label,11,p[1],p[2]-11,C.primary)
         local level=i==1 and s.tcLevel or i==2 and s.absLevel or nil
         text(c,level~=nil and c.settings.showTcAbsLevels~=false and tostring(level) or (active and 'ON' or '—'),
           21,p[1],p[2]+8,color,true)
@@ -302,14 +348,14 @@ end
 local function drawPerimeterBar(c,p,a,label,position)
   local value=valueFraction(a)
   local ink=meterColor(c,a)
-  local count,start,finish=12,p[4],p[5]
+  local count,start,finish=c.layout.edgeBarCount or 12,p[4],p[5]
   for i=1,count do
     local delta=(finish-start)/count
     local from=start+(i-0.88)*delta
     local to=start+(i-0.12)*delta
     arc(c,p[1],p[2],p[3],from,to,
       value and i<=math.floor(value*count+0.5) and Light.color(ink,c.L.segment) or c.C.inactive,
-      c.layout.id=='orbit' and 7 or 15)
+      c.layout.edgeBarWidth or (c.layout.id=='orbit' and 7 or 15))
   end
   local mid=math.rad((start+finish)/2)
   text(c,label,11,p[1]+(p[3]-20)*math.cos(mid),p[2]+(p[3]-20)*math.sin(mid),c.C.secondary)
@@ -350,43 +396,8 @@ local function drawSideBar(c,p,a,label)
       i<=active and Light.color(ink,c.L.segment) or c.C.inactive)
   end
 end
-local function drawPerimeterColumn(c,p,a)
-  local x,top,width,height=p[1],p[2],p[3],p[4]
-  local bottom=top+height
-  local value=a and valueFraction(a) or nil
-  local ink=a and meterColor(c,a) or c.C.outlineDim
-  local count=18
-  line(c,x-width/2-3,top-2,x+width/2+3,top-2,c.C.outlineDim)
-  line(c,x-width/2-3,bottom+2,x+width/2+3,bottom+2,c.C.outlineDim)
-  for i=1,count do
-    local y=bottom-i*height/count
-    local active=value and i<=math.floor(value*count+0.5)
-    ui.drawRectFilled(pt(c,x-width/2,y),pt(c,x+width/2,y+height/count-3),
-      active and Light.color(ink,c.L.segment) or c.C.inactive)
-  end
-  local reading
-  if a then
-    if a.label=='FUEL' and a.fraction~=nil then
-      reading=string.format('%.0f%%',a.fraction*100)
-    elseif a.electric and a.charge~=nil and not a.measuredPower then
-      reading=string.format('%.0f%%',a.charge*100)
-    else
-      reading=a.value:match('[%+%-]?%d+%.?%d*') or a.value
-    end
-  end
-  if reading then text(c,reading,13,x,top-16,ink,true) end
-  if a then edgeIcon(c,{x,bottom+19},a) end
-end
 local function auxiliary(c)
   local a=Auxiliary(c.state,c.settings.analogAuxiliaryMode)
-  if c.layout.coreCapsule then
-    local left=a
-    if left and left.label=='FUEL' then left=Auxiliary(c.state,'turbo') end
-    local fuel=Auxiliary(c.state,'fuel')
-    drawPerimeterColumn(c,c.layout.perimeterAux[1],left)
-    drawPerimeterColumn(c,c.layout.perimeterAux[2],fuel)
-    return
-  end
   if c.layout.dotAux then
     local r=c.layout.rpm
     local value=a and valueFraction(a)

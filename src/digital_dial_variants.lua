@@ -45,12 +45,14 @@ M.layouts = {
     edgeIcons={{87,225},{533,225}},
     warning={430,465},flag={190,465}},
   core_capsule={number='5D',coreCapsule=true,cleanPerimeter=true,speedGraduations=true,
-    speed={310,270,108},gear={206,410,44},rpmValue={317,410},rpmBar={420,410,92,14},
-    readout={310,410,350,64},perimeterAux={{100,190,18,174},{520,190,18,174}},
-    steering={310,349,94},graduatedSteering=true,
-    pedals={{190,465,52,8},{310,465,52,8},{430,465,52,8}},compactPedals=true,
-    statuses={{198,500},{274,500},{350,500},{426,500}},
-    warning={486,476},flag={134,476}}
+    speed={310,247,108},gear={206,386,44},rpmValue={317,386},rpmBar={420,386,92,14},
+    readout={310,386,350,64},edgeAux={{310,304,252,116,180},{310,304,252,64,0}},
+    edgeReadings={{81,285},{539,285}},edgeIcons={{209,527},{411,527}},
+    hideAuxUnits=true,edgeBarWidth=10,edgeBarCount=20,
+    steering={310,326,94},graduatedSteering=true,
+    pedals={{190,438,52,8},{310,438,52,8},{430,438,52,8}},compactPedals=true,pedalCaptions=false,
+    statuses={{211,489},{277,489},{343,489},{409,489}},iconStatuses=true,statusSize={44,40},
+    warning={348,539},flag={272,539}}
 
 }
 for id,l in pairs(M.layouts) do
