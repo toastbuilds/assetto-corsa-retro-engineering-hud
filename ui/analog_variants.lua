@@ -233,10 +233,6 @@ local function drawSelectorHub(c,gear,count)
   end
   polygon(c,points,C.panel)
   polygon(c,points,Light.color(gear and gear~=0 and C.amber or C.outline,c.L.icon))
-  circle(c,310,304,16,C.metalDim,true)
-  circle(c,310,304,13,C.metal,false,1.5)
-  circle(c,310,304,7,C.panelRaised,true)
-  circle(c,310,304,3,C.primary,true)
   for i=0,count do selectorCell(c,i,count,gear,true) end
   local p=l.gear
   local reading=gear==nil and '-' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear)

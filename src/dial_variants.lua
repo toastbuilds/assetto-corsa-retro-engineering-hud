@@ -92,7 +92,7 @@ M.layouts = {
   snap = {
     shell='shelf',frontLayer=false,
     selector=true,selectorRing={106,140,123,30},noClutch=true,hideSteering=true,
-    rpm={310,304,250,-200,20},speed={310,466,76},gear={310,356,56},
+    rpm={310,304,250,-200,20},speed={310,466,76},gear={310,304,68},
     hideRpmValue=true,hideAuxValues=true,needleLength=226,
     pedals={{162,480,216,480},{458,480,404,480}},pedalStyle='line',pedalWidth=8,
     edgeAux={{310,304,232,138,155},{310,304,232,42,25}},
