@@ -47,6 +47,7 @@ def main():
         "tests/halo_dials.lua",
         "tests/instrument_illumination.lua",
         "tests/gt7_dial_styles.lua",
+        "tests/gt7_auxiliary_styles.lua",
         "tests/hybrid_instruments.lua",
         "tests/hybrid_regeneration.lua",
     ]

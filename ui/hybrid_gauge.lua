@@ -2,6 +2,7 @@ local U = require('src/utils')
 local Light = require('ui/instrument_illumination')
 local Theme = require('src/theme')
 local Readout = require('src/dial_readout')
+local AuxiliaryStyles = require('ui/auxiliary_dial_styles')
 local M = {}
 
 local profiles = {
@@ -43,7 +44,7 @@ end
 
 -- Triptych option C: independent bipolar CHG/PWR arc plus a thinner state-
 -- of-charge arc at the bezel. Both views share identical telemetry semantics.
-function M.draw(center, scale, hybrid, palette, theme, lights, profile)
+function M.draw(center, scale, hybrid, palette, theme, lights, profile, style)
   local p = profiles[profile]
   local L = Theme.dialBacklight and Light.resolve(palette, theme, lights or 0) or {}
   local function text(value, size, x, y, color, style)
@@ -55,25 +56,46 @@ function M.draw(center, scale, hybrid, palette, theme, lights, profile)
     Light.text(value, size * scale, center + vec2(x * scale, y * scale), color, nil, style, scale)
   end
   local fraction = hybrid.needle
-  for i = 1, 16 do
-    local f = (i - 0.5) / 16
-    local signed = (p.reverse and 1 - f or f) * 2 - 1
-    local active = fraction ~= nil and ((signed > 0 and fraction > 0 and signed <= fraction)
-      or (signed < 0 and fraction < 0 and signed >= fraction))
-    local span = (p.powerEnd - p.powerStart) / 16
-    arc(center, p.powerRadius, p.powerStart + (i - 1 + 0.12) * span,
-      p.powerStart + (i - 0.12) * span, p.powerWidth,
-      active and (signed < 0 and palette.green or palette.cyan) or palette.inactive,
-      scale, active and L.subSegment or nil)
+  if style and style~='original' then
+    AuxiliaryStyles.draw(style,center,scale,{
+      radius=p.powerRadius,width=p.powerWidth,count=profile=='gt7_lower_arc' and 16 or 8,
+      first=p.powerStart,last=p.powerEnd
+    },AuxiliaryStyles.channel({
+      kind='power',zero=0.5,value=fraction and (fraction+1)/2 or nil,
+      available=fraction~=nil,marker=true
+    },palette,L),palette,L)
+  else
+    for i = 1, 16 do
+      local f = (i - 0.5) / 16
+      local signed = (p.reverse and 1 - f or f) * 2 - 1
+      local active = fraction ~= nil and ((signed > 0 and fraction > 0 and signed <= fraction)
+        or (signed < 0 and fraction < 0 and signed >= fraction))
+      local span = (p.powerEnd - p.powerStart) / 16
+      arc(center, p.powerRadius, p.powerStart + (i - 1 + 0.12) * span,
+        p.powerStart + (i - 0.12) * span, p.powerWidth,
+        active and (signed < 0 and palette.green or palette.cyan) or palette.inactive,
+        scale, active and L.subSegment or nil)
+    end
   end
   local batteryColor = hybrid.charge and hybrid.charge <= 0.15 and palette.red or palette.green
-  for i = 1, 32 do
-    local span = (p.batteryEnd - p.batteryStart) / 32
-    local j = p.reverse and 33 - i or i
-    local active = hybrid.charge ~= nil and i <= math.floor(hybrid.charge * 32 + 0.5)
-    arc(center, p.batteryRadius, p.batteryStart + (j - 1 + 0.15) * span,
-      p.batteryStart + (j - 0.15) * span, p.batteryWidth,
-      active and batteryColor or palette.inactive, scale, active and L.subSegment or nil)
+  if style and style~='original' then
+    local low=hybrid.charge~=nil and hybrid.charge<=0.15
+    AuxiliaryStyles.draw(style,center,scale,{
+      radius=p.batteryRadius,width=p.batteryWidth,count=profile=='gt7_lower_arc' and 20 or 12,
+      first=p.batteryStart,last=p.batteryEnd
+    },AuxiliaryStyles.channel({
+      kind='battery',value=hybrid.charge,available=hybrid.charge~=nil,
+      warning=0.15,lowInk=low and palette.red or nil,marker=true
+    },palette,L),palette,L)
+  else
+    for i = 1, 32 do
+      local span = (p.batteryEnd - p.batteryStart) / 32
+      local j = p.reverse and 33 - i or i
+      local active = hybrid.charge ~= nil and i <= math.floor(hybrid.charge * 32 + 0.5)
+      arc(center, p.batteryRadius, p.batteryStart + (j - 1 + 0.15) * span,
+        p.batteryStart + (j - 0.15) * span, p.batteryWidth,
+        active and batteryColor or palette.inactive, scale, active and L.subSegment or nil)
+    end
   end
   text('CHG', p.labelSize, -p.labelX, p.labelY, palette.green, L.label)
   text('PWR', p.labelSize, p.labelX, p.labelY, palette.cyan, L.label)

@@ -43,6 +43,8 @@ M.values = ac.storage({
   gt7RpmNeedleStyle = 'b01',
   gt7SpeedDialStyle = 'original',
   gt7RpmDialStyle = 'original',
+  gt7SpeedAuxiliaryStyle = 'original',
+  gt7RpmAuxiliaryStyle = 'original',
   gt7SimulateVacuum = true,
   gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
@@ -100,6 +102,8 @@ local function sanitizeComposition()
     M.values.gt7SpeedNeedleMode, 'speed')
   M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle,
     M.values.gt7RpmNeedleMode, 'rpm')
+  M.values.gt7SpeedAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7SpeedAuxiliaryStyle)
+  M.values.gt7RpmAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7RpmAuxiliaryStyle)
 end
 sanitizeComposition()
 
@@ -135,6 +139,7 @@ function M.current()
     'gt7PedalPosition', 'gt7PedalStyle', 'gt7RadarPresentation',
     'gt7FlagPresentation', 'gt7LowerFrameStyle',
     'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7SpeedDialStyle', 'gt7RpmDialStyle', 'gt7LowerPanelMode',
+    'gt7SpeedAuxiliaryStyle', 'gt7RpmAuxiliaryStyle',
     'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle', 'gt7SimulateVacuum', 'gt7VacuumMinimum',
     'gt7ProximityRadar', 'gt7RadarStyle', 'showSteering', 'showLights', 'debug'
   }) do
@@ -169,6 +174,7 @@ local function resetAppearance()
   M.values.gt7IndicatorScale = 1
   M.values.gt7SpeedNeedleStyle, M.values.gt7RpmNeedleStyle = 'b01', 'b01'
   M.values.gt7SpeedDialStyle, M.values.gt7RpmDialStyle = 'original', 'original'
+  M.values.gt7SpeedAuxiliaryStyle, M.values.gt7RpmAuxiliaryStyle = 'original', 'original'
 end
 
 function M.draw()
@@ -203,6 +209,8 @@ function M.draw()
         DialStyles.choices(M.values.gt7SpeedNeedleMode, 'speed'))
       choice('rpmDialStyle', 'RPM dial style',
         DialStyles.choices(M.values.gt7RpmNeedleMode, 'rpm'))
+      choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliary)
+      choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliary)
       if M.values.gt7SpeedNeedleMode == 'analog' then
         SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
           InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)

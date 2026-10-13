@@ -2,6 +2,28 @@
 -- They only describe face geometry; telemetry and dial composition stay shared.
 local M = {}
 
+M.auxiliary = {
+  {value='original',label='Original'}, {value='match',label='Match main dial'},
+  {value='halo',label='Halo'}, {value='jewel',label='Jewel'}, {value='spectrum',label='Spectrum'}
+}
+
+function M.normalizeAuxiliary(value)
+  for _,choice in ipairs(M.auxiliary) do
+    if choice.value==value then return value end
+  end
+  return 'original'
+end
+
+function M.auxiliaryStyle(settings,rpm)
+  local selected=M.normalizeAuxiliary(settings[rpm and 'gt7RpmAuxiliaryStyle' or 'gt7SpeedAuxiliaryStyle'])
+  if selected~='match' then return selected end
+  local main=settings[rpm and 'gt7RpmDialStyle' or 'gt7SpeedDialStyle']
+  for _,motif in ipairs({'halo','jewel','spectrum'}) do
+    if main==motif..'_analog' or main==motif..'_digital' then return motif end
+  end
+  return 'original'
+end
+
 M.analog = {
   {value='original', label='Original'},
   {value='shelf', label='Classic Shelf'},
