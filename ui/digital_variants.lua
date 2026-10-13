@@ -161,25 +161,27 @@ local function gearSelector(c)
   local count=Selector.count(s.gearCount,gear)
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
   local gap=math.min(1.5,step*0.12)
-  local size=math.min(40,step*2.2)
+  local ring=c.layout.selectorRing
+  local inner,outer,radius=ring[1],ring[2],ring[3]
+  local size=math.min(ring[4],step*2.2*radius/228)
   for i=0,count do
     local selected=gear==(i==0 and -1 or i)
     local a=Selector.startAngle+i*step+gap
     local b=Selector.startAngle+(i+1)*step-gap
     local ink=selected and C.amber or C.outline
-    arc(c,310,304,227.5,a,b,selected and C.coreAmber or C.panelRaised,53)
+    arc(c,310,304,radius,a,b,selected and C.coreAmber or C.panelRaised,outer-inner)
     local halo=selected and Light.halo(C.amber,c.L.segment)
-    if halo then arc(c,310,304,254,a,b,halo,4) end
-    arc(c,310,304,254,a,b,Light.color(ink,selected and c.L.segment or nil),1.5)
-    arc(c,310,304,201,a,b,ink,1.2)
+    if halo then arc(c,310,304,outer,a,b,halo,4) end
+    arc(c,310,304,outer,a,b,Light.color(ink,selected and c.L.segment or nil),1.5)
+    arc(c,310,304,inner,a,b,ink,1.2)
     for _,degrees in ipairs({a,b}) do
       local angle=math.rad(degrees)
-      line(c,310+201*math.cos(angle),304+201*math.sin(angle),
-        310+254*math.cos(angle),304+254*math.sin(angle),ink,1.2)
+      line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
+        310+outer*math.cos(angle),304+outer*math.sin(angle),ink,1.2)
     end
     local angle=math.rad((a+b)/2)
-    text(c,i==0 and 'R' or tostring(i),size,310+228*math.cos(angle),
-      304+228*math.sin(angle)-size*0.065,selected and C.amber or C.primary,true)
+    text(c,i==0 and 'R' or tostring(i),size,310+radius*math.cos(angle),
+      304+radius*math.sin(angle)-size*0.065,selected and C.amber or C.primary,true)
   end
   local previous=selectors[s]
   if s.available==false then previous=nil end

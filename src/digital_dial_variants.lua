@@ -16,7 +16,8 @@ M.choices = {
 }
 M.layouts = {
   snap={selector=true,cleanPerimeter=true,hideRpmNumbers=true,hideAuxValues=true,
-    rpm={310,304,174,-225,45},rpmDepth=14,rpmSegmentCount=40,rpmValueSize=22,rpmText={310,355},
+    selectorRing={151,197,174,32},
+    rpm={310,304,249,-160,-20},rpmDepth=14,rpmSegmentCount=40,rpmValueSize=22,rpmText={310,355},
     speed={310,433,82},gear={310,298,96},core={310,304,64},steeringRing=true,
     pedals={{192,459,52,8},{310,495,68,6},{428,459,52,8}},
     barePedals=true,compactPedals=true,pedalCaptions=false,
