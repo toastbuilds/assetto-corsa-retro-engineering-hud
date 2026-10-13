@@ -6,6 +6,7 @@ M.choices = {
   {value='column',label='2 · Column'},
   {value='radial',label='3 · Radial'},
   {value='offset',label='4 · Offset'},
+  {value='core_capsule',label='5D · Core Capsule'},
   {value='orbit',label='6 · Orbit'}
 }
 M.layouts = {
@@ -42,12 +43,18 @@ M.layouts = {
     pedals={{310,304,245,130,155},{310,478,100,15},{310,304,245,50,25}},
     steering={310,235,40},edgeAux={{310,304,244,-155,-105},{310,304,244,-25,-75}},
     edgeIcons={{87,225},{533,225}},
-    warning={430,465},flag={190,465}}
+    warning={430,465},flag={190,465}},
+  core_capsule={number='5D',coreCapsule=true,cleanPerimeter=true,speedGraduations=true,
+    speed={310,310,108},gear={206,438,44},rpmValue={317,444},rpmBar={420,436,92,14},
+    readout={310,435,350,68},aux={310,157},steering={310,390,94},graduatedSteering=true,
+    pedals={{190,490,52,8},{310,490,52,8},{430,490,52,8}},compactPedals=true,
+    statuses={{198,535},{274,535},{350,535},{426,535}},
+    warning={486,500},flag={134,500}}
 
 }
 for id,l in pairs(M.layouts) do
   l.id=id
-  l.statuses={{211,507},{277,533},{343,533},{409,507}}
+  l.statuses=l.statuses or {{211,507},{277,533},{343,533},{409,507}}
   if l.rpm then
     l.rpmSegments={}
     local r=l.rpm

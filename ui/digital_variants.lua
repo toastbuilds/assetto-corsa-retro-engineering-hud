@@ -36,6 +36,12 @@ local function box(c,x,y,w,h,color,fill,cut)
   poly(c,{{x-a+d,y-b},{x+a-d,y-b},{x+a,y-b+d},{x+a,y+b-d},
     {x+a-d,y+b},{x-a+d,y+b},{x-a,y+b-d},{x-a,y-b+d}},color,fill)
 end
+local function pill(c,x,y,w,h,color,fill,width)
+  local a,b=pt(c,x-w/2,y-h/2),pt(c,x+w/2,y+h/2)
+  local radius=h*c.scale/2
+  if fill then ui.drawRectFilled(a,b,color,radius)
+  else ui.drawRect(a,b,color,radius,nil,(width or 1)*c.scale) end
+end
 local function circle(c,x,y,r,color,filled,width)
   if filled then ui.drawCircleFilled(pt(c,x,y),r*c.scale,color,96)
   else ui.drawCircle(pt(c,x,y),r*c.scale,color,96,(width or 1)*c.scale) end
@@ -61,9 +67,22 @@ local function frame(c)
         310+258*math.cos(a),304+258*math.sin(a),C.amberDim)
     end
   end
+  if l.speedGraduations then
+    circle(c,310,304,248,C.outlineDim,false,1)
+    for i=0,79 do
+      local a=math.rad(-90+i*4.5)
+      local major=i%10==0
+      local middle=i%5==0
+      local length=major and 13 or middle and 8 or 4
+      local color=major and C.primary or middle and C.secondary or C.outline
+      line(c,310+(258-length)*math.cos(a),304+(258-length)*math.sin(a),
+        310+258*math.cos(a),304+258*math.sin(a),color,major and 2 or 1)
+    end
+    line(c,310,37,310,53,C.amber,3)
+  end
   for i,p in ipairs(l.pedals) do
     if #p==4 and (i~=2 or c.settings.showClutch~=false) then
-      local height=p[4]+(l.id=='orbit' and 16 or 38)
+      local height=p[4]+(l.compactPedals and 22 or l.id=='orbit' and 16 or 38)
       box(c,p[1],p[2]-5,p[3]+30,height,C.panel,true,15)
       box(c,p[1],p[2]-5,p[3]+30,height,C.amberDim,false,15)
     end
@@ -79,7 +98,12 @@ local function frame(c)
     circle(c,p[1],p[2],p[3],C.amber,false,2)
     circle(c,p[1],p[2],p[3]-7,C.outlineDim,false)
   end
-  if l.id=='column' then
+  if l.coreCapsule then
+    local p=l.readout
+    pill(c,p[1],p[2],p[3],p[4],C.panel,true)
+    pill(c,p[1],p[2],p[3],p[4],C.amberDim,false,1.4)
+    line(c,257,p[2]-30,257,p[2]+30,C.outlineSoft,1)
+  elseif l.id=='column' then
     line(c,250,220,370,220,C.cyan)
   elseif l.id=='radial' then
     for _,a in ipairs({-140,-40,140,40}) do
@@ -100,6 +124,7 @@ local function frame(c)
 end
 local function rpm(c)
   local l,s,C=c.layout,c.state,c.C
+  if l.coreCapsule then return end
   local maximum=math.max(s.rpmGaugeLimiter or s.rpmDisplayLimiter or 8000,1000)
   local limiter=math.max(s.rpmDisplayLimiter or maximum,1000)
   local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/maximum,0,1)
@@ -161,14 +186,16 @@ local function meter(c,p,value,color,label,horizontal)
   end
   box(c,p[1],p[2],p[3]+10,p[4]+10,C.panel,true,2)
   box(c,p[1],p[2],p[3]+10,p[4]+10,C.amberDim,false,2)
-  local count=horizontal and 20 or 10
+  local count=horizontal and (c.layout.compactPedals and 12 or 20) or 10
   for i=1,count do
     local x=p[1]-p[3]/2+(horizontal and (i-1)*p[3]/count or 0)
     local y=p[2]+p[4]/2-(horizontal and p[4] or i*p[4]/count)
     ui.drawRectFilled(pt(c,x,y),pt(c,x+(horizontal and p[3]/count-2 or p[3]),
       y+(horizontal and p[4] or p[4]/count-2)),i<=math.floor(value*count+0.5) and Light.color(color,c.L.subSegment) or C.inactive)
   end
-  if horizontal and c.layout.id=='column' then
+  if c.layout.compactPedals then
+    text(c,label,10,p[1],p[2]-8,C.secondary)
+  elseif horizontal and c.layout.id=='column' then
     text(c,'CL',10,p[1]-p[3]/2-17,p[2],C.primary)
   elseif horizontal then
     text(c,label,10,p[1]-p[3]/2-27,p[2],C.primary)
@@ -178,11 +205,12 @@ local function meter(c,p,value,color,label,horizontal)
 end
 local function controls(c)
   local l,s,C=c.layout,c.state,c.C
-  meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,'BRAKE',false)
+  local compact=l.compactPedals
+  meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,compact and 'B' or 'BRAKE',compact)
   if c.settings.showClutch~=false then
-    meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,'CLUTCH',l.id=='column' or l.id=='radial' or l.id=='orbit')
+    meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,compact and 'C' or 'CLUTCH',compact or l.id=='column' or l.id=='radial' or l.id=='orbit')
   end
-  meter(c,l.pedals[3],U.clamp(s.throttle or 0,0,1),C.cyan,'THROTTLE',false)
+  meter(c,l.pedals[3],U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact)
   if c.settings.showSteering~=false then
     if l.id=='orbit' or l.steeringRing then
       local p=l.core
@@ -324,6 +352,34 @@ local function drawSideBar(c,p,a,label)
 end
 local function auxiliary(c)
   local a=Auxiliary(c.state,c.settings.analogAuxiliaryMode)
+  if c.layout.coreCapsule then
+    if not a then return end
+    local ink=meterColor(c,a)
+    local C=c.C
+    local p=c.layout.aux
+    edgeIcon(c,{191,p[2]+2},a)
+    text(c,a.value,14,p[1],p[2]-11,ink,true)
+    local fraction=a.electric and a.charge or a.fraction
+    local value=fraction and U.clamp(math.abs(fraction),0,1) or nil
+    for i=1,16 do
+      local active=value and i<=math.floor(value*16+0.5)
+      local x=259+(i-1)*12
+      ui.drawRectFilled(pt(c,x,p[2]+8),pt(c,x+9,p[2]+16),
+        active and Light.color(ink,c.L.segment) or c.C.inactive)
+    end
+    if a.electric then
+      local charge=a.charge
+      local batteryInk=charge and charge<=0.15 and C.red or C.green
+      text(c,charge and string.format('%.0f%%',charge*100) or '--%',11,482,p[2]-11,batteryInk,true)
+      for i=1,16 do
+        local active=charge and i<=math.floor(charge*16+0.5)
+        local x=259+(i-1)*12
+        ui.drawRectFilled(pt(c,x,p[2]+20),pt(c,x+9,p[2]+25),
+          active and Light.color(batteryInk,c.L.subSegment) or C.inactive)
+      end
+    end
+    return
+  end
   if c.layout.dotAux then
     local r=c.layout.rpm
     local value=a and valueFraction(a)
@@ -390,6 +446,28 @@ local function auxiliary(c)
   if a.electric then value=value..'  BAT '..(a.charge and string.format('%.0f%%',a.charge*100) or '--%') end
   text(c,value,a.electric and 11 or 13,p[1],p[2],ink,true)
 end
+local function capsuleReadout(c)
+  local l,s,C=c.layout,c.state,c.C
+  local gear=l.gear
+  text(c,'GEAR',11,gear[1],418,C.secondary)
+  text(c,s.gearText or 'N',gear[3],gear[1],447,rpmInk(c),true)
+  text(c,'RPM',11,l.rpmValue[1],418,C.secondary)
+  text(c,s.rpmText or '0',25,l.rpmValue[1],449,rpmInk(c),true)
+  local bar=l.rpmBar
+  local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/math.max(s.rpmGaugeLimiter or 8000,1),0,1)
+  local warning=s.rpmWarningFraction or 0.86
+  local red=s.rpmRedlineFraction or 0.96
+  for i=1,12 do
+    local value=(i-0.5)/12
+    local color=value>=red and C.red or value>=warning and C.amber or C.primary
+    if value>fraction then color=C.inactive
+    elseif s.rpmRedline or s.rpmWarning then color=rpmInk(c) end
+    local x=bar[1]-bar[3]/2+(i-1)*bar[3]/12
+    ui.drawRectFilled(pt(c,x,bar[2]-bar[4]/2),
+      pt(c,x+bar[3]/12-2,bar[2]+bar[4]/2),
+      value<=fraction and Light.color(color,c.L.segment) or color)
+  end
+end
 function M.draw(state,settings,origin,scale)
   local layout=Layouts.get(settings.digitalVariant)
   if not layout then return false end
@@ -403,7 +481,8 @@ function M.draw(state,settings,origin,scale)
   if layout.gearLabel then text(c,'GEAR',14,gear[1],gear[2]-gear[3]/2-10) end
   text(c,state.speedText or '0',speed[3],speed[1],speed[2],c.C.primary,true)
   if not layout.hideUnits then text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+7) end
-  text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmInk(c),true)
+  if layout.coreCapsule then capsuleReadout(c)
+  else text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmInk(c),true) end
   controls(c)
   auxiliary(c)
   c.statusDrawing=true
