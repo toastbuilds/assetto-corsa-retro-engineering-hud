@@ -9,6 +9,7 @@ local Needle = require('ui/instrument_needle')
 local Hybrid = require('src/hybrid')
 local Icons = require('ui/side_instruments')
 local Halo = require('ui/halo_dial')
+local Selector = require('src/gear_selector')
 local M = {}
 -- CSP can expose the app root as __dirname inside required modules. Test both
 -- root and module contexts against a real asset instead of assuming ui/.
@@ -39,8 +40,14 @@ classicHand.width,classicHand.hubRadius = 7,12
 classicHand.counterweightLength,classicHand.weightLength = 10,8
 classicHand.hubShape,classicHand.hubCenter = 'machined','primary'
 classicHand = require('src/instrument_needle_geometry').build(classicHand)
+local selectorAnimations = setmetatable({}, {__mode='k'})
 
 local function point(c, x, y) return c.origin + vec2(x*c.scale, y*c.scale) end
+local function circle(c,x,y,r,color,filled,width)
+  local p=point(c,x,y)
+  if filled then ui.drawCircleFilled(p,r*c.scale,color,64)
+  else ui.drawCircle(p,r*c.scale,color,64,(width or 1)*c.scale) end
+end
 local function text(c, value, size, x, y, color, backlight, bold)
   value=Readout.value(value)
   if not value then return end
@@ -159,6 +166,83 @@ local function drawNeedle(c)
     preset,C,c.L.light,(s.rpmWarning or s.rpmRedline) and rpmColor(c) or nil)
 end
 
+local function selectorCell(c,index,count,gear,labels)
+  local C,l=c.colors,c.layout
+  local step=(Selector.endAngle-Selector.startAngle)/(count+1)
+  local gap=math.min(1.5,math.abs(step)*0.12)
+  local direction=step<0 and -1 or 1
+  local ring=l.selectorRing
+  local inner,outer,radius=ring[1],ring[2],ring[3]
+  local a=Selector.startAngle+index*step+gap*direction
+  local b=Selector.startAngle+(index+1)*step-gap*direction
+  local selected=gear==(index==0 and -1 or index)
+  if labels then
+    local angle=math.rad((a+b)/2)
+    local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
+    text(c,index==0 and 'R' or tostring(index),size,
+      310+radius*math.cos(angle),304+radius*math.sin(angle)-size*0.065,
+      selected and C.amber or C.primary,true,true)
+    return
+  end
+  local points={}
+  local segments=math.max(4,math.ceil(math.abs(b-a)/8))
+  for i=0,segments do
+    local angle=math.rad(a+(b-a)*i/segments)
+    points[#points+1]={310+outer*math.cos(angle),304+outer*math.sin(angle)}
+  end
+  for i=segments,0,-1 do
+    local angle=math.rad(a+(b-a)*i/segments)
+    points[#points+1]={310+inner*math.cos(angle),304+inner*math.sin(angle)}
+  end
+  polygon(c,points,selected and C.coreAmber or C.panelRaised)
+  arc(c,310,304,outer,a,b,selected and C.amber or C.outline,selected and 2 or 1)
+  arc(c,310,304,inner,a,b,selected and C.amber or C.outlineDim,1)
+  for _,degrees in ipairs({a,b}) do
+    local angle=math.rad(degrees)
+    line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
+      310+outer*math.cos(angle),304+outer*math.sin(angle),C.outlineDim,1)
+  end
+end
+
+local function drawSelectorRing(c)
+  local gear=Selector.gear(c.state)
+  local count=Selector.count(c.state.gearCount,gear)
+  for i=0,count do selectorCell(c,i,count,gear,false) end
+  return gear,count
+end
+
+local function drawSelectorHub(c,gear,count)
+  local s,l,C=c.state,c.layout,c.colors
+  local previous=selectorAnimations[s]
+  if s.available==false then previous=nil end
+  local animation,angle=Selector.sample(previous,gear,count,s.clock or 0,
+    c.settings.animateGearSelector,s._gearCountCarKey)
+  if s.available==false then selectorAnimations[s]=nil else selectorAnimations[s]=animation end
+  angle=math.rad(angle)
+
+  circle(c,310,304,94,C.metalDim,true)
+  circle(c,310,304,94,C.metal,false,1.5)
+  circle(c,310,304,89,C.panelRaised,true)
+  circle(c,310,304,77,C.panel,true)
+  circle(c,310,304,77,Light.color(C.amber,c.L.major),false,1.8)
+  circle(c,310,304,72,C.outlineDim,false,1)
+  local points={}
+  for _,p in ipairs({{103,0},{82,10},{82,-10}}) do
+    points[#points+1]={310+p[1]*math.cos(angle)-p[2]*math.sin(angle),
+      304+p[1]*math.sin(angle)+p[2]*math.cos(angle)}
+  end
+  polygon(c,points,C.panel)
+  polygon(c,points,Light.color(gear and gear~=0 and C.amber or C.outline,c.L.icon))
+  circle(c,310,304,16,C.metalDim,true)
+  circle(c,310,304,13,C.metal,false,1.5)
+  circle(c,310,304,7,C.panelRaised,true)
+  circle(c,310,304,3,C.primary,true)
+  for i=0,count do selectorCell(c,i,count,gear,true) end
+  local p=l.gear
+  local reading=gear==nil and '-' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear)
+  text(c,reading,p[3],p[1],p[2],rpmColor(c),true,true)
+end
+
 local function bar(c,x,y,w,h,fraction,color,signed)
   local count=signed and 16 or 10
   for i=1,count do
@@ -179,6 +263,40 @@ local function auxColor(c,a)
   if a.label=='FUEL' then return Readout.fuelColor(a.fraction,c.state,c.colors,c.colors.primary) end
   return a.label=='AERO' and (a.fraction or 0)>=0.82 and c.colors.amber or c.colors.cyan
 end
+local function drawSelectorAuxiliary(c)
+  local left=M.auxiliary(c.state,c.settings.analogAuxiliaryMode)
+  if left and left.label=='FUEL' then left=M.auxiliary(c.state,'turbo') end
+  local channels={left,M.auxiliary(c.state,'fuel')}
+  for index,a in ipairs(channels) do
+    if a then
+      local p=c.layout.edgeAux[index]
+      local value=a.electric and (a.charge or math.abs(a.fraction or 0)) or a.fraction
+      local active=value~=nil and math.floor(U.clamp(value,0,1)*c.layout.edgeBarCount+0.5) or 0
+      local color=auxColor(c,a)
+      for i=1,c.layout.edgeBarCount do
+        local span=(p[5]-p[4])/c.layout.edgeBarCount
+        local from=p[4]+(i-0.86)*span
+        local to=p[4]+(i-0.14)*span
+        arc(c,p[1],p[2],p[3],from,to,
+          i<=active and Light.color(color,c.L.segment) or c.colors.inactive,
+          c.layout.edgeBarWidth)
+      end
+      local icon=c.layout.edgeIcons[index]
+      local center=point(c,icon[1],icon[2])
+      local ink=Light.color(color,c.L.icon)
+      if a.electric then
+        ui.drawRect(center-vec2(9,6)*c.scale,center+vec2(9,6)*c.scale,ink,0,nil,1.5*c.scale)
+        line(c,icon[1]+11,icon[2]-2,icon[1]+11,icon[2]+2,ink,2)
+        line(c,icon[1]-5,icon[2],icon[1]-1,icon[2],ink,1)
+        line(c,icon[1]-3,icon[2]-2,icon[1]-3,icon[2]+2,ink,1)
+      else
+        local draw=a.label=='FUEL' and Icons.fuelIcon
+          or a.label=='AERO' and Icons.aeroIcon or Icons.boostIcon
+        draw(center,c.scale*0.85,ink)
+      end
+    end
+  end
+end
 local function drawAuxiliary(c)
   local a=M.auxiliary(c.state,c.settings.analogAuxiliaryMode)
   if c.layout.haloRpm then
@@ -186,6 +304,7 @@ local function drawAuxiliary(c)
     Halo.auxiliary(c.origin,c.scale,c.layout,a,M.auxiliary(c.state,'fuel'),c.state,c.colors,c.L)
     return
   end
+  if c.layout.edgeAux then drawSelectorAuxiliary(c); return end
   if c.layout.pairedAux then
     local function channel(a,start,finish,iconX,iconY,radius)
       if not a then return end
@@ -307,13 +426,13 @@ local function drawControls(c)
       if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,color,width) end
     end
   end
-  if c.settings.showClutch~=false then
+  if c.settings.showClutch~=false and not l.noClutch and l.clutch then
     local p=l.clutch
     line(c,p[1]-p[3]/2,p[2],p[1]+p[3]/2,p[2],C.inactive,4)
     line(c,p[1]-p[3]/2,p[2],p[1]-p[3]/2+p[3]*U.clamp(s.clutch or 0,0,1),p[2],C.cyan,4)
     text(c,'CL',8,p[1]-p[3]/2-11,p[2],C.secondary)
   end
-  if c.settings.showSteering~=false then
+  if c.settings.showSteering~=false and not l.hideSteering then
     if l.steeringRing then
       local p=l.steeringRing
       if l.graduatedSteeringRing then
@@ -421,10 +540,15 @@ function M.draw(state,settings,origin,scale)
   end
   if not layout.nativeFace then ui.drawImage(images.back,origin,finish,tint) end
   drawRpm(c)
-  if layout.id=='concentric' then
+  local selectorGear,selectorCount
+  if layout.selector then
+    selectorGear,selectorCount=drawSelectorRing(c)
+    drawNeedle(c)
+  elseif layout.id=='concentric' then
     drawControls(c)
     drawNeedle(c)
   end
+  if layout.selector then drawSelectorHub(c,selectorGear,selectorCount) end
   if layout.id=='concentric' then
     -- Opaque center masks the hand regardless of shell opacity.
     local p=layout.core
@@ -442,7 +566,7 @@ function M.draw(state,settings,origin,scale)
   local speed,gear=layout.speed,layout.gear
   text(c,state.speedText or '000',speed[3],speed[1],speed[2],c.colors.primary,true,true)
   text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+9,c.colors.primary,true)
-  text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true)
+  if not layout.selector then text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true) end
   if not layout.hideRpmValue then
     local p=layout.rpmValue
     text(c,'RPM ×1000',13,p[1],p[2]-22,c.colors.primary,true)
@@ -453,7 +577,7 @@ function M.draw(state,settings,origin,scale)
   c.statusDrawing=true
   drawStatuses(c)
   c.statusDrawing=false
-  if layout.id~='concentric' then drawNeedle(c) end
+  if layout.id~='concentric' and not layout.selector then drawNeedle(c) end
   return true
 end
 return M

@@ -10,7 +10,8 @@ M.choices = {
   {value='jewel', label='1A · Jewel'},
   {value='spectrum', label='2A · Spectrum'},
   {value='concentric', label='5 · Concentric'},
-  {value='spoke', label='6 · Spoke'}
+  {value='spoke', label='6 · Spoke'},
+  {value='snap', label='Snap Selector'}
 }
 M.layouts = {
   jewel = {
@@ -87,6 +88,18 @@ M.layouts = {
     pedals={{219,326,88,329},{401,326,532,329}}, pedalStyle='line',
     statuses={{137,458},{175,507},{483,458},{445,507}},
     turns={{214,552},{406,552}}, warning={310,540}, flag={373,542}
+  },
+  snap = {
+    shell='shelf',frontLayer=false,
+    selector=true,selectorRing={106,140,123,30},noClutch=true,hideSteering=true,
+    rpm={310,304,250,-200,20},speed={310,466,76},gear={310,356,56},
+    hideRpmValue=true,hideAuxValues=true,needleLength=226,
+    pedals={{162,480,216,480},{458,480,404,480}},pedalStyle='line',pedalWidth=8,
+    edgeAux={{310,304,232,138,155},{310,304,232,42,25}},
+    edgeIcons={{116,456},{504,456}},edgeBarCount=18,edgeBarWidth=9,
+    statuses={{180,376},{180,416},{440,376},{440,416}},
+    statusRadius=20,iconStatuses=true,
+    warning={348,548},flag={270,548}
   }
 }
 -- Immutable lookup tables and image paths are prepared once, not per frame.
