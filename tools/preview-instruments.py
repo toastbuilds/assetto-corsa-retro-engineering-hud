@@ -167,7 +167,7 @@ def create_harness():
     return lua, harness
 
 
-def main(hybrid=False, styles_only=False, auxiliary_only=False):
+def main(hybrid=False, styles_only=False, auxiliary_only=False, snap_shifts_only=False):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     lua, harness = create_harness()
     state = harness["state"]
@@ -210,6 +210,41 @@ def main(hybrid=False, styles_only=False, auxiliary_only=False):
         renders[name] = picture
         print(f"{name}: {len(calls)} draw calls")
         return picture
+
+    if snap_shifts_only:
+        row_height = 350
+        cue_sheet = Image.new("RGB", (680, row_height * 4 + 30), "#121416")
+        label_font = ImageFont.truetype(str(FONT), 15)
+        scenarios = (("Analog / individual", "analog", "individual"),
+                     ("Analog / GT7", "analog", "gt7"),
+                     ("Digital / individual", "digital", "individual"),
+                     ("Digital / GT7", "digital", "gt7"))
+        for row, (label, mode, family) in enumerate(scenarios):
+            for col, (cue_label, rpm) in enumerate((("UPSHIFT", 7840), ("DOWNSHIFT", 3600))):
+                state["gearText"], state["gearCount"] = "3", 6
+                state["rpmDisplayLimiter"], state["rpmGaugeLimiter"] = 8000, 8000
+                state["rpmRedlineFraction"], state["rpm"] = 0.96, rpm
+                state["rpmNormalized"], state["rpmGaugeNormalized"] = rpm / 8000, rpm / 8000
+                state["rpmText"] = str(rpm)
+                state["analogNeedleNormalized"] = rpm / 8000
+                if family == "gt7":
+                    picture = render(f"snap-cue-{mode}-{cue_label.lower()}", mode=mode, lights=True,
+                        speed_dial_style="original", rpm_dial_style=f"snap_{mode}")
+                    crop = picture.crop((1090, 50, 1440, 500))
+                else:
+                    options = lua.table_from(dict(instrumentMode=mode,
+                        analogVariant="snap" if mode == "analog" else "original",
+                        digitalVariant="snap" if mode == "digital" else "original",
+                        theme="dark", hudScale=1))
+                    calls = harness["drawDial"](options, state, lua.table_from((620, 620)))
+                    crop = raster(calls, 620, 620).crop((0, 0, 620, 620))
+                crop = crop.resize((300, 300), Image.Resampling.LANCZOS)
+                x, y = col * 340 + 20, row * row_height + 24
+                cue_sheet.paste(crop, (x, y))
+                ImageDraw.Draw(cue_sheet).text((x, y + 302), cue_label, font=label_font, fill="#f2dbae")
+            ImageDraw.Draw(cue_sheet).text((10, row * row_height + 4), label, font=label_font, fill="#f2dbae")
+        cue_sheet.save(OUTPUT / "snap-shift-cues.png")
+        return
 
     if auxiliary_only:
         caption = ImageFont.truetype(str(FONT), 15)
@@ -425,6 +460,8 @@ if __name__ == "__main__":
     parser.add_argument("--hybrid", action="store_true", help="Preview the Triptych electric instruments only")
     parser.add_argument("--styles-only", action="store_true", help="Preview GT7 speed and RPM face compositions only")
     parser.add_argument("--auxiliary-only", action="store_true", help="Compare GT7 auxiliary styles, channels, geometries and themes")
+    parser.add_argument("--snap-shifts-only", action="store_true", help="Compare upshift and downshift cues on both Snap dials")
     args = parser.parse_args()
     OUTPUT = args.output
-    main(hybrid=args.hybrid, styles_only=args.styles_only, auxiliary_only=args.auxiliary_only)
+    main(hybrid=args.hybrid, styles_only=args.styles_only, auxiliary_only=args.auxiliary_only,
+         snap_shifts_only=args.snap_shifts_only)

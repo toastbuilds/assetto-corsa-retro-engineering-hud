@@ -27,6 +27,26 @@ function M.gear(state)
   local gear=tonumber(state.gearText) or state.gear
   return finite(gear) and gear>=-1 and gear<=32 and gear==math.floor(gear) and gear or nil
 end
+function M.shiftCue(state)
+  local gear=M.gear(state)
+  if not gear or gear<1 then return nil end
+  local count=M.count(state.gearCount,gear)
+  local limiter=finite(state.rpmDisplayLimiter) and math.max(state.rpmDisplayLimiter,1000) or 8000
+  local fraction
+  if finite(state.rpm) then
+    fraction=state.rpm/limiter
+  elseif finite(state.rpmNormalized) then
+    fraction=state.rpmNormalized
+  elseif finite(state.rpmGaugeNormalized) then
+    local gauge=finite(state.rpmGaugeLimiter) and math.max(state.rpmGaugeLimiter,1000) or limiter
+    fraction=state.rpmGaugeNormalized*gauge/limiter
+  end
+  if not finite(fraction) then return nil end
+  local up=(finite(state.rpmRedlineFraction) and state.rpmRedlineFraction or 0.96)*1.02
+  if gear<count and fraction>=up then return {gear=gear+1,direction='up'} end
+  if gear>1 and fraction<=0.45 then return {gear=gear-1,direction='down'} end
+  return nil
+end
 function M.angle(gear,count)
   if gear==nil or gear==0 then return nil end
   local index=gear==-1 and 0 or gear

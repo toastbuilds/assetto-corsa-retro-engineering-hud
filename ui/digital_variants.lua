@@ -159,6 +159,7 @@ local function gearSelector(c)
   local s,C=c.state,c.C
   local gear=Selector.gear(s)
   local count=Selector.count(s.gearCount,gear)
+  local cue=Selector.shiftCue(s)
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
   local direction=step<0 and -1 or 1
   local gap=math.min(1.5,math.abs(step)*0.12)
@@ -167,22 +168,25 @@ local function gearSelector(c)
   local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
   for i=0,count do
     local selected=gear==(i==0 and -1 or i)
+    local targetGear=i==0 and -1 or i
+    local cueHere=cue and cue.gear==targetGear
+    local cueColor=cueHere and (cue.direction=='up' and C.red or C.shiftBlue) or nil
     local a=Selector.startAngle+i*step+gap*direction
     local b=Selector.startAngle+(i+1)*step-gap*direction
     local ink=selected and C.amber or C.outline
-    arc(c,310,304,radius,a,b,selected and C.coreAmber or C.panelRaised,outer-inner)
-    local halo=selected and Light.halo(C.amber,c.L.segment)
+    arc(c,310,304,radius,a,b,selected and C.coreAmber or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised),outer-inner)
+    local halo=selected and Light.halo(C.amber,c.L.segment) or cueHere and Light.halo(cueColor,c.L.segment)
     if halo then arc(c,310,304,outer,a,b,halo,4) end
-    arc(c,310,304,outer,a,b,Light.color(ink,selected and c.L.segment or nil),1.5)
-    arc(c,310,304,inner,a,b,ink,1.2)
+    arc(c,310,304,outer,a,b,Light.color(cueColor or ink,selected and c.L.segment or cueHere and c.L.segment or nil),1.5)
+    arc(c,310,304,inner,a,b,cueColor or ink,1.2)
     for _,degrees in ipairs({a,b}) do
       local angle=math.rad(degrees)
       line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
-        310+outer*math.cos(angle),304+outer*math.sin(angle),ink,1.2)
+        310+outer*math.cos(angle),304+outer*math.sin(angle),cueColor or ink,1.2)
     end
     local angle=math.rad((a+b)/2)
     text(c,i==0 and 'R' or tostring(i),size,310+radius*math.cos(angle),
-      304+radius*math.sin(angle)-size*0.065,selected and C.amber or C.primary,true)
+      304+radius*math.sin(angle)-size*0.065,selected and C.amber or cueColor or C.primary,true)
   end
   local previous=selectors[s]
   if s.available==false then previous=nil end

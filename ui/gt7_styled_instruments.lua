@@ -311,19 +311,24 @@ end
 drawSnapSelector=function(center,scale,state,settings,C,L,aboveRing)
   local gear=Selector.gear(state)
   local count=Selector.count(state.gearCount,gear)
+  local cue=Selector.shiftCue(state)
   local span=(Selector.endAngle-Selector.startAngle)/(count+1)
   local gap=math.min(1.4,math.abs(span)*0.1)
   for i=0,count do
     local first=Selector.startAngle+i*span+gap
     local last=Selector.startAngle+(i+1)*span-gap
     local selected=gear==(i==0 and -1 or i)
+    local nextGear=i==0 and -1 or i
+    local cueHere=cue and cue.gear==nextGear
+    local cueColor=cueHere and (cue.direction=='up' and C.red or C.shiftBlue) or nil
     drawSelectorWedge(center,scale,49,79,first,last,
-      selected and C.coreAmber or C.panelRaised,selected and C.amber or C.outlineDim)
+      selected and C.coreAmber or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised),
+      selected and C.amber or cueColor or C.outlineDim)
     local angle=math.rad((first+last)/2)
     local caption=i==0 and 'R' or tostring(i)
     Light.text(caption,math.min(12,math.max(8,span*0.58))*scale,
       center+vec2(64*scale*math.cos(angle),64*scale*math.sin(angle)),
-      selected and C.primary or C.secondary,nil,L.number,scale)
+      selected and C.primary or (cueHere and Light.color(cueColor,L.number) or C.secondary),nil,L.number,scale)
   end
   -- The hand crosses above the gear sectors; the central cap then hides its
   -- axle so the large selected gear remains legible.

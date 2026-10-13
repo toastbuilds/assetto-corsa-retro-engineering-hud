@@ -40,6 +40,24 @@ close(angle,Selector.angle(5,6))
 assert(Selector.angle(-1,6)<Selector.angle(1,6) and Selector.angle(6,6)<0,
   'all gear marks follow the upper arc in left-to-right order')
 
+local cueState={available=true,gearText='3',gearCount=6,rpmDisplayLimiter=8000,
+  rpmRedlineFraction=0.96,rpm=7833}
+assert(Selector.shiftCue(cueState)==nil,'upshift cue stays off below 2% above configured redline')
+cueState.rpm=7834
+local cue=Selector.shiftCue(cueState)
+assert(cue and cue.gear==4 and cue.direction=='up','upshift cue marks the next gear above configured redline')
+cueState.rpm=3601
+assert(Selector.shiftCue(cueState)==nil,'downshift cue stays off above 45% RPM')
+cueState.rpm=3600
+cue=Selector.shiftCue(cueState)
+assert(cue and cue.gear==2 and cue.direction=='down','downshift cue marks the previous gear at 45% RPM')
+cueState.gearText='1'
+assert(Selector.shiftCue(cueState)==nil,'first gear never recommends reverse')
+cueState.gearText='6'; cueState.rpm=8000
+assert(Selector.shiftCue(cueState)==nil,'top gear has no unavailable upshift cue')
+cueState.gearText='N'
+assert(Selector.shiftCue(cueState)==nil,'neutral has no shift cue')
+
 local h=dofile('tests/gt7_layouts.lua')
 local Telemetry=require('src/telemetry')
 local Settings=require('src/settings')

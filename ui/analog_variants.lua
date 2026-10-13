@@ -166,7 +166,7 @@ local function drawNeedle(c)
     preset,C,c.L.light,(s.rpmWarning or s.rpmRedline) and rpmColor(c) or nil)
 end
 
-local function selectorCell(c,index,count,gear,labels)
+local function selectorCell(c,index,count,gear,labels,cue)
   local C,l=c.colors,c.layout
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
   local gap=math.min(1.5,math.abs(step)*0.12)
@@ -176,12 +176,15 @@ local function selectorCell(c,index,count,gear,labels)
   local a=Selector.startAngle+index*step+gap*direction
   local b=Selector.startAngle+(index+1)*step-gap*direction
   local selected=gear==(index==0 and -1 or index)
+  local targetGear=index==0 and -1 or index
+  local cueHere=cue and cue.gear==targetGear
+  local cueColor=cueHere and (cue.direction=='up' and C.red or C.shiftBlue) or nil
   if labels then
     local angle=math.rad((a+b)/2)
     local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
     text(c,index==0 and 'R' or tostring(index),size,
       310+radius*math.cos(angle),304+radius*math.sin(angle)-size*0.065,
-      selected and C.amber or C.primary,true,true)
+      selected and C.amber or (cueHere and cueColor or C.primary),true,true)
     return
   end
   local points={}
@@ -194,24 +197,25 @@ local function selectorCell(c,index,count,gear,labels)
     local angle=math.rad(a+(b-a)*i/segments)
     points[#points+1]={310+inner*math.cos(angle),304+inner*math.sin(angle)}
   end
-  polygon(c,points,selected and C.coreAmber or C.panelRaised)
-  arc(c,310,304,outer,a,b,selected and C.amber or C.outline,selected and 2 or 1)
-  arc(c,310,304,inner,a,b,selected and C.amber or C.outlineDim,1)
+  polygon(c,points,selected and C.coreAmber or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised))
+  arc(c,310,304,outer,a,b,selected and C.amber or cueColor or C.outline,selected and 2 or cueHere and 2 or 1)
+  arc(c,310,304,inner,a,b,selected and C.amber or cueColor or C.outlineDim,1)
   for _,degrees in ipairs({a,b}) do
     local angle=math.rad(degrees)
     line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
-      310+outer*math.cos(angle),304+outer*math.sin(angle),C.outlineDim,1)
+      310+outer*math.cos(angle),304+outer*math.sin(angle),cueColor or C.outlineDim,1)
   end
 end
 
 local function drawSelectorRing(c)
   local gear=Selector.gear(c.state)
   local count=Selector.count(c.state.gearCount,gear)
-  for i=0,count do selectorCell(c,i,count,gear,false) end
-  return gear,count
+  local cue=Selector.shiftCue(c.state)
+  for i=0,count do selectorCell(c,i,count,gear,false,cue) end
+  return gear,count,cue
 end
 
-local function drawSelectorHub(c,gear,count)
+local function drawSelectorHub(c,gear,count,cue)
   local s,l,C=c.state,c.layout,c.colors
   local previous=selectorAnimations[s]
   if s.available==false then previous=nil end
@@ -233,7 +237,7 @@ local function drawSelectorHub(c,gear,count)
   end
   polygon(c,points,C.panel)
   polygon(c,points,Light.color(gear and gear~=0 and C.amber or C.outline,c.L.icon))
-  for i=0,count do selectorCell(c,i,count,gear,true) end
+  for i=0,count do selectorCell(c,i,count,gear,true,cue) end
   local p=l.gear
   local reading=gear==nil and '-' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear)
   text(c,reading,p[3],p[1],p[2],rpmColor(c),true,true)
@@ -536,15 +540,15 @@ function M.draw(state,settings,origin,scale)
   end
   if not layout.nativeFace then ui.drawImage(images.back,origin,finish,tint) end
   drawRpm(c)
-  local selectorGear,selectorCount
+  local selectorGear,selectorCount,selectorCue
   if layout.selector then
-    selectorGear,selectorCount=drawSelectorRing(c)
+    selectorGear,selectorCount,selectorCue=drawSelectorRing(c)
     drawNeedle(c)
   elseif layout.id=='concentric' then
     drawControls(c)
     drawNeedle(c)
   end
-  if layout.selector then drawSelectorHub(c,selectorGear,selectorCount) end
+  if layout.selector then drawSelectorHub(c,selectorGear,selectorCount,selectorCue) end
   if layout.id=='concentric' then
     -- Opaque center masks the hand regardless of shell opacity.
     local p=layout.core
