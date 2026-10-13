@@ -68,19 +68,18 @@ local function frame(c)
     end
   end
   if l.speedGraduations then
-    arc(c,310,304,248,-180,0,C.outlineDim,1)
-    for i=0,79 do
-      local a=math.rad(-90+i*4.5)
+    -- Inset the graduations beneath the 230-degree auxiliary sweep.
+    arc(c,310,304,238,-205,25,C.outlineDim,1)
+    for i=0,46 do
+      local a=math.rad(-205+i*5)
       local major=i%10==0
       local middle=i%5==0
       local length=major and 13 or middle and 8 or 4
       local color=major and C.primary or middle and C.secondary or C.outline
-      if math.sin(a)<=0.001 then
-        line(c,310+(258-length)*math.cos(a),304+(258-length)*math.sin(a),
-          310+258*math.cos(a),304+258*math.sin(a),color,major and 2 or 1)
-      end
+      line(c,310+(238-length)*math.cos(a),304+(238-length)*math.sin(a),
+        310+238*math.cos(a),304+238*math.sin(a),color,major and 2 or 1)
     end
-    line(c,310,37,310,53,C.amber,3)
+    poly(c,{{299,46},{321,46},{310,76}},Light.color(C.primary,c.L.icon),true)
   end
   for i,p in ipairs(l.pedals) do
     if #p==4 and (i~=2 or c.settings.showClutch~=false) then
