@@ -56,6 +56,7 @@ if ($App) {
     $files += @('app.lua', 'src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',
       'ui/dial.lua', 'ui/side_instruments.lua', 'ui/gt7_styled_instruments.lua', 'ui/gt7_retro.lua', 'src/settings.lua')
     $files += @('src/dial_variants.lua', 'ui/analog_variants.lua', 'src/digital_dial_variants.lua', 'ui/digital_variants.lua', 'src/dial_readout.lua', 'src/gt7_dial_styles.lua', 'src/gt7_settings.lua')
+    $files += @('ui/halo_dial.lua')
     $files += Get-ChildItem -LiteralPath (Join-Path $project 'assets/dial_variants') -File -Filter '*.png' |
       ForEach-Object { $_.FullName.Substring($project.Length + 1) }
   } else {

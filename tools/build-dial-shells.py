@@ -167,11 +167,15 @@ def main():
     lua=LuaRuntime()
     catalog=lua.execute("return require('src/dial_variants')")
     OUT.mkdir(parents=True,exist_ok=True)
+    exported=0
     for name,layout in catalog['layouts'].items():
+        if layout['nativeFace'] or layout['shell']:
+            continue  # Native or borrowed faces do not own exported shell layers.
         for theme in ('dark','light'):
             for layer,image in zip(('back','front'),shells(layout,theme=='light')):
                 image.save(OUT/f'{name}_{theme}_{layer}.png',optimize=True)
-    print('Exported 16 transparent 1240px shell layers to assets/dial_variants')
+                exported+=1
+    print(f'Exported {exported} transparent 1240px shell layers to assets/dial_variants')
 
 
 if __name__=='__main__':
