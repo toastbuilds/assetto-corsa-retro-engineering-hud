@@ -346,8 +346,9 @@ local function status(c,position,label,level,available,active,color)
   local x,y=position[1],position[2]
   local C=c.colors
   local p=point(c,x,y)
-  ui.drawCircleFilled(p,22*c.scale,C.panel,32)
-  ui.drawCircle(p,22*c.scale,active and color or (available and C.amberDim or C.outlineDim),32,(active and 2 or 1)*c.scale)
+  local radius=(c.layout.statusRadius or 22)*c.scale
+  ui.drawCircleFilled(p,radius,C.panel,32)
+  ui.drawCircle(p,radius,active and color or (available and C.amberDim or C.outlineDim),32,(active and 2 or 1)*c.scale)
   local ink=active and color or (available and C.primary or C.secondary)
   local levels=c.settings.showTcAbsLevels~=false and (label=='TC' or label=='ABS')
   text(c,label,label=='ABS' and 12 or 14,x,y-(levels and 7 or 0),ink,active)
