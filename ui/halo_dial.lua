@@ -14,8 +14,10 @@ local function prepare(layout)
     for i=0,31 do
       local angle=-220+i*360/32
       local a=math.rad(angle)
-      g.dots[#g.dots+1]={r[1]+r[3]*math.cos(a),r[2]+r[3]*math.sin(a),
-        (angle+220)/260,i%2==0 and 8 or 5}
+      if angle<=r[5] then
+        g.dots[#g.dots+1]={r[1]+r[3]*math.cos(a),r[2]+r[3]*math.sin(a),
+          (angle+220)/260,i%2==0 and 8 or 5}
+      end
     end
   end
   for i=0,layout.conceptStyle=='jewel' and -1 or 16 do
@@ -69,13 +71,6 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
     if layout.speedSpectrum then
       local maximumSpeed=math.max(state.speedGaugeMaximum or 320,1)
       value=U.clamp((tonumber(state.speedText) or state.speedValue or 0)/maximumSpeed,0,1)
-      ui.pushDWriteFont('Consolas;Weight=Bold')
-      for i=0,8 do
-        local a=math.rad(r[4]+(r[5]-r[4])*i/8)
-        Light.text(string.format('%.0f',maximumSpeed*i/8),19*scale,
-          p(r[1]+247*math.cos(a),r[2]+247*math.sin(a)),C.primary,nil,L.label,scale)
-      end
-      ui.popDWriteFont()
       -- The lower independent band always reports engine RPM.
       band(210,125,55,12,fraction,false)
     end
@@ -91,21 +86,37 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
   elseif layout.conceptStyle=='floating' then
     band(r[3],r[4],r[5],16,fraction,false)
   end
-  for _,t in ipairs((layout.conceptStyle=='jewel' or layout.conceptStyle=='floating') and {} or g.ticks) do
+  for _,t in ipairs(layout.conceptStyle and {} or g.ticks) do
     ui.drawLine(p(t[1],t[2]),p(t[3],t[4]),t[5] and C.secondary or C.outlineDim,scale)
   end
   for _,dot in ipairs((layout.conceptStyle=='spectrum' or layout.conceptStyle=='floating') and {} or g.dots) do
     local color=dot[3]>=red and C.red or dot[3]>=warning and C.amber
       or dot[3]<0.45 and C.green or C.amber
-    if dot[3]>1 then color=C.amber end
     local active=fraction>0 and dot[3]<=fraction
     if active and (state.rpmRedline or state.rpmWarning) then color=warningInk(state,settings,C) end
     local center=p(dot[1],dot[2])
     local halo=active and Light.halo(color,L.segment)
     local radius=dot[4] or 12
-    if halo then ui.drawCircleFilled(center,(radius+3)*scale,halo,32) end
-    ui.drawCircleFilled(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.18),32)
-    ui.drawCircle(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.45),32,scale)
+    -- Small intermediate dots become broad connecting strokes at shift/redline.
+    if not (layout.conceptStyle=='jewel' and radius==5 and dot[3]>=warning) then
+      if halo then ui.drawCircleFilled(center,(radius+3)*scale,halo,32) end
+      ui.drawCircleFilled(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.18),32)
+      ui.drawCircle(center,radius*scale,active and Light.color(color,L.segment) or Theme.withAlpha(color,0.45),32,scale)
+    end
+  end
+  if layout.conceptStyle=='jewel' then
+    for i=0,11 do
+      local startAngle=-220+i*22.5
+      local endAngle=math.min(startAngle+22.5,r[5])
+      local f=((startAngle+endAngle)/2-r[4])/(r[5]-r[4])
+      if f>=warning then
+        local ink=f>=red and C.red or C.amber
+        if state.rpmRedline or state.rpmWarning then ink=warningInk(state,settings,C) end
+        ui.pathClear()
+        ui.pathArcTo(p(r[1],r[2]),r[3]*scale,math.rad(startAngle+2),math.rad(endAngle-2),16)
+        ui.pathStroke(Light.color(ink,L.segment),false,10*scale)
+      end
+    end
   end
   -- The reference's fixed twelve-o'clock chevron sits between the upper dots.
   if not layout.conceptStyle then
@@ -118,7 +129,7 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
   if layout.haloNumbers then
     local thousands=maximum/1000
     local step=thousands<=10 and 1 or thousands<=20 and 2 or 5
-    local labelRadius=layout.conceptStyle=='spectrum' and 188 or 194
+    local labelRadius=layout.conceptStyle=='spectrum' and 204 or 194
     ui.pushDWriteFont('Consolas;Weight=Bold')
     for v=0,thousands+0.001,step do
       local a=math.rad(r[4]+(r[5]-r[4])*v/thousands)
@@ -147,7 +158,7 @@ function M.auxiliary(origin,scale,layout,left,fuel,state,C,L)
       local a2=math.rad(track[4]+(i-0.12)*span)
       ui.pathClear()
       ui.pathArcTo(p(track[1],track[2]),track[3]*scale,math.min(a1,a2),math.max(a1,a2),16)
-      ui.pathStroke(value and i<=math.floor(value*18+0.5) and Light.color(ink,L.subSegment) or C.inactive,false,8*scale)
+      ui.pathStroke(value and i<=math.floor(value*18+0.5) and Light.color(ink,L.subSegment) or C.inactive,false,(layout.edgeBarWidth or 8)*scale)
     end
     local icon=layout.edgeIcons[index]
     local center=p(icon[1],icon[2])

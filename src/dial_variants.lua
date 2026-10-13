@@ -16,7 +16,7 @@ M.layouts = {
   jewel = {
     shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,conceptStyle='jewel',
     rpm={310,304,242,-220,40},speed={310,185,52},gear={310,421,48},hideRpmValue=true,
-    gearBadge={310,421,42},needleLength=175,
+    gearBadge={310,421,42},needleLength=201.25,
     steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
     pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,
     edgeAux={{310,304,164,135,205},{310,304,164,45,-25}},
@@ -26,7 +26,7 @@ M.layouts = {
   },
   spectrum = {
     shell='shelf',frontLayer=false,nativeFace=true,haloRpm=true,haloNumbers=true,conceptStyle='spectrum',
-    rpm={310,304,234,-220,40},speed={310,182,52},gear={310,421,48},hideRpmValue=true,
+    rpm={310,304,252,-220,40},speed={310,182,52},gear={310,421,48},hideRpmValue=true,
     gearBadge={310,421,42},needleLength=181,
     steeringRing={310,304,50},graduatedSteeringRing=true,clutch={310,499,84},
     pedals={{310,304,144,136,175},{310,304,144,44,5}},pedalStyle='arc',pedalWidth=6,
