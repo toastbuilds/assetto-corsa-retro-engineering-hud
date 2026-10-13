@@ -7,6 +7,7 @@ local TyreGrip = require('src/tyre_grip')
 local TyreReadouts = require('src/tyre_readouts')
 local TyreStint = require('src/tyre_stint')
 local Hybrid = require('src/hybrid')
+local GearSelector = require('src/gear_selector')
 
 local M = {}
 local SIM = ac.getSim()
@@ -100,6 +101,8 @@ local function blankState()
     rpmRedline = false,
     gear = 0,
     gearText = 'N',
+    gearCount = 6,
+    gearCountSource = 'fallback',
     steeringInput = 0,
     steeringAngle = nil,
     steerLock = nil,
@@ -956,6 +959,8 @@ function M.update(state, dt, settings, sampleCar)
   local car = sampleCar or ac.getCar(0)
   if not car then
     state.available = false
+    state.gearCount, state.gearCountSource = 6, 'fallback'
+    state._gearCountCarKey, state._observedGearCount = nil, 0
     state.hybrid = nil
     state.lightsAvailable = false
     state.headlights, state.steadyHeadlights, state.flashingLights, state.highBeams = nil, nil, nil, nil
@@ -1024,6 +1029,9 @@ function M.update(state, dt, settings, sampleCar)
 
   state.gear = U.number(U.read(car, 'gear', 0), 0)
   formattedGear(state, state.gear)
+  -- gearCount excludes N/R and is only meaningful with physics access.
+  local count = U.read(car, 'physicsAvailable', nil) ~= false and U.read(car, 'gearCount', nil) or nil
+  GearSelector.observe(state, count, state.gear, state._speedGaugeCarKey)
 
   local steerAngle = U.number(U.read(car, 'steer', nil), nil)
   local steerLock = U.number(U.read(car, 'steerLock', nil), nil)
