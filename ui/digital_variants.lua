@@ -249,44 +249,6 @@ local function controls(c)
     end
   end
 end
-local function statusIcon(c,p,kind,ink)
-  local x,y=p[1],p[2]-(kind==1 and 2 or 0)
-  if kind==1 then
-    -- Car and two skid trails for traction control.
-    poly(c,{{x-9,y-1},{x-7,y-10},{x+7,y-10},{x+9,y-1},{x+9,y+5},{x-9,y+5}},ink,false,1.8)
-    line(c,x-6,y-5,x+6,y-5,ink,1.5)
-    for _,side in ipairs({-1,1}) do
-      line(c,x+side*10,y-2,x+side*10,y+3,ink,2.5)
-      line(c,x+side*5,y+8,x+side*9,y+11,ink,1.8)
-      line(c,x+side*9,y+11,x+side*5,y+14,ink,1.8)
-    end
-  elseif kind==2 then
-    -- Brake rotor between the conventional brake-warning brackets.
-    circle(c,x,y,9,ink,false,1.8)
-    circle(c,x,y,2.5,ink,true)
-    arc(c,x,y,15,140,220,ink,2)
-    arc(c,x,y,15,-40,40,ink,2)
-    for i=0,3 do
-      local a=math.rad(45+i*90)
-      line(c,x+5*math.cos(a),y+5*math.sin(a),x+8*math.cos(a),y+8*math.sin(a),ink,1.5)
-    end
-  elseif kind==3 then
-    arc(c,x-10,y,8,-90,90,ink,2)
-    line(c,x-10,y-8,x-10,y+8,ink,2)
-    for j=-1,1 do line(c,x+2,y+j*4,x+10,y+j*5,ink,2) end
-  else
-    -- Speed-limiter telltale for the pit limiter.
-    arc(c,x,y+4,12,-180,0,ink,2)
-    line(c,x-12,y+4,x-12,y+7,ink,2)
-    line(c,x+12,y+4,x+12,y+7,ink,2)
-    for i=-1,1 do
-      local a=math.rad(-90+i*60)
-      line(c,x+8*math.cos(a),y+4+8*math.sin(a),x+12*math.cos(a),y+4+12*math.sin(a),ink,1.5)
-    end
-    line(c,x,y+4,x+6,y-5,ink,2)
-    circle(c,x,y+4,2,ink,true)
-  end
-end
 local function statuses(c)
   local s,l,C=c.state,c.layout,c.C
   for i,label in ipairs({'TC','ABS','LIGHTS','PIT'}) do
@@ -300,7 +262,7 @@ local function statuses(c)
       box(c,p[1],p[2],w,h,active and C.amber or C.amberDim,false,5)
       if l.iconStatuses then
         local ink=active and (i==3 and (s.highBeams and C.amber or C.cyan) or C.amber) or C.secondary
-        statusIcon(c,p,i,Light.color(ink,c.L.icon))
+        Icons.statusIcon(pt(c,p[1],p[2]),c.scale,i,Light.color(ink,c.L.icon))
       elseif i==3 then
         local ink=active and (s.highBeams and C.amber or C.cyan) or C.secondary
         arc(c,p[1]-10,p[2],8,-90,90,ink,2)
