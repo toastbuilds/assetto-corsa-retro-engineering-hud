@@ -9,10 +9,10 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 ## Dial and GT7
 
 - Switch between analog and digital modes. GT7 speed and RPM dials can use different modes.
-- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Concentric or Spoke. Original remains the upgrade default; digital mode keeps its existing composition.
-- Retired variants 2 and 4 revert to Original. Variant 5 has a transparent opening and an opaque central speed face; its center stays opaque when background opacity is reduced.
-- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
-- The four analog variants include brake/throttle tracks, optional clutch and steering, independent TC/ABS levels, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
+- In the standalone analog dial, select **Variant**: Original, Classic Shelf, Fan, Track (3A), Concentric or Spoke. Original remains the upgrade default.
+- Retired analog variants 2 and 4 revert to Original. Analog 5 Concentric has a transparent opening and an opaque central speed face; its center stays opaque when background opacity is reduced.
+- In digital mode, **Variant** offers Original plus 1 Bridge, 2 Column, 3 Radial, 4 Offset, 5D Core Capsule and 6 Orbit. Analog and digital selections are saved independently. The digital faces are drawn natively, including segmented RPM, pedal bars, indicators and the auxiliary readout. The original digital face remains the default.
+- The five analog variants include brake/throttle tracks, optional clutch and steering, independent TC/ABS levels, flags and a handbrake triangle. Lights can be hidden. Auxiliary screens adapt to turbo, fuel or electric delivery/recovery plus battery charge; Turbo on a car without turbo retains the AERO display.
 - Select one of 24 analog needle geometries. The standalone RPM needle and GT7 speed/RPM needles keep separate selections.
 - Adjust GT7 side dial scale/spacing and status indicator size.
 - Choose GT7 presets or customize central speed, gear, steering, RPM bar, pedal position/style, radar and flags independently.
@@ -65,6 +65,8 @@ Stored settings keep their existing keys when upgrading to the single complete p
 
 All standalone variants reuse the original bezel turn indicators and lower lamp. Variant faces use the shared theme palette and GT7 instrument illumination, including the headlight transition and flasher response. Digital 6 Orbit has a dedicated upper-left turbo/AERO/battery gauge and upper-right fuel gauge.
 
+Analog 3A Track uses a clean circular RPM scale with a distinct redline sector, plus a lower speed/gear grouping and a compact auxiliary screen. Digital 5D Core Capsule emphasizes the central speed and groups gear and exact RPM in a lower capsule; its auxiliary readout sits above the speed. Both keep the shared bezel and the standalone dial's pedal, steering, clutch and status readouts.
+
 Digital 2 and 4 use turbo/AERO/battery and fuel semicircular tracks along the inner bezel. Digital 2 raises the brake/throttle bars to clear the RPM display; Digital 4 omits the RPM scale numbers. Digital 6 fills both upper perimeter bars upward, omits units, and follows the outer circumference with the brake and throttle tracks.
 
 Standalone faces omit descriptive captions while retaining measurements and TC/ABS/PIT status abbreviations. Digital 6 uses a larger speed/gear circle with a steering sphere traveling around its outer ring; the steering visibility setting controls this sphere.
@@ -73,7 +75,7 @@ Digital 3 uses a steering sphere around the central speed/gear circle, with auxi
 
 Digital 1 uses a graduated steering line above the speed readout. Digital 2 and 4 omit auxiliary units and place channel icons below their perimeter bars. Digital 6 raises its central circle and uses a graduated steering ring. Standalone fuel readouts turn red below 15% and flash below 10%.
 
-Analog pedal tracks fill upward in Classic Shelf, Fan and Concentric; Spoke fills both tracks outward from the centre and uses an illuminated steering marker on its hub ring. Concentric has a smaller opaque central readout, a 10% background in its opening, and opposing lower auxiliary and upper fuel arcs with icons and no units.
+Analog pedal tracks fill upward in Classic Shelf, Fan, Track and Concentric; Spoke fills both tracks outward from the centre and uses an illuminated steering marker on its hub ring. Concentric has a smaller opaque central readout, a 10% background in its opening, and opposing lower auxiliary and upper fuel arcs with icons and no units.
 
 
 Concentric omits numeric RPM and auxiliary readings; its auxiliary icons sit to the right of their arcs. Its steering track and lower auxiliary arc are raised. The needle draws above pedal tracks and beneath the opaque central readout.
