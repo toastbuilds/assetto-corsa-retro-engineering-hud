@@ -44,7 +44,7 @@ end
 
 -- Triptych option C: independent bipolar CHG/PWR arc plus a thinner state-
 -- of-charge arc at the bezel. Both views share identical telemetry semantics.
-function M.draw(center, scale, hybrid, palette, theme, lights, profile, style)
+function M.draw(center, scale, hybrid, palette, theme, lights, profile, style, consumeSpectrum)
   local p = profiles[profile]
   local L = Theme.dialBacklight and Light.resolve(palette, theme, lights or 0) or {}
   local function text(value, size, x, y, color, style)
@@ -59,7 +59,7 @@ function M.draw(center, scale, hybrid, palette, theme, lights, profile, style)
   if style and style~='original' then
     AuxiliaryStyles.draw(style,center,scale,{
       radius=p.powerRadius,width=p.powerWidth,count=profile=='gt7_lower_arc' and 16 or 8,
-      first=p.powerStart,last=p.powerEnd
+      first=p.powerStart,last=p.powerEnd,consume=consumeSpectrum
     },AuxiliaryStyles.channel({
       kind='power',zero=0.5,value=fraction and (fraction+1)/2 or nil,
       available=fraction~=nil,marker=true
@@ -82,7 +82,7 @@ function M.draw(center, scale, hybrid, palette, theme, lights, profile, style)
     local low=hybrid.charge~=nil and hybrid.charge<=0.15
     AuxiliaryStyles.draw(style,center,scale,{
       radius=p.batteryRadius,width=p.batteryWidth,count=profile=='gt7_lower_arc' and 20 or 12,
-      first=p.batteryStart,last=p.batteryEnd
+      first=p.batteryStart,last=p.batteryEnd,consume=consumeSpectrum
     },AuxiliaryStyles.channel({
       kind='battery',value=hybrid.charge,available=hybrid.charge~=nil,
       warning=0.15,lowInk=low and palette.red or nil,marker=true

@@ -138,5 +138,54 @@ for _,style in ipairs({'halo','jewel','spectrum'}) do
   end
 end
 state.fuel,state.fuelNormalized,state.clock=30,0.6,0
+state.hybrid=nil
+for _,mode in ipairs({'analog','digital'}) do
+  for _,style in ipairs({'halo','jewel'}) do
+    local options={gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+      gt7SpeedDialStyle='original',gt7RpmDialStyle='original',
+      gt7SpeedAuxiliaryStyle=style,gt7RpmAuxiliaryStyle=style}
+    local housings=0
+    for _,call in ipairs(harness.draw('classic',options,state)) do
+      if call.kind=='arc' and math.abs(call.a.y-364)<0.01
+          and (math.abs(call.radius-70)<0.01 or math.abs(call.radius-67)<0.01) then
+        housings=housings+1
+      end
+    end
+    assert((mode=='analog' and housings==0) or (mode=='digital' and housings==4),
+      'dot subdials must omit the housing only in Analog: '..style)
+  end
+end
+
+local function spectrumLength(mode,rim,hybrid,value)
+  state.fuel,state.fuelNormalized,state.fuelNeedleNormalized=50*value,value,value
+  state.hybrid=hybrid and {powerKw=120,needle=0.8,charge=value} or nil
+  local main=rim and (mode=='analog' and 'track_analog' or 'orbit') or 'original'
+  local options={gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+    gt7SpeedDialStyle=main,gt7RpmDialStyle=main,
+    gt7SpeedAuxiliaryStyle='spectrum',gt7RpmAuxiliaryStyle='spectrum'}
+  local radius=rim and (hybrid and 151 or 143) or (hybrid and 68 or mode=='analog' and 65 or 59)
+  local width=rim and (hybrid and 5 or 10) or (hybrid and 4 or 8)
+  local cx,cy=hybrid and 1265 or 175,rim and 258 or 364
+  local length=0
+  for _,call in ipairs(harness.draw('classic',options,state)) do
+    if call.kind=='arc' and math.abs(call.a.x-cx)<0.01 and math.abs(call.a.y-cy)<0.01
+        and math.abs(call.radius-radius)<0.01 and call.thickness==width
+        and math.max(call.color.r,call.color.g,call.color.b)>0.4 then
+      length=length+call.endAngle-call.startAngle
+    end
+  end
+  return length
+end
+for _,rim in ipairs({false,true}) do
+  for _,hybrid in ipairs({false,true}) do
+    local low=spectrumLength('analog',rim,hybrid,0.2)
+    local high=spectrumLength('analog',rim,hybrid,0.8)
+    assert(low>0 and high>low*3.5,'Analog Spectrum must consume its colored band as fuel or battery drops')
+    assert(math.abs(spectrumLength('digital',rim,hybrid,0.2)-spectrumLength('digital',rim,hybrid,0.8))<0.001,
+      'Digital Spectrum must retain its complete band')
+  end
+end
+state.hybrid=nil
+state.fuel,state.fuelNormalized,state.fuelNeedleNormalized=30,0.6,0.6
 print('GT7 auxiliary styles: persistence, reset, independent choices, matching, '..drawings..
-  ' drawings, themes, signed power/vacuum, missing data, battery warnings and low-fuel blinking passed')
+  ' drawings, themes, signed power/vacuum, missing data, warnings, Analog housing/consumption and unchanged Digital passed')

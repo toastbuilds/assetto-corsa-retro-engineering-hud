@@ -202,14 +202,16 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local style = DialStyles.auxiliaryStyle(settings, rpm)
   local hybrid = rpm and Hybrid.forGauge(state)
   if hybrid then
-    HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7', style)
+    HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7', style, digital<0.5)
     return
   end
   Light.ambient(subCenter, scale, L, true)
-  arc(subCenter, S.housingRadius * scale,
-    math.pi, math.pi * 2, C.metalDim, 2 * scale)
-  arc(subCenter, (S.housingRadius - 3) * scale,
-    math.pi, math.pi * 2, Light.color(C.outline, L.inner), 0.8 * scale)
+  if digital>=0.5 or (style~='halo' and style~='jewel') then
+    arc(subCenter, S.housingRadius * scale,
+      math.pi, math.pi * 2, C.metalDim, 2 * scale)
+    arc(subCenter, (S.housingRadius - 3) * scale,
+      math.pi, math.pi * 2, Light.color(C.outline, L.inner), 0.8 * scale)
+  end
   local visual = state.gt7Instruments
   local pressure, minimum, maximum
   if visual then pressure, minimum, maximum = visual.boostValue, visual.boostMinimum, visual.boostMaximum
@@ -243,7 +245,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     local warning = aero and 0.82 or rpm and (Config.boostWarning * maximum - minimum) / (maximum - minimum)
       or Config.fuelWarning
     AuxiliaryStyles.draw(style, subCenter, scale, {
-      radius=S.analogRadius+(S.radius-S.analogRadius)*digital, width=8, count=10,
+      radius=S.analogRadius+(S.radius-S.analogRadius)*digital, width=8, count=10,consume=digital<0.5,
       first=S.analogStart+(S.startAngle-S.analogStart)*digital,
       last=S.analogEnd+(S.endAngle-S.analogEnd)*digital
     }, AuxiliaryStyles.channel({
@@ -342,12 +344,14 @@ end
 -- Radial and Orbit use the lower circumference for their auxiliary reading.
 local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
   local style = DialStyles.auxiliaryStyle(settings, rpm)
+  local visual = state.gt7Instruments
+  local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
+  if digital==nil then digital=settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode']=='analog' and 0 or 1 end
   local hybrid = rpm and Hybrid.forGauge(state)
   if hybrid then
-    HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc', style)
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc', style, digital<0.5)
     return
   end
-  local visual = state.gt7Instruments
   local pressure, minimum, maximum = Presentation.boost(state, settings)
   if visual then pressure, minimum, maximum = visual.boostNeedleValue, visual.boostMinimum, visual.boostMaximum end
   local aero = rpm and not state.turboAvailable
@@ -364,7 +368,7 @@ local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
     local warning = aero and 0.82 or rpm and (Config.boostWarning * maximum - minimum) / (maximum - minimum)
       or Config.fuelWarning
     AuxiliaryStyles.draw(style,center,scale,{
-      radius=143,width=10,count=16,first=math.rad(150),last=math.rad(30)
+      radius=143,width=10,count=16,first=math.rad(150),last=math.rad(30),consume=digital<0.5
     },AuxiliaryStyles.channel({
       kind=not rpm and 'fuel' or aero and 'aero' or 'boost',
       available=available,value=fraction,zero=zero,marker=true,

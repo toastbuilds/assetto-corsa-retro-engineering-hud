@@ -62,12 +62,24 @@ function M.draw(style,center,scale,g,channel,C,L)
     ui.pathStroke(ink,false,width*scale)
   end
   if style=='spectrum' then
+    local firstValue,lastValue=0,1
+    if g.consume then
+      arc(g.radius,g.first,g.last,g.width,channel.available and C.inactive or C.outlineDim)
+      local value=U.clamp(channel.value or 0,0,1)
+      local zero=(channel.kind=='fuel' or channel.kind=='battery') and 0 or (channel.zero or 0)
+      firstValue,lastValue=math.min(zero,value),math.max(zero,value)
+    end
     for i=1,48 do
       local f=(i-0.5)/48
       local ink=channel.available and Light.color(channel.spectrum(f),L.subSegment) or C.outlineDim
-      local a=g.first+span*(i-1)/48
-      local b=g.first+span*i/48+span*0.0002
-      arc(g.radius,a,b,g.width,ink)
+      local startValue=math.max((i-1)/48,firstValue)
+      local endValue=math.min(i/48,lastValue)
+      if endValue>startValue and (not g.consume or channel.available) then
+        local a=g.first+span*startValue
+        local boundary=g.consume and math.min(lastValue,endValue+0.0002) or endValue+0.0002
+        local b=g.first+span*boundary
+        arc(g.radius,a,b,g.width,ink)
+      end
     end
     if channel.available and channel.marker and channel.value~=nil then
       local a=g.first+span*U.clamp(channel.value,0,1)
