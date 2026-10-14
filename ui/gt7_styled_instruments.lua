@@ -60,6 +60,7 @@ local inspiredFaces = {
     snap_digital={motif='snap',x=0,y=0,r=147,value={-8,58,20},unit={38,59},aux={0,134,0.9}}
   }
 }
+local analogSpeedReadouts={shelf=true,concentric=true,spoke=true,track_analog=true}
 
 for mode, group in pairs(inspiredFaces) do
   for id, f in pairs(group) do
@@ -197,6 +198,18 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
     ui.pathLineTo(p(f.x,f.y-f.r+12))
     ui.pathFillConvex(Light.color(C.primary,L.major))
   elseif motif=='jewel' then
+    if rpm then
+      -- Join the alternating crown jewels through the limiter sector, like
+      -- the broad redline strokes on the principal GT7 tachometer.
+      for i=1,24 do
+        local progress=(i-0.5)/24
+        if progress>=redline then
+          local a=f.first+(f.last-f.first)*(i-1)/24
+          local b=f.first+(f.last-f.first)*i/24
+          arc(f.r-4,a,b,state.rpmRedline and arcValue(progress) or C.redDim,4.5,3)
+        end
+      end
+    end
     for i=0,24 do
       local progress=i/24
       local a=f.first+(f.last-f.first)*progress
@@ -269,7 +282,7 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   end
   if f.analog and motif~='snap' then drawMainNeedle() end
 
-  if f.analog and not rpm then
+  if f.analog and not rpm and not analogSpeedReadouts[id] then
     -- A physical speed dial communicates through its needle and numbered
     -- scale; never place a second numeric speed readout inside the face.
   elseif motif=='snap' then
@@ -503,7 +516,7 @@ end
     circle(f.core[1],f.core[2],f.core[3],C.primary,1.2)
     if id=='concentric' then circle(0,-6,78,C.metalDim,4) end
   end
-  if not (f.analog and not rpm) then
+  if not (f.analog and not rpm and not analogSpeedReadouts[id]) then
     local v=f.value
     label(value,rpm and v[3]*0.87 or v[3],v[1],v[2],
       rpm and state.rpmRedline and warningColor or C.primary,L.value,id=='offset' and 172 or 150)

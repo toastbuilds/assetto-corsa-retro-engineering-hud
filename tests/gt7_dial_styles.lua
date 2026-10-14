@@ -66,6 +66,7 @@ local function signature(calls)
   table.sort(result)
   return table.concat(result, '|') .. '#' .. #calls, hasSpeed, hasRpm
 end
+local analogSpeedReadouts={shelf=true,fan=true,concentric=true,spoke=true,track_analog=true}
 
 for _, mode in ipairs({'analog', 'digital'}) do
   for _, dial in ipairs({'speed', 'rpm'}) do
@@ -77,8 +78,9 @@ for _, mode in ipairs({'analog', 'digital'}) do
       options[dial == 'speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle'] = choice.value
       local calls = harness.draw('classic', options, state)
       local geometry, speedPresent, rpmPresent = signature(calls)
-      assert(speedPresent == (mode == 'digital') and (mode == 'analog' or rpmPresent or dial=='rpm'),
-        'analog faces use the needle without numeric speed; digital faces retain speed and RPM values')
+      local expectSpeed=mode=='digital' or (mode=='analog' and dial=='speed' and analogSpeedReadouts[choice.value])
+      assert(speedPresent == not not expectSpeed and (mode == 'analog' or rpmPresent or dial=='rpm'),
+        'only selected analog speed faces show the live reading; digital faces retain speed and RPM values')
       assert(#geometry > 0, 'each dial style must draw its scale bezel')
       signatures[#signatures + 1] = dial .. ':' .. choice.value .. ':' .. geometry
     end
@@ -89,9 +91,10 @@ for _, mode in ipairs({'analog', 'digital'}) do
         options[dial == 'speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle'] = choice.value
         local calls = harness.draw('classic', options, state)
         local geometry, speedPresent, rpmPresent = signature(calls)
-        assert(#geometry > 0 and speedPresent == (mode == 'digital')
+        local expectSpeed=mode=='digital' or (mode=='analog' and dial=='speed' and analogSpeedReadouts[choice.value])
+        assert(#geometry > 0 and speedPresent == not not expectSpeed
           and (mode == 'analog' or rpmPresent or dial=='rpm'),
-          'styles must remain legible without analog numeric speed in both themes: ' .. choice.value)
+          'styles must follow their analog speed readout rule in both themes: ' .. choice.value)
       end
       -- Every selected variation must change recognizable geometry.
       if choice.value ~= 'original' then
@@ -222,13 +225,17 @@ for _,mode in ipairs({'analog','digital'}) do
           gt7SpeedDialStyle='original',gt7RpmDialStyle='original'}
         options[role=='speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle']=style
         local cx=role=='speed' and 175 or 1265
-        local largeAux,dots,band=false,0,{}
+        local largeAux,dots,band,limiterLines=false,0,{},0
         for _,call in ipairs(harness.draw('classic',options,state)) do
           if call.kind=='arc' and math.abs(call.a.x-cx)<0.01 then
             if call.a.y>325 and call.radius>60 then largeAux=true end
             if math.abs(call.a.y-258)<8 and call.radius>100 then
               if motif=='halo' or motif=='jewel' then
-                assert(call.thickness<=1,'dot crowns must not draw an underlying track or scale: '..style)
+                if motif=='jewel' and role=='rpm' and call.thickness==4.5 then
+                  limiterLines=limiterLines+1
+                else
+                  assert(call.thickness<=1,'dot crowns must not draw an underlying track or scale: '..style)
+                end
               elseif motif=='spectrum' and call.thickness==22 then band[#band+1]=call end
             end
           elseif call.kind=='circle_fill' then
@@ -248,6 +255,9 @@ for _,mode in ipairs({'analog','digital'}) do
           assert(largeAux,'new dial styles must preserve an auxiliary gauge close to Original size: '..style)
         end
         if motif=='halo' or motif=='jewel' then assert(dots>=16,'dot crowns must remain visible') end
+        if motif=='jewel' and role=='rpm' and mode=='analog' then
+          assert(limiterLines>0,'Jewel RPM joins its large crown dots across the limiter zone')
+        end
         if motif=='spectrum' then
           assert(#band>1 and band[1].color.g>band[1].color.r
             and band[#band].color.r>band[#band].color.g,'Spectrum must progress from green to red')

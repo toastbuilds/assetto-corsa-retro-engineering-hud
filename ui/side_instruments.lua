@@ -495,6 +495,13 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
     end
     ui.popStyleVar(1)
   end
+  if not rpm and face.fan and digital<1 then
+    -- Fan keeps the live speed as a compact readout in its open center.
+    text(state.speedText or '000',D.valueSize*0.68*scale,
+      center+vec2(0,34*scale),C.primary,D.valueWidth*scale,L.value,scale)
+    text(settings.speedUnit,D.unitSize*scale,
+      center+vec2(0,61*scale),C.secondary,nil,L.label,scale)
+  end
   if digital > 0 then
     ui.pushStyleVarAlpha(digital)
     local key = table.concat({first, last, face.columns and 'columns' or ''}, '|')
