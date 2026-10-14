@@ -269,7 +269,10 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   end
   if f.analog and motif~='snap' then drawMainNeedle() end
 
-  if motif=='snap' then
+  if f.analog and not rpm then
+    -- A physical speed dial communicates through its needle and numbered
+    -- scale; never place a second numeric speed readout inside the face.
+  elseif motif=='snap' then
     label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,70)
     label('RPM',9,f.unit[1],f.unit[2],C.secondary,L.label)
     drawSnapSelector(center,scale,state,settings,C,L,f.analog and drawMainNeedle or nil)
@@ -500,10 +503,12 @@ end
     circle(f.core[1],f.core[2],f.core[3],C.primary,1.2)
     if id=='concentric' then circle(0,-6,78,C.metalDim,4) end
   end
-  local v=f.value
-  label(value,rpm and v[3]*0.87 or v[3],v[1],v[2],
-    rpm and state.rpmRedline and warningColor or C.primary,L.value,id=='offset' and 172 or 150)
-  label(rpm and 'RPM' or settings.speedUnit,11,f.unit[1],f.unit[2],C.secondary,L.label)
+  if not (f.analog and not rpm) then
+    local v=f.value
+    label(value,rpm and v[3]*0.87 or v[3],v[1],v[2],
+      rpm and state.rpmRedline and warningColor or C.primary,L.value,id=='offset' and 172 or 150)
+    label(rpm and 'RPM' or settings.speedUnit,11,f.unit[1],f.unit[2],C.secondary,L.label)
+  end
 end
 
 return M

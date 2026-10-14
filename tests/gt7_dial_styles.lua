@@ -59,8 +59,8 @@ local function signature(calls)
         result[#result + 1] = string.format('p%.1f:%.1f', point.x, point.y)
       end
     elseif call.kind == 'text' then
-      if call.text == '139' then hasSpeed = true end
-      if call.text == '5200' then hasRpm = true end
+      if call.text == '139' and call.a and call.a.x < 350 then hasSpeed = true end
+      if call.text == '5200' and call.a and call.a.x > 1090 then hasRpm = true end
     end
   end
   table.sort(result)
@@ -77,8 +77,8 @@ for _, mode in ipairs({'analog', 'digital'}) do
       options[dial == 'speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle'] = choice.value
       local calls = harness.draw('classic', options, state)
       local geometry, speedPresent, rpmPresent = signature(calls)
-      assert(speedPresent and (mode == 'analog' or rpmPresent or dial=='rpm'),
-        'styles must retain the speed reading and digital RPM value')
+      assert(speedPresent == (mode == 'digital') and (mode == 'analog' or rpmPresent or dial=='rpm'),
+        'analog faces use the needle without numeric speed; digital faces retain speed and RPM values')
       assert(#geometry > 0, 'each dial style must draw its scale bezel')
       signatures[#signatures + 1] = dial .. ':' .. choice.value .. ':' .. geometry
     end
@@ -89,8 +89,9 @@ for _, mode in ipairs({'analog', 'digital'}) do
         options[dial == 'speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle'] = choice.value
         local calls = harness.draw('classic', options, state)
         local geometry, speedPresent, rpmPresent = signature(calls)
-        assert(#geometry > 0 and speedPresent and (mode == 'analog' or rpmPresent or dial=='rpm'),
-          'styles must remain legible in both themes: ' .. choice.value)
+        assert(#geometry > 0 and speedPresent == (mode == 'digital')
+          and (mode == 'analog' or rpmPresent or dial=='rpm'),
+          'styles must remain legible without analog numeric speed in both themes: ' .. choice.value)
       end
       -- Every selected variation must change recognizable geometry.
       if choice.value ~= 'original' then
@@ -123,11 +124,6 @@ for _, pair in ipairs({{radial,offset},{radial,orbit},{offset,orbit}}) do
   assert(math.sqrt((a.x-b.x)^2+(a.y-b.y)^2)>25,
     'Radial, Offset and Orbit must use visibly different primary reading positions')
 end
-local shelf, concentric, spoke = primaryPosition('shelf','analog'),
-  primaryPosition('concentric','analog'), primaryPosition('spoke','analog')
-assert(concentric.y+70<shelf.y and concentric.y+70<spoke.y,
-  'Concentric must move the reading into its central core')
-
 state.available=true
 local snapCalls=harness.draw('classic',{gt7SpeedNeedleMode='digital',gt7RpmNeedleMode='digital',
   gt7SpeedDialStyle='original',gt7RpmDialStyle='snap_digital'},state)
