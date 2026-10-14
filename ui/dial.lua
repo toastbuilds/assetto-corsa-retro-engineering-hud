@@ -20,6 +20,12 @@ local function point(origin, scale, x, y)
   return origin + vec2(x * scale, y * scale)
 end
 
+local function lightingAmount(state)
+  local visual = state.gt7Instruments
+  if visual and visual.light ~= nil then return U.clamp(visual.light, 0, 1) end
+  return state.headlights == true and 1 or 0
+end
+
 local function centeredText(text, size, center, color)
   text=Readout.value(text)
   if not text then return end
@@ -32,11 +38,12 @@ local function centeredCaption(text, size, center, color)
   ui.dwriteDrawText(text, size, center - measured / 2, color)
 end
 
-local function centeredBacklitText(text, size, center, color, scale, backlit)
+local function centeredBacklitText(text, size, center, color, scale, illumination)
   text=Readout.value(text)
   if not text then return end
-  if backlit then
-    local glow = Theme.withAlpha(C.backlight, 0.26)
+  illumination = U.clamp(illumination or 0, 0, 1)
+  if illumination > 0 then
+    local glow = Theme.withAlpha(C.backlight, 0.26 * illumination)
     local spread = 1.35 * scale
     centeredText(text, size, center + vec2(-spread, 0), glow)
     centeredText(text, size, center + vec2(spread, 0), glow)
@@ -223,7 +230,7 @@ local function drawAnalogRedlineSegments(center, scale, state, settings)
   end
 end
 
-local function drawRpmArc(center, scale, state, settings)
+local function drawRpmArc(center, scale, state, settings, illumination)
   local segmentCount = Layout.rpmSegments
   local span = (Layout.rpmEnd - Layout.rpmStart) / segmentCount
   local filled = math.floor((state.rpmGaugeNormalized or state.rpmNormalized) * segmentCount + 0.5)
@@ -258,7 +265,8 @@ local function drawRpmArc(center, scale, state, settings)
 
   -- Major marks follow the same RPM limit as the filled arc, not a fixed 0–9
   -- index that becomes incorrect on lower-revving cars.
-  drawRpmScale(center, scale, state, settings, Layout.rpmRadius, 18, 8, 38, 22, 2)
+  drawRpmScale(center, scale, state, settings, Layout.rpmRadius, 18, 8, 38, 22, 2,
+    illumination)
 end
 
 local function drawAnalogDial(center, scale, state, settings, surface, origin)
@@ -296,7 +304,7 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
     end
   end
 
-  local backlit = state.headlights == true
+  local backlit = lightingAmount(state)
   -- Draw marks above the blocks; redraw the numbers after the needle so values like 7 stay legible.
   drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
     backlit, true, true, false)
@@ -314,7 +322,7 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   local style = InstrumentConfig.normalizeNeedleStyle(settings.analogNeedleStyle, 'a01')
   local preset = InstrumentConfig.needlePreset(style)
   Needle.draw(dialCenter, scale * Layout.analogNeedleLength / preset.length,
-    needleAngle, preset, C, backlit and 1 or 0, needleColor)
+    needleAngle, preset, C, backlit, needleColor)
   drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
     backlit, true, false, true)
 
@@ -330,7 +338,7 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
 
   local hybrid = Hybrid.forGauge(state, requestedMode)
   if hybrid then
-    HybridGauge.draw(center, scale, hybrid, C, settings.theme, state.headlights and 1 or 0, 'standalone')
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, lightingAmount(state), 'standalone')
     return
   end
   if requestedMode == 'electric' then
@@ -379,7 +387,7 @@ local function drawAnalogAuxiliary(center, origin, scale, state, settings)
       i <= filled and accent or C.inactive, Layout.analogAuxArcWidth * scale, 5)
   end
 
-  local backlit = state.headlights == true
+  local backlit = lightingAmount(state)
   centeredCaption(label, 11 * scale,
     point(origin, scale, Layout.centerX - 66, Layout.analogAuxLabelY), C.secondary)
   centeredBacklitText(value, 13 * scale,
@@ -512,7 +520,7 @@ local function drawAnalogFlagPod(origin, scale, state, dialSurface)
 end
 
 drawAnalogElectronics = function(origin, scale, state, settings, dialSurface)
-  local backlit = state.headlights == true
+  local backlit = lightingAmount(state)
   local x = Layout.analogElectronicsX
   local y = Layout.analogElectronicsFirstY
   local spacingX = Layout.analogElectronicsSpacingX
@@ -816,7 +824,7 @@ function M.draw(state, settings)
 
   local analogMode = settings.instrumentMode == 'analog'
   if not analogMode then
-    drawRpmArc(center, scale, state, settings)
+    drawRpmArc(center, scale, state, settings, lightingAmount(state))
     drawRedlinePulse(center, Layout.rpmRadius * scale, scale, state, settings)
   end
 
