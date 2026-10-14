@@ -225,7 +225,7 @@ for _,mode in ipairs({'analog','digital'}) do
           gt7SpeedDialStyle='original',gt7RpmDialStyle='original'}
         options[role=='speed' and 'gt7SpeedDialStyle' or 'gt7RpmDialStyle']=style
         local cx=role=='speed' and 175 or 1265
-        local largeAux,dots,band,limiterLines=false,0,{},0
+        local largeAux,dots,band,limiterLines,spacedLimiterLines=false,0,{},0,false
         for _,call in ipairs(harness.draw('classic',options,state)) do
           if call.kind=='arc' and math.abs(call.a.x-cx)<0.01 then
             if call.a.y>325 and call.radius>60 then largeAux=true end
@@ -233,6 +233,18 @@ for _,mode in ipairs({'analog','digital'}) do
               if motif=='halo' or motif=='jewel' then
                 if motif=='jewel' and role=='rpm' and call.thickness==4.5 then
                   limiterLines=limiterLines+1
+                  local profile=DialStyles.get(style,mode,role)
+                  local first,last=math.deg(call.startAngle),math.deg(call.endAngle)
+                  local function nearestCrownGap(angle)
+                    local gap=math.huge
+                    for index=0,24 do
+                      local crown=profile.first+(profile.last-profile.first)*index/24
+                      gap=math.min(gap,math.abs(angle-crown))
+                    end
+                    return gap
+                  end
+                  spacedLimiterLines=nearestCrownGap(first)>=3.99
+                    and nearestCrownGap(last)>=3.99
                 else
                   assert(call.thickness<=1,'dot crowns must not draw an underlying track or scale: '..style)
                 end
@@ -256,7 +268,8 @@ for _,mode in ipairs({'analog','digital'}) do
         end
         if motif=='halo' or motif=='jewel' then assert(dots>=16,'dot crowns must remain visible') end
         if motif=='jewel' and role=='rpm' and mode=='analog' then
-          assert(limiterLines>0,'Jewel RPM joins its large crown dots across the limiter zone')
+          assert(limiterLines>0 and spacedLimiterLines,
+            'Jewel RPM limiter strokes must leave the same clear gap from crown dots as the individual dial')
         end
         if motif=='spectrum' then
           assert(#band>1 and band[1].color.g>band[1].color.r

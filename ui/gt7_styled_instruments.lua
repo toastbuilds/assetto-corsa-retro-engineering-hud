@@ -204,8 +204,9 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
       for i=1,24 do
         local progress=(i-0.5)/24
         if progress>=redline then
-          local a=f.first+(f.last-f.first)*(i-1)/24
-          local b=f.first+(f.last-f.first)*i/24
+          local segmentSpan=(f.last-f.first)/24
+          local a=f.first+segmentSpan*(i-1)+math.rad(4)
+          local b=f.first+segmentSpan*i-math.rad(4)
           arc(f.r-4,a,b,state.rpmRedline and arcValue(progress) or C.redDim,4.5,3)
         end
       end
