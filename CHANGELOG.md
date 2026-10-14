@@ -1,18 +1,17 @@
 # Changelog
 
-## Unreleased
-
 ## 2.7.0
 
 ### Added
 
-- Added analog Jewel (1A), Spectrum (2A), Track (3A), Halo (6A) and Snap Selector dial faces, plus digital Jewel (1D), Spectrum (2D), Core Capsule (5D), Halo (6D), Floating (4D), Orbit and Snap Selector faces.
+- Added analog Jewel, Spectrum, Track, Halo and Snap Selector dial faces, plus digital Jewel, Spectrum, Core Capsule, Halo, Floating, Orbit and Snap Selector faces.
 - Added animated Snap gear selectors to standalone and GT7 RPM dials. The next gear lights red above the configured redline threshold by 2%; the previous gear lights blue at or below 55% RPM.
 - Added Halo, Jewel and Spectrum options for GT7 auxiliary gauges, with matching analog and digital treatments.
 - Integrated class-rival pace tracking into Race Notices, replacing the separate Battle Panel. Added green attack opportunities for a rival ahead when gaining at least 0.5 s/lap with a predicted catch under four laps. Rear threat thresholds are unchanged; notices have independent controls and previews.
 
 ### Improved
 
+- Standardized standalone Dial selector names to match GT7: descriptive names such as Halo, Jewel and Spectrum replace numbered concept codes. Stored selections remain compatible.
 - GT7 and standalone dial faces now keep their layouts distinct while sharing theme colors, status indicators and auxiliary data.
 - GT7 Jewel RPM limiter strokes now leave clear gaps around the crown dots.
 - The original standalone dial backlight now follows GT7's eased 220 ms illumination transition, including needle, readouts and auxiliary indicators.

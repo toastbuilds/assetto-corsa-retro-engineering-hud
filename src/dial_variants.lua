@@ -3,14 +3,14 @@
 local M = {}
 M.choices = {
   {value='original', label='Original'},
-  {value='shelf', label='1 · Classic Shelf'},
-  {value='fan', label='3 · Fan'},
-  {value='track', label='3A · Track'},
-  {value='halo', label='6A · Halo'},
-  {value='jewel', label='1A · Jewel'},
-  {value='spectrum', label='2A · Spectrum'},
-  {value='concentric', label='5 · Concentric'},
-  {value='spoke', label='6 · Spoke'},
+  {value='shelf', label='Classic Shelf'},
+  {value='fan', label='Fan'},
+  {value='track', label='Track'},
+  {value='halo', label='Halo'},
+  {value='jewel', label='Jewel'},
+  {value='spectrum', label='Spectrum'},
+  {value='concentric', label='Concentric'},
+  {value='spoke', label='Spoke'},
   {value='snap', label='Snap Selector'}
 }
 M.layouts = {

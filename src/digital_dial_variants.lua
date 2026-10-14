@@ -2,16 +2,16 @@
 local M = {}
 M.choices = {
   {value='original',label='Original'},
-  {value='bridge',label='1 · Bridge'},
-  {value='column',label='2 · Column'},
-  {value='radial',label='3 · Radial'},
-  {value='offset',label='4 · Offset'},
-  {value='core_capsule',label='5D · Core Capsule'},
-  {value='halo',label='6D · Halo'},
-  {value='jewel',label='1D · Jewel'},
-  {value='spectrum',label='2D · Spectrum'},
-  {value='floating',label='4D · Floating'},
-  {value='orbit',label='6 · Orbit'},
+  {value='bridge',label='Bridge'},
+  {value='column',label='Column'},
+  {value='radial',label='Radial'},
+  {value='offset',label='Offset'},
+  {value='core_capsule',label='Core Capsule'},
+  {value='halo',label='Halo'},
+  {value='jewel',label='Jewel'},
+  {value='spectrum',label='Spectrum'},
+  {value='floating',label='Floating'},
+  {value='orbit',label='Orbit'},
   {value='snap',label='Snap Selector'}
 }
 M.layouts = {
