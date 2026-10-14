@@ -20,7 +20,10 @@ def main():
     def rear_notice(rate, gap):
         return battle.notice(lua.table_from({'behind': lua.table_from(dict(
             driver='COSTA', position=6, rate=rate, gapSeconds=gap, physicallyBehind=True))}))
-    battle_notices = [rear_notice(-1.2, 6), rear_notice(-0.6, 0.8)]
+    attack_notice = battle.notice(lua.table_from({'ahead': lua.table_from(dict(
+        driver='MARTIN', position=4, rate=0.6, gapSeconds=2.1, physicallyBehind=False))}),
+        lua.table_from({'attackEnabled': True}))
+    battle_notices = [rear_notice(-1.2, 6), rear_notice(-0.6, 0.8), attack_notice]
     notices = [
         dict(kind='blue', title='BLUE FLAG', detail='LMP2 APPROACHING', value='1.8 s', label='BEHIND'),
         dict(kind='repair', title='REPAIR REQUIRED', detail='FRONT SUSPENSION DAMAGE', value='BOX', label='REPAIR'),
@@ -46,7 +49,7 @@ def main():
         print(path)
         battle_output = ROOT / 'output'
         battle_output.mkdir(exist_ok=True)
-        canvas = Image.new('RGB', (990, 308), background)
+        canvas = Image.new('RGB', (990, 472), background)
         for index, notice in enumerate(battle_notices):
             calls = harness['drawRenderer'](renderer, notice, lua.table_from({'scale': 1}),
                 lua.table_from([990, 144]))

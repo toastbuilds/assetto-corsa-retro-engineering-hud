@@ -140,7 +140,7 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel,
       value = Repair.format(self.repairSeconds), label = 'EST. REPAIR' }
     return
   end
-  if settings.battleEnabled then self.notice = BattleAlert.notice(battle) end
+  self.notice = BattleAlert.notice(battle, settings)
 end
 
 return M

@@ -82,11 +82,4 @@ function M:update(source)
     behind = self:rival(rows[own + 1], own + 1, 'behind', progress, now, stopped) }
 end
 
-function M.preview()
-  return { classID = 'GT3', position = 5,
-    ahead = { driver = 'MARTIN', position = 4, value = '+0.3', rate = 0.3, graphDirection = -1, role = 'green', laps = 3,
-      points = {{progress=0,gap=2.3},{progress=0.5,gap=2.1},{progress=1,gap=2},{progress=1.5,gap=1.8},{progress=2,gap=1.9},{progress=2.5,gap=1.6},{progress=3,gap=1.4}} },
-    behind = { driver = 'COSTA', position = 6, value = '-0.2', rate = -0.2, graphDirection = 1, role = 'red', laps = 3,
-      points = {{progress=0,gap=1.4},{progress=0.5,gap=1.3},{progress=1,gap=1.1},{progress=1.5,gap=1.2},{progress=2,gap=1},{progress=2.5,gap=0.9},{progress=3,gap=0.8}} } }
-end
 return M

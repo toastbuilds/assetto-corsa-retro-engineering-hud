@@ -11,7 +11,7 @@ local windowTitles = {
   dial = 'Retro UI Dial', gt7 = 'Retro UI GT7', condition = 'Retro UI Car Condition',
   relative = 'Retro UI Multiclass Relative', delta = 'Retro UI Delta Bar',
   timer = 'Retro UI Timer', laps = 'Retro UI Laps', leaderboard = 'Retro UI Leaderboard',
-  telemetry = 'Retro UI Telemetry', map = 'Retro UI Map', notices = 'Retro UI Race Notices', battle = 'Retro UI Battle Panel'
+  telemetry = 'Retro UI Telemetry', map = 'Retro UI Map', notices = 'Retro UI Race Notices'
 }
 
 -- CSP exposes some native API calls as LuaJIT cdata, not Lua functions.

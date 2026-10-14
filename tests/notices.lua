@@ -228,7 +228,50 @@ assert(rearTick({available=true,estimatedLaps=1,fuel=3}).kind == 'pit', 'Fuel re
 rearSim.raceFlagType = 12
 assert(rearTick().kind == 'blue', 'Official blue flags retain priority over battle alerts')
 
-local BattleState = require('modules/battle/src/state')
+local front = {driver='MARTIN',position=4,rate=0.6,gapSeconds=2.1,status='LIVE',physicallyBehind=false}
+local attacks = {attackEnabled=true,battleEnabled=true}
+local opportunity = {ahead=front}
+local attack = BattleAlert.notice(opportunity, attacks)
+assert(attack.side == 'ahead' and attack.title == 'ATTACK OPPORTUNITY' and not attack.urgent)
+assert(attack.value == '~3.5' and attack.detail == 'P4 MARTIN / GAINING 0.6 s/LAP')
+front.rate, front.gapSeconds = 0.5, 2
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Exactly four laps is outside the attack horizon')
+front.gapSeconds = 1.99
+assert(BattleAlert.notice(opportunity, attacks), 'Attack horizon extends beyond the rear two-lap threshold')
+front.rate = 0.49
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Attack needs at least 0.5 s/lap gained')
+front.rate, front.gapSeconds = 2, 9
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Fast gains cannot bypass the four-lap attack horizon')
+front.rate, front.gapSeconds = -0.6, 2.1
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Losing to the car ahead is not an attack opportunity')
+front.rate, front.physicallyBehind = 0.6, true
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'A class rival physically behind is not an attack target')
+front.physicallyBehind, front.status = false, 'PIT'
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Pitting targets must not generate attack notices')
+front.status, opportunity.final = 'LIVE', true
+assert(BattleAlert.notice(opportunity, attacks) == nil, 'Final results suppress attack notices')
+opportunity.final, front.estimated = false, true
+assert(BattleAlert.notice(opportunity, attacks).detail:find('GAINING ~0.6', 1, true))
+rear.rate, rear.gapSeconds, rear.estimated = -0.6, 0.8, false
+battle.final, battle.ahead = false, front
+assert(BattleAlert.notice(battle, attacks).side == 'behind', 'Rear warnings retain priority over attacks')
+attacks.battleEnabled = false
+assert(BattleAlert.notice(battle, attacks).side == 'ahead', 'Rear toggle must not disable attacks')
+attacks.attackEnabled = false
+assert(BattleAlert.notice(battle, attacks) == nil, 'Attack toggle disables attack notices independently')
+settings.battleEnabled, settings.attackEnabled = false, true
+rearSim.raceFlagType = 0
+assert(rearTick().side == 'ahead', 'Attack opportunities enter the actual notices queue')
+rearSim.raceFlagType = 12
+assert(rearTick().kind == 'blue', 'Blue flags retain priority over attack opportunities')
+rearSim.raceFlagType = 0
+rearCar.lapCount = 2
+assert(rearTick({available=true,estimatedLaps=1,fuel=3}).kind == 'pit', 'Fuel reminders retain priority over attacks')
+rearTick()
+settings.attackEnabled = false
+assert(rearTick() == nil, 'Disabled attacks must clear the actual notices queue')
+
+local BattleState = require('modules/notices/src/pace')
 ac.SessionType = {Race=2}
 local liveBattle = BattleState.new()
 local livePlayer = {index=0,classID='GT3',progress=0,status='LIVE'}
@@ -245,6 +288,22 @@ liveRear.intervalSeconds = 0.8
 liveBattle:update({localRow=livePlayer,rows={livePlayer,liveRear},session={type=2},timeline={time=5.5}})
 assert(BattleAlert.notice(liveBattle.snapshot)==nil, 'A physically passed rival clears the live rear alert')
 
+local liveAttack = BattleState.new()
+local liveFront = {index=2,driver='MARTIN',carID='gt3',classID='GT3',status='LIVE',intervalSource='history'}
+for i=0,10 do
+  livePlayer.progress = i/10
+  liveFront.intervalSeconds = 2.7 - 0.6 * livePlayer.progress
+  liveAttack:update({localRow=livePlayer,rows={liveFront,livePlayer},session={type=2},
+    timeline={time=i*0.5},historyReset=i==0})
+  if i<10 then assert(BattleAlert.notice(liveAttack.snapshot,{attackEnabled=true})==nil,
+    'Attack needs a full observed lap of live data') end
+end
+assert(BattleAlert.notice(liveAttack.snapshot,{attackEnabled=true}).value == '~3.5',
+  'Live class rival ahead reaches the four-lap attack forecast without a separate panel')
+liveAttack:update({localRow=livePlayer,rows={liveFront,livePlayer},session={type=2},
+  timeline={time=5.5},historyReset=true})
+assert(BattleAlert.notice(liveAttack.snapshot,{attackEnabled=true})==nil, 'History resets clear attack forecasts')
+
 local amounts = Repair.damage({ available = true, body = { front = 0.2, rear = 0.1 },
   wheels = {{ suspensionDamage = 0.1 }}, engineDamage = 0.3, gearboxDamage = 0 })
 assert(math.abs(Repair.estimate(amounts, rates) - 76) < 0.00001, 'Rates are seconds per 10% damage')
@@ -255,4 +314,4 @@ assert(Repair.format(76) == '~1:16' and Repair.format(nil) == '--')
 defaults.scale, defaults.engineDamageThreshold = math.huge, -3
 Settings.normalize()
 assert(defaults.scale == 1 and defaults.engineDamageThreshold == 0.01)
-print('Race Notices: flags, priorities, repairs, fuel, rear battle thresholds/live data, resets and estimates passed')
+print('Race Notices: flags, priorities, repairs, fuel, rear threats, four-lap attacks, live pace, resets and estimates passed')

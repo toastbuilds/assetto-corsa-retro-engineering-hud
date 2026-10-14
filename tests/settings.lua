@@ -139,7 +139,7 @@ General.values.version=0
 General.initialize({theme='light',speedUnit='km/h',temperatureUnit='C',sharedUnitsVersion=0},'mph','F','C')
 assert(General.values.speedUnit=='mph' and General.values.temperatureUnit=='F','legacy separate units must migrate')
 
--- All thirteen settings pages start with only Basics expanded.
+-- All twelve settings pages start with only Basics expanded.
 local pages={
   {'general',General.draw},{'dial',Dial.draw},{'gt7',GT7.draw},{'condition',Condition.draw},
   {'relative',require('modules/relative/main').windowSettings},
@@ -149,8 +149,7 @@ local pages={
   {'leaderboard',require('modules/leaderboard/src/settings').draw},
   {'telemetry',require('modules/telemetry/src/settings').draw},
   {'map',require('modules/map/src/settings').draw},
-  {'notices',require('modules/notices/main').windowSettings},
-  {'battle',require('modules/battle/main').windowSettings}
+  {'notices',require('modules/notices/main').windowSettings}
 }
 for _,page in ipairs(pages) do
   local visible=frame(page[2])
@@ -285,11 +284,9 @@ pending['Preview Blue flag##notices.blue']=true
 frame(pages[12][2])
 pending['Preview Battle##notices.battle']=true
 frame(pages[12][2])
-pending['>  Personalization##battle.personalization']=true
-frame(pages[13][2])
-pending['Preview battle##battle.preview']=true
-frame(pages[13][2])
-local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain','battleMain'}
+pending['Preview Attack##notices.attack']=true
+frame(pages[12][2])
+local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain'}
 local function assertGlobalOpacity(callback)
   General.values.opacity=1
   local _,full=frame(script[callback])
@@ -372,4 +369,4 @@ for _,page in ipairs(pages) do
   assert(visible['Reset all##'..page[1]],'reset must remain reachable')
 end
 
-print('Settings: thirteen pages, migration, sliders, presets, resets and shared opacity consumers passed')
+print('Settings: twelve pages, migration, sliders, presets, resets and shared opacity consumers passed')

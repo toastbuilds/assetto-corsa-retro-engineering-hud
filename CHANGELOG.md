@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Integrated Battle Panel pace tracking into Race Notices and removed its separate window and settings page.
+- Added green attack opportunity alerts for the class rival ahead when gaining at least 0.5 s/lap with a predicted catch under four laps. Rear threat thresholds are unchanged; repair, blue flag, fuel and rear threats retain priority. Attack alerts have an independent toggle and preview.
+
 ## 2.6.0
 
 ### Added

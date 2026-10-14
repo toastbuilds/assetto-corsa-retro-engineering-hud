@@ -58,10 +58,12 @@ Open **Retro UI Race Notices** from the CSP sidebar. The English banner has no r
 - **BLUE FLAG** uses the simulation's official flag. The class and physical gap come from the full Relative grid, even when its window is closed or filtered. Unknown causes stay generic; estimated gaps use `~`.
 - **REPAIR REQUIRED** shows the affected component for the damaged lap. Crossing the next finish line without pitting dismisses that warning. Unchanged damage stays dismissed; significant fresh damage can trigger a new warning. Default thresholds are 20% bodywork, 5% suspension and 20% engine/gearbox damage. A puncture also triggers a warning. Thresholds are adjustable.
 - **BOX IN 3 LAPS / BOX IN 2 LAPS** use the complete laps of fuel remaining, calculated from observed fuel consumption and the Leaderboard fuel reserve. At the finish line with three or two full fuel laps remaining, the reminder appears for five seconds. With one complete lap or less remaining at a crossing, **BOX THIS LAP** stays visible. Refuelling, pit entry and session resets clear the reminder. An unknown consumption estimate or enough fuel to finish suppresses the warning. Timers pause with the simulation.
-- **REAR CAR CLOSING / REAR ATTACK INCOMING** only track the class rival behind from Battle. The notice appears while the rival gains more than 1 s/lap, or gains at least 0.5 s/lap with a catch estimate under two laps. The detail shows who is behind and your loss per lap; the right number is estimated **LAPS TO CATCH** (gap divided by closing rate). Amber marks rapid closing from further away; red marks a catch within two laps. A full observed lap is required. Incomplete data, a rival in pits, final results or a rival physically ahead suppress the notice. It disappears when its trigger no longer applies.
+- **REAR CAR CLOSING / REAR ATTACK INCOMING** only track the class rival behind. The notice appears while the rival gains more than 1 s/lap, or gains at least 0.5 s/lap with a catch estimate under two laps. The detail shows who is behind and your loss per lap; the right number is estimated **LAPS TO CATCH** (gap divided by closing rate). Amber marks rapid closing from further away; red marks a catch within two laps. A full observed lap is required. Incomplete data, a rival in pits, final results or a rival physically ahead suppress the notice. It disappears when its trigger no longer applies.
 - **EST. REPAIR** is an approximation for full bodywork, suspension and engine repair, using the car's `car.ini` pit rates (seconds per 10% damage), the worst body zone and suspension corner, and reported engine damage. It excludes refuelling, tyre replacement and pitlane travel. Mod-specific procedures may differ. Missing rates, gearbox damage, punctures or unavailable damage data show `--` rather than a fabricated time.
 
-Priority is new repair warning, official blue flag, pit reminder, then rear battle warning. Personalization has eight-second previews for all four states. Each notice type can be disabled independently.
+- **ATTACK OPPORTUNITY** tracks the class rival ahead while you gain at least 0.5 s/lap and the predicted catch is under four laps. It shows the driver, time gained per lap and estimated laps to catch in green. Attack and rear notices have independent toggles and previews. Pace uses matching track positions over up to three laps, requires one full observed lap, and resets on rival changes, pit stops and session/history resets.
+
+Priority is new repair warning, official blue flag, pit reminder, then rear battle warning, then attack opportunity. Personalization has eight-second previews for all five states. Each notice type can be disabled independently.
 
 ## Resets and persistence
 
@@ -95,11 +97,3 @@ Analog pedal tracks fill upward in Classic Shelf, Fan, Track and Concentric; Spo
 
 
 Concentric omits numeric RPM and auxiliary readings; its auxiliary icons sit to the right of their arcs. Its steering track and lower auxiliary arc are raised. The needle draws above pedal tracks and beneath the opaque central readout.
-
-## Battle Panel
-
-Open **Retro UI Battle Panel** from the CSP sidebar. It shows the drivers directly ahead and behind in your class, ordered by race position, even when other classes or lapped traffic are nearby. Default placement is at the middle left. Global theme and opacity apply.
-
-**Basics:** scale and gap history. **Personalization:** auto-placement, stay visible and an eight-second preview. Right-click to anchor the panel.
-
-The right number shows seconds gained (+, green) or lost (-, red) per lap, replacing the interval to the rival. The enlarged history graphs rise when you gain and fall when you lose against either rival. Trends require one full lap of continuous data and compare the gap at the same track position over up to three laps; `--` is shown while collecting data. `~` marks estimated rates. Rival changes, pit stops, restarts and replay seeks clear history. Unavailable rivals retain their PIT/OFF/RET status; a missing trend stays neutral. Class detection follows Leaderboard settings. Outside a race the panel displays its availability message.
