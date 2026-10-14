@@ -12,7 +12,7 @@ Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Eleven independe
 
 | Window | What it shows |
 | --- | --- |
-| Dial | Analog/digital speed and RPM; Original plus eight analog and ten digital variants, including Jewel 1A/1D, Spectrum 2A/2D, Floating 4D, Track, Core Capsule and Halo 6A/6D; fuel, turbo or hybrid power, pedals, TC/ABS and lights |
+| Dial | Analog/digital speed and RPM; Original plus nine analog and eleven digital variants, including Jewel, Spectrum, Track, Halo, Core Capsule, Floating, Orbit and Snap Selector; fuel, turbo or hybrid power, pedals, TC/ABS and lights |
 | GT7 | Configurable central display and side dials; Classic, Modern, Outer Pedals and Steering Dial presets |
 | Car Condition | Tyre life, pressures, temperatures, grip references, stint and vehicle condition |
 | Multiclass Relative | Nearby cars on track, classes, relative gaps, sectors and personal records |
@@ -91,7 +91,7 @@ python -m pip install -r requirements-dev.txt
 npm run check:lua
 python tools/test-lua.py
 powershell -ExecutionPolicy Bypass -File tools/build-package.ps1
-python tools/check-package.py dist/RetroUI-v2.5.1.zip
+python tools/check-package.py dist/RetroUI-v2.7.0.zip
 ```
 
 ## License

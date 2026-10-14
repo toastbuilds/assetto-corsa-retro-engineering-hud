@@ -19,7 +19,7 @@ Set `VERSION` in `manifest.ini` and add `docs/releases/vX.Y.Z.md` and a changelo
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/build-package.ps1
-python tools/check-package.py dist/RetroUI-v2.5.1.zip
+python tools/check-package.py dist/RetroUI-v2.7.0.zip
 ```
 
 There is one complete package. Runtime assets are explicitly allowed in the build; adding an image, video or scratch file to `assets/` does not ship it automatically. `check-package.py` compares archive contents and hashes against the source tree, checks dependencies and verifies the SHA-256 companion file.
