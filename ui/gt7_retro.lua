@@ -510,7 +510,7 @@ local function drawPedalBar(origin, scale, x, value, activeColor, side, assistCo
         origin + vec2((left + Layout.pedalWidth + extra) * scale - inset, y + segmentHeight - inset),
         PedalLayers.fraction(layer.input, i, segmentCount),
         layer.output and PedalLayers.fraction(layer.output, i, segmentCount), activeColor, C.primary, C.inactive,
-        false, side == 'left')
+        false)
     end
   end
 end

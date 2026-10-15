@@ -1,7 +1,7 @@
 local SettingsUI = require('src/settings_ui')
 local M = {}
 local DEFAULTS = {
-  scale = 1, autoPlacement = true, locked = true,
+  scale = 1, autoPlacement = false, locked = false,
   blueEnabled = true, repairEnabled = true, pitEnabled = true, battleEnabled = true, attackEnabled = true,
   overtakeEnabled = true, expandedOvertake = false,
   bodyDamageThreshold = 0.20, suspensionDamageThreshold = 0.05, engineDamageThreshold = 0.20
@@ -9,6 +9,13 @@ local DEFAULTS = {
 local ok, stored = pcall(ac.storage, DEFAULTS, 'retro-ui.notices.')
 M.values = ok and type(stored) == 'table' and stored or {}
 for key, value in pairs(DEFAULTS) do if M.values[key] == nil then M.values[key] = value end end
+
+-- Earlier releases defaulted Race Notices to auto-placement and pinned mode.
+local migrationOk, migration = pcall(ac.storage, { movementDefaultsV2 = false }, 'retro-ui.notices.migration.')
+if migrationOk and type(migration) == 'table' and not migration.movementDefaultsV2 then
+  M.values.autoPlacement, M.values.locked = false, false
+  migration.movementDefaultsV2 = true
+end
 
 function M.normalize()
   for _, key in ipairs({ 'scale', 'bodyDamageThreshold',

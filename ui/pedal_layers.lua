@@ -10,8 +10,8 @@ function M.fraction(value, index, count)
   return U.clamp((value or 0) * count - index + 1, 0, 1)
 end
 
--- Both layers share the original segment footprint; output occupies its inner 70%.
-function M.rect(a, b, input, output, color, neutral, inactive, horizontal, brake)
+-- The original input sits behind the same-width, estimated output trace.
+function M.rect(a, b, input, output, color, neutral, inactive, horizontal)
   if inactive then ui.drawRectFilled(a, b, inactive) end
   local function fill(value, ink, inner)
     if not value or value <= 0 then return end
@@ -21,15 +21,8 @@ function M.rect(a, b, input, output, color, neutral, inactive, horizontal, brake
     local br = horizontal and vec2(a.x + (b.x - a.x) * value, b.y - y) or vec2(b.x - x, b.y)
     ui.drawRectFilled(tl, br, ink)
   end
-  if brake then
-    -- Draw the original pedal input first; the estimated output overlays it
-    -- at the same width so only the pressure difference changes its length.
-    fill(input, neutral, false)
-    fill(output, color, false)
-  else
-    fill(input, color, false)
-    fill(output, neutral, false)
-  end
+  fill(input, neutral, false)
+  fill(output, color, false)
 end
 
 return M

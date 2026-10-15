@@ -130,7 +130,7 @@ function M.draw()
     SettingsUI.choice('general', 'pedals', 'Pedal display', M.values.pedalDisplay,
       {{label='Estimated dual-layer', value='estimated'}, {label='Classic', value='classic'}},
       function(v) M.values.pedalDisplay=v end)
-    ui.textWrapped('Dial and GT7: colored input with a neutral estimated output for TC/ABS, shift cut and auto-blip. Output is an approximation, not measured engine torque or braking force. Missing physics data shows input only.')
+    ui.textWrapped('Dial and GT7: white pedal input with an estimated colored output overlaid at the same width. TC/ABS, shift cut and auto-blip can change its length. Output is an approximation, not measured engine torque or braking force. Missing physics data shows input only.')
   end)
   SettingsUI.section('general', 'personalization', 'Personalization', false, function()
     ui.text('RPM and alerts - Dial and GT7')

@@ -68,7 +68,7 @@ def main():
 
         sheet = Image.new('RGB', (1440, 3 * 282 + 28), background)
         labels = ImageDraw.Draw(sheet)
-        labels.text((14,8), 'INPUT: RED/CYAN | ESTIMATED OUTPUT: NEUTRAL INNER LAYER', fill=foreground)
+        labels.text((14,8), 'PEDAL INPUT: WHITE UNDERLAY | OUTPUT: RED BRAKE / CYAN THROTTLE', fill=foreground)
         scenarios = [('CLASSIC', 'cuts', True), ('NO INTERVENTION', 'free', False),
             ('TC / ABS', 'cuts', False), ('UPSHIFT CUT', 'shift', False),
             ('AUTO-BLIP', 'blip', False), ('PHYSICS UNAVAILABLE / INPUT ONLY', 'missing', False)]

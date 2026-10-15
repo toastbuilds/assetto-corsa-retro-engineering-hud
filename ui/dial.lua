@@ -575,7 +575,7 @@ local function drawSteering(center, origin, scale, state)
 end
 
 local function drawPedalBar(origin, scale, x, label, value, color, labelColor, inactiveColor,
-    panelColor, alertColor, alertLit, layer, isBrake)
+    panelColor, alertColor, alertLit, layer)
   local y = Layout.pedalY
   local width = Layout.pedalWidth
   local height = Layout.pedalHeight
@@ -628,7 +628,7 @@ local function drawPedalBar(origin, scale, x, label, value, color, labelColor, i
     if layer then
       PedalLayers.rect(topLeft, bottomRight, PedalLayers.fraction(layer.input, i, segmentCount),
         layer.output and PedalLayers.fraction(layer.output, i, segmentCount), color, C.primary, inactiveColor,
-        false, isBrake)
+        false)
     else
       ui.drawRectFilled(topLeft, bottomRight, i <= filled and color or inactiveColor)
     end
@@ -872,9 +872,9 @@ function M.draw(state, settings)
     local digitalFlagLit = digitalFlagColor and flagBlinkOn(state, settings)
     local pedalPanel = Theme.withAlpha(C.panel, backdropOpacity * 0.62)
     drawPedalBar(origin, scale, Layout.brakeX, nil, state.brake, C.red, C.primary,
-      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'brake'), true)
+      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'brake'))
     drawPedalBar(origin, scale, Layout.throttleX, nil, state.throttle, C.cyan, C.primary,
-      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'throttle'), false)
+      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'throttle'))
 
     centeredText(state.speedText, 42 * scale, point(origin, scale, Layout.centerX, Layout.speedY), C.primary)
     centeredText(state.speedUnit, 14 * scale, point(origin, scale, Layout.centerX, Layout.speedUnitY), C.secondary)

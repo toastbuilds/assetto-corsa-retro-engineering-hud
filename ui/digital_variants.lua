@@ -318,7 +318,7 @@ local function meter(c,p,value,color,label,horizontal,layer)
     if layer then
       PedalLayers.rect(a,b,PedalLayers.fraction(layer.input,i,count),
         layer.output and PedalLayers.fraction(layer.output,i,count),Light.color(color,c.L.subSegment),
-        Light.color(C.primary,c.L.subSegment),C.inactive,horizontal,label=='BRAKE' or label=='B')
+        Light.color(C.primary,c.L.subSegment),C.inactive,horizontal)
     else
       ui.drawRectFilled(a,b,i<=math.floor(value*count+0.5) and Light.color(color,c.L.subSegment) or C.inactive)
     end
