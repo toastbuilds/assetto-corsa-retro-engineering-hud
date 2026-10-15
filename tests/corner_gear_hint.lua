@@ -105,7 +105,7 @@ assert(not Visual.draw({gear=4,clock=0.15,cornerGearHint=state.cornerGearHint}, 
   'the cue blinks at the braking point')
 
 local expected = {
-  analog = {stacked={'original'}, side={'concentric','shelf','spoke'}, selector={'snap'}},
+  analog = {side={'concentric','shelf','spoke'}, selector={'snap'}},
   digital = {
     stacked={'original','column','floating','offset','orbit'},
     side={'bridge','core_capsule','radial'}, selector={'snap'}
@@ -122,17 +122,19 @@ end
 for _, variant in ipairs({'fan','track','halo','jewel','spectrum'}) do
   assert(Visual.presentation('analog',variant)==nil,'unlisted analog faces hide the cue')
 end
+assert(Visual.presentation('analog','original')==nil,'Original analog hides the cue')
 for _, variant in ipairs({'halo','jewel','spectrum'}) do
   assert(Visual.presentation('digital',variant)==nil,'unlisted digital faces hide the cue')
 end
 local kind,current,recommendation=Visual.placements('digital','column',310,147,105)
-assert(kind=='stacked' and current.size<105 and current.y<147 and recommendation.y>147,
-  'stacked cue reduces and raises the current gear, then places the hint underneath')
+assert(kind=='stacked' and current.size<105 and current.y<147 and recommendation.y>147
+    and recommendation.y<147+105*0.44 and recommendation.digitSize>recommendation.size,
+  'Column tightens its stacked spacing, enlarges the suggested gear and keeps it under the current gear')
 kind,current,recommendation=Visual.placements('analog','spoke',459,383,61)
-assert(kind=='side' and current.x<459 and recommendation.x>459,
-  'side-by-side cue moves the current gear left and recommendation right')
+assert(kind=='side' and current.x<459 and recommendation.x>459 and recommendation.digitSize>recommendation.size,
+  'side-by-side cue moves the current gear left and enlarges the recommendation on its right')
 kind,current,recommendation=Visual.placements('gt7',nil,820,172,100)
-assert(kind=='gt7' and current.x>820 and recommendation.x<820,
-  'GT7 places the current gear on the right and recommendation on the left')
+assert(kind=='gt7' and current.x<820 and recommendation.x>820 and recommendation.digitSize>recommendation.size,
+  'GT7 places the current gear on the left and recommendation on the right')
 
 print('Suggested corner gear: geometry, torque selection, fallback, braking cue and hide conditions passed')

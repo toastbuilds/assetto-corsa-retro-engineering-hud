@@ -344,7 +344,7 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
       end,
       function(value,size,x,y,color)
         centeredBacklitText(value,size*scale,point(origin,scale,x,y),color,scale,backlit)
-      end)
+      end,recommendation.digitSize)
   else
     centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
       gearColor, scale, backlit)
@@ -916,7 +916,7 @@ function M.draw(state, settings)
         end,
         function(value,size,x,y,color)
           centeredText(value,size*scale,point(origin,scale,x,y),color)
-        end)
+        end,recommendation.digitSize)
     else
       centeredText(state.gearText,Layout.gearFontSize*scale,
         point(origin,scale,Layout.centerX,Layout.gearY),digitalAlertColor)

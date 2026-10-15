@@ -333,7 +333,7 @@ local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
       end,
       function(value, size, x, y, color)
         centeredText(value, size * scale, point(origin, scale, x, y), color)
-      end)
+      end, recommendation.digitSize)
   end
 end
 

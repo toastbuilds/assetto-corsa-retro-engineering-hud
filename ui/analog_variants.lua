@@ -67,7 +67,8 @@ local function drawCornerGearHintAt(c, placement)
   CornerGearHint.draw(c.state, c.settings, placement.x, placement.y, placement.size,
     {primary=c.colors.primary, red=c.colors.red},
     function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
-    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true,true) end)
+    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true,true) end,
+    placement.digitSize)
 end
 local function drawGearReadout(c,gear,reading,variant,color)
   local cue=CornerGearHint.visual(c.state,c.settings)
@@ -205,8 +206,9 @@ local function selectorCell(c,index,count,gear,labels,cue,cornerCue)
   if labels then
     local angle=math.rad((a+b)/2)
     local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
-    text(c,index==0 and 'R' or tostring(index),size,
-      310+radius*math.cos(angle),304+radius*math.sin(angle)-size*0.065,
+    local labelSize=size*(cornerHere and 1.12 or 1)
+    text(c,index==0 and 'R' or tostring(index),labelSize,
+      310+radius*math.cos(angle),304+radius*math.sin(angle)-labelSize*0.065,
       selected and C.amber or cornerColor or (cueHere and cueColor or C.primary),true,true)
     return
   end

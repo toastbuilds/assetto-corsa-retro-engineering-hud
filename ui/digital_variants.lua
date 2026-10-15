@@ -29,7 +29,8 @@ local function drawCornerGearHintAt(c, placement)
   CornerGearHint.draw(c.state,c.settings,placement.x,placement.y,placement.size,
     {primary=c.C.primary,red=c.C.red},
     function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
-    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true) end)
+    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true) end,
+    placement.digitSize)
 end
 local function drawGearReadout(c,gear,reading,variant,color,y)
   local cue=CornerGearHint.visual(c.state,c.settings)
@@ -211,8 +212,9 @@ local function gearSelector(c)
         310+outer*math.cos(angle),304+outer*math.sin(angle),cornerColor or cueColor or ink,1.2)
     end
     local angle=math.rad((a+b)/2)
-    text(c,i==0 and 'R' or tostring(i),size,310+radius*math.cos(angle),
-      304+radius*math.sin(angle)-size*0.065,selected and C.amber or cornerColor or cueColor or C.primary,true)
+    local labelSize=size*(cornerHere and 1.12 or 1)
+    text(c,i==0 and 'R' or tostring(i),labelSize,310+radius*math.cos(angle),
+      304+radius*math.sin(angle)-labelSize*0.065,selected and C.amber or cornerColor or cueColor or C.primary,true)
   end
   local previous=selectors[s]
   if s.available==false then previous=nil end
