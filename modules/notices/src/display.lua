@@ -66,7 +66,7 @@ function M.draw(notice, settings)
   local colors = Theme.get(General.values.theme)
   local opacity = General.values.opacity
   local function ink(color, alpha) return Theme.withAlpha(color, opacity * (alpha or color.mult or 1)) end
-  local accent = notice.kind == 'blue' and colors.shiftBlue
+  local accent = notice.kind == 'blue' and (colors.flagBlue or colors.shiftBlue)
     or notice.kind == 'battle' and notice.side == 'ahead' and colors.green
     or (notice.kind == 'repair' or notice.kind == 'battle' and notice.urgent) and colors.red or colors.amber
   TimingUI.chamferRect(p(3, 3), p(657, 93), 9 * scale,

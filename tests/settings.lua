@@ -139,6 +139,62 @@ General.values.version=0
 General.initialize({theme='light',speedUnit='km/h',temperatureUnit='C',sharedUnitsVersion=0},'mph','F','C')
 assert(General.values.speedUnit=='mph' and General.values.temperatureUnit=='F','legacy separate units must migrate')
 
+-- The two themes have independent persisted palette choices with gallery IDs.
+local ColorPalettes = require('src/color_palettes')
+local SharedTheme = require('src/theme')
+local expectedPalettes = {
+  dark={'01','02','06','07','08','13','14','15','25','26','28','32'},
+  light={'04','05','09','10','11','12','19','27','22','30','31'}
+}
+for name, ids in pairs(expectedPalettes) do
+  local options = ColorPalettes.choices(name)
+  assert(#options==#ids+1 and options[1].value=='original')
+  for index,id in ipairs(ids) do assert(options[index+1].value==id) end
+  General.values.theme=name
+  pending['##general.palette']=1;frame(General.draw)
+  assert(General.values[name..'Palette']==ids[1],'palette combo must save the current theme only')
+end
+assert(General.values.darkPalette=='01' and General.values.lightPalette=='04')
+pending['##general.theme']=0;frame(General.draw)
+assert(General.values.theme=='dark' and General.values.darkPalette=='01' and General.values.lightPalette=='04')
+reloaded.initialize({theme='light',speedUnit='km/h',temperatureUnit='C'})
+assert(reloaded.values.darkPalette=='01' and reloaded.values.lightPalette=='04','reload must preserve both choices')
+local themeModules = {'src/theme','modules/relative/src/theme','modules/leaderboard/src/theme',
+  'modules/delta/src/theme','modules/timing/src/theme','modules/telemetry/src/theme'}
+for name,ids in pairs(expectedPalettes) do
+  for _,id in ipairs(ids) do
+    General.values[name..'Palette']=id
+    local reference=SharedTheme.get(name)
+    for _,module in ipairs(themeModules) do
+      local theme=require(module)
+      local colors=theme.get(name)
+      assert(colors==theme.get(name),'unchanged selections must reuse cached colors')
+      for _,role in ipairs({'surface','primary','secondary','amber','outline'}) do
+        local a,b=colors[role],reference[role]
+        assert(near(a.r,b.r) and near(a.g,b.g) and near(a.b,b.b),module..' ignores palette '..id)
+      end
+      if theme.palettes[name].flagYellow then
+        assert(colors.flagYellow==theme.palettes[name].flagYellow,'official flag colors must be retained')
+      end
+      assert(colors.flagRed==theme.palettes[name].red)
+      assert(colors.flagBlue==(theme.palettes[name].shiftBlue or theme.palettes[name].blue))
+    end
+  end
+end
+General.values.darkPalette='01'
+local first=SharedTheme.get('dark')
+General.values.darkPalette='07'
+local nextPalette=SharedTheme.get('dark')
+assert(first~=nextPalette and near(nextPalette.primary.r,0xE9/255),'switching must invalidate composed colors')
+local lighting=SharedTheme.backlight('dark',nextPalette)
+assert(lighting.warm==nextPalette.primary and lighting.red==nextPalette.red,'headlights must follow the palette')
+General.values.darkPalette='04';General.values.lightPalette='01';General.normalize()
+assert(General.values.darkPalette=='original' and General.values.lightPalette=='original','reject cross-theme IDs')
+General.values.darkPalette='01';General.values.lightPalette='19'
+pending['Reset appearance##general']=true;frame(General.draw)
+assert(General.values.darkPalette=='original' and General.values.lightPalette=='original')
+assert(SharedTheme.get('dark')==SharedTheme.palettes.dark,'Original must retain factory materials')
+
 -- All twelve settings pages start with only Basics expanded.
 local pages={
   {'general',General.draw},{'dial',Dial.draw},{'gt7',GT7.draw},{'condition',Condition.draw},
@@ -287,6 +343,23 @@ frame(pages[12][2])
 pending['Preview Attack##notices.attack']=true
 frame(pages[12][2])
 local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain'}
+-- Exercise real callbacks with a custom palette in each theme, including the
+-- native shells that replace fixed-color artwork for numbered palettes.
+for _,sample in ipairs({{'dark','07'},{'light','10'},{'light','19'}}) do
+  General.values.theme=sample[1]
+  General.values[sample[1]..'Palette']=sample[2]
+  for _,callback in ipairs(callbacks) do frame(script[callback]) end
+  Dial.values.instrumentMode='analog'
+  for id in pairs(require('src/dial_variants').layouts) do
+    Dial.values.analogVariant=id
+    local _,drawn=frame(script.windowMain)
+    assert(#drawn>0,'custom palette must draw '..id)
+    for _,call in ipairs(drawn) do assert(call.kind~='image','custom shells must not use fixed-color PNGs') end
+  end
+end
+Dial.values.analogVariant='original'
+General.values.theme='dark'
+General.values.darkPalette,General.values.lightPalette='original','original'
 local function assertGlobalOpacity(callback)
   General.values.opacity=1
   local _,full=frame(script[callback])
@@ -342,8 +415,10 @@ for _,callback in ipairs(callbacks) do
 end
 pending['Reset all##general']=true;frame(General.draw)
 assert(General.values.backgroundOpacity==0,'global reset requires confirmation')
+General.values.darkPalette='28';General.values.lightPalette='31'
 pending['Confirm reset##general']=true;frame(General.draw)
 assert(General.values.opacity==1 and General.values.backgroundOpacity==0.72 and General.values.theme=='dark')
+assert(General.values.darkPalette=='original' and General.values.lightPalette=='original')
 assert(General.values.rpmWarningFraction==0.86 and General.values.animateShiftAlert)
 
 pending['  GT7##nav-gt7']=true

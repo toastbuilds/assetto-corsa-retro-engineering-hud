@@ -60,7 +60,7 @@ Theme.palettes = {
 Theme.fonts = { utility = 'Consolas;Weight=Regular' }
 
 function Theme.get(name)
-  return Theme.palettes[name] or Theme.palettes.dark
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
 end
 
 function Theme.withAlpha(color, alpha)

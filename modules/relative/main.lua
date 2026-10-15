@@ -132,7 +132,7 @@ local function drawRow(row, isPlayer, visual, x1, x2, y, fontSize, rowHeight, no
     ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, alpha * opacity))
   end
   if flagColor and not previousAlert then
-    local alpha = (palette == Theme.palettes.light and 0.18 or 0.22) + 0.08 * flagPulse
+    local alpha = (GlobalSettings.values.theme == 'light' and 0.18 or 0.22) + 0.08 * flagPulse
     ui.drawRectFilled(start, finish, Theme.withAlpha(flagColor, alpha * opacity))
   end
 

@@ -1,4 +1,5 @@
 local Base = require('modules/delta/src/theme')
+local GeneralSettings = require('src/general_settings')
 
 local Theme = {}
 
@@ -12,12 +13,12 @@ end
 
 Theme.palettes = {
   dark = copyPalette(
-    Base.get('dark'),
+    Base.palettes.dark,
     rgbm(0.70, 0.43, 0.91, 1),
     rgbm(0.28, 0.16, 0.38, 0.94)
   ),
   light = copyPalette(
-    Base.get('light'),
+    Base.palettes.light,
     rgbm(0.46, 0.20, 0.66, 1),
     rgbm(0.82, 0.72, 0.90, 0.94)
   )
@@ -28,7 +29,7 @@ Theme.withAlpha = Base.withAlpha
 Theme.blend = Base.blend
 
 function Theme.get(name)
-  return Theme.palettes[name] or Theme.palettes.dark
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
 end
 
 return Theme

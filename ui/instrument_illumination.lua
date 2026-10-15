@@ -16,7 +16,7 @@ end
 function M.resolve(C, theme, light)
   local current = cache[C]
   if current and current.light == light then return current end
-  local targets = Theme.dialBacklight[theme] or Theme.dialBacklight.dark
+  local targets = Theme.backlight(theme, C)
   local strength = theme == 'light' and I.lightThemeStrength or 1
   local haloStrength = theme == 'light' and I.lightThemeHalo or 1
   current = current or {}

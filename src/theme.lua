@@ -91,7 +91,21 @@ Theme.dialBacklight = {
 }
 
 function Theme.get(name)
-  return Theme.palettes[name] or Theme.palettes.dark
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
+end
+
+local backlightCache = setmetatable({}, {__mode='k'})
+function Theme.backlight(name, palette)
+  if GeneralSettings.selectedPalette(name) == 'original' then
+    return Theme.dialBacklight[name] or Theme.dialBacklight.dark
+  end
+  local targets = backlightCache[palette]
+  if not targets then
+    targets = {warm=palette.primary, core=palette.primary, amber=palette.amber,
+      cyan=palette.cyan, cyanDim=palette.cyanDim, red=palette.red, ambient=palette.metal}
+    backlightCache[palette] = targets
+  end
+  return targets
 end
 
 Theme.fonts = {

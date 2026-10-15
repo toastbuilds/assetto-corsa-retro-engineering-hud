@@ -22,7 +22,7 @@ NOISE = np.random.default_rng(615).normal(0, 0.6, (SIZE, SIZE))
 
 # Resolve the same semantic palette as the runtime, without CSP dependencies.
 paletteLua=LuaRuntime()
-paletteLua.execute("package.path = '"+ROOT.as_posix()+"/?.lua;' .. package.path; rgbm=function(r,g,b,a) return {r=r,g=g,b=b,mult=a} end; package.loaded['src/general_settings']={}")
+paletteLua.execute("package.path = '"+ROOT.as_posix()+"/?.lua;' .. package.path; rgbm=function(r,g,b,a) return {r=r,g=g,b=b,mult=a} end; package.loaded['src/general_settings']={themePalette=function(source) return source end}")
 THEME=paletteLua.execute("return require('src/theme')")
 
 def ink(light,role):

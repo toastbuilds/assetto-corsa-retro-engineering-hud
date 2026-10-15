@@ -6,6 +6,15 @@ Use **Retro UI Settings** from the CSP app sidebar. Every instrument is included
 
 Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/background opacity, RPM warning/redline thresholds, fallback RPM and blinking alerts. Local scale and geometry remain independent per instrument.
 
+**Color palette** appears below **Theme** in General → Basics. Each theme remembers its own selection and applies it to all instruments immediately. **Original** retains the factory colors. The numbered palettes match the color comparison gallery:
+
+- **Dark:** 01, 02, 06, 07, 08, 13, 14, 15, 25, 26, 28, 32.
+- **Light:** 04, 05, 09, 10, 11, 12, 19, 27, 22, 30, 31.
+
+Palette 19 (Cyan Night) is included in Light. Headlight illumination follows the selected palette; official flag and race classification colors retain their meanings. General **Reset appearance** restores both palette selections to Original.
+
+With a numbered palette, Classic Shelf, Fan, Concentric and Spoke use native colored shell geometry instead of the factory PNG material textures.
+
 ## Dial and GT7
 
 - Switch between analog and digital modes. GT7 speed and RPM dials can use different modes.

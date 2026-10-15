@@ -1,4 +1,5 @@
 local Theme = require('modules/leaderboard/src/theme')
+local GeneralSettings = require('src/general_settings')
 local Classes = require('modules/leaderboard/src/classes')
 
 local M = {}
@@ -280,7 +281,7 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
     or row.flagCauseKind == 'blue' and 'blue' or nil
   if flagRole and settings.showFlags ~= false then
     local pulse = 0.5 + 0.5 * math.sin(now * math.pi * 2.4)
-    local alpha = (palette == Theme.palettes.light and 0.18 or 0.22) + 0.08 * pulse
+    local alpha = (GeneralSettings.values.theme == 'light' and 0.18 or 0.22) + 0.08 * pulse
     chamferRect(vec2(left, top), vec2(right, bottom), 4 * scale,
       role(palette, flagRole, alpha * opacity),
       role(palette, flagRole, (0.65 + 0.30 * pulse) * opacity), 1.1 * scale)

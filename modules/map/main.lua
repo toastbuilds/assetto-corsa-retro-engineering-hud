@@ -45,10 +45,10 @@ local function alertColor(sim, palette)
   if flag == 5 or flag == 8 or flag == tonumber(flags.Stop)
     or flag == tonumber(flags.ReturnToPits) or flag == tonumber(flags.Black)
     or flag == tonumber(flags.Penalty) then
-    return flag, palette.red
+    return flag, palette.flagRed or palette.red
   end
   if flag == 12 or flag == tonumber(flags.FasterCar) or flag == tonumber(flags.Blue) then
-    return flag, palette.shiftBlue
+    return flag, palette.flagBlue or palette.shiftBlue
   end
   return nil, nil
 end

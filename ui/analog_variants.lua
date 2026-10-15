@@ -10,6 +10,7 @@ local Hybrid = require('src/hybrid')
 local Icons = require('ui/side_instruments')
 local Halo = require('ui/halo_dial')
 local Selector = require('src/gear_selector')
+local PaletteShell = require('ui/palette_dial_shell')
 local M = {}
 -- CSP can expose the app root as __dirname inside required modules. Test both
 -- root and module contexts against a real asset instead of assuming ui/.
@@ -512,8 +513,8 @@ local function drawStatuses(c)
   line(c,p[1]-18,p[2]+14,p[1],p[2]-18,color,3)
   text(c,'!',22,p[1],p[2]+1,color)
   local flag=s.raceFlagType
-  local flagColor=flag==2 and C.flagYellow or (flag==5 or flag==8) and C.red
-    or flag==12 and C.shiftBlue or (flag==13 or flag==14) and C.primary or nil
+  local flagColor=flag==2 and C.flagYellow or (flag==5 or flag==8) and (C.flagRed or C.red)
+    or flag==12 and (C.flagBlue or C.shiftBlue) or (flag==13 or flag==14) and (C.flagNeutral or C.primary) or nil
   local lit=flagColor and pulse(s,c.settings.animateFlagAlert,0.42)
   p=l.flag
   local ink=lit and flagColor or C.outlineDim
@@ -528,6 +529,7 @@ function M.draw(state,settings,origin,scale)
     colors=General.palette(Theme.get(settings.theme),settings.backgroundOpacity)}
   c.L=Light.resolve(c.colors,settings.theme,state.gt7Instruments and state.gt7Instruments.light or (state.headlights and 1 or 0))
   local images=imagesByVariant[layout.id][settings.theme=='light' and 'light' or 'dark']
+  local customPalette=General.selectedPalette(settings.theme)~='original'
   local tint=rgbm(1,1,1,U.clamp((settings.backgroundOpacity or 0.72)/0.72,0,1))
   local finish=point(c,620,620)
   -- The structural bezel is also drawn natively: first-frame asynchronous
@@ -540,7 +542,9 @@ function M.draw(state,settings,origin,scale)
     ui.drawCircleFilled(center,266*scale,c.colors.void,96)
     ui.drawCircleFilled(center,266*scale,c.colors.surface,96)
   end
-  if not layout.nativeFace then ui.drawImage(images.back,origin,finish,tint) end
+  if not layout.nativeFace then
+    if customPalette then PaletteShell.back(c) else ui.drawImage(images.back,origin,finish,tint) end
+  end
   drawRpm(c)
   local selectorGear,selectorCount,selectorCue
   if layout.selector then
@@ -557,7 +561,9 @@ function M.draw(state,settings,origin,scale)
     ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,
       Theme.withAlpha(Theme.get(settings.theme).panel,1),96)
   end
-  if images.front then ui.drawImage(images.front,origin,finish,tint) end
+  if images.front then
+    if customPalette then PaletteShell.front(c) else ui.drawImage(images.front,origin,finish,tint) end
+  end
   if layout.gearBadge then
     local p=layout.gearBadge
     ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,c.colors.panel,64)

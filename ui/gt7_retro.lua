@@ -108,9 +108,9 @@ local function flagColor(state)
 
   -- Match the established digital-mode mapping of CSP flag values.
   if flag == 2 then return C.flagYellow end
-  if flag == 5 or flag == 8 then return C.red end
-  if flag == 12 then return C.shiftBlue end
-  if flag == 13 or flag == 14 then return C.primary end
+  if flag == 5 or flag == 8 then return C.flagRed or C.red end
+  if flag == 12 then return C.flagBlue or C.shiftBlue end
+  if flag == 13 or flag == 14 then return C.flagNeutral or C.primary end
   return nil
 end
 
@@ -189,12 +189,12 @@ local function modernFlagAppearance(state)
   local flag = tonumber(state.raceFlagType) or 0
   if flag == 2 then return C.flagYellow end
   if flag == 3 then return C.flagYellow, 'slippery' end
-  if flag == 4 or flag == 15 then return C.red end
+  if flag == 4 or flag == 15 then return C.flagRed or C.red end
   if flag == 5 or flag == 8 then return C.flagBlack end
   if flag == 6 or flag == 7 or flag == 14 then return C.flagWhite end
   if flag == 9 then return C.flagBlack, 'mechanical' end
   if flag == 10 then return C.flagWhite, 'split' end
-  if flag == 12 then return C.shiftBlue end
+  if flag == 12 then return C.flagBlue or C.shiftBlue end
   if flag == 13 then return C.flagWhite, 'checkered' end
   if flag == 16 then return C.flagPurple end
   return C.green

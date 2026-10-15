@@ -1,7 +1,9 @@
 local SettingsUI = require('src/settings_ui')
+local ColorPalettes = require('src/color_palettes')
 local M = {}
 local defaults = {
-  version = 0, theme = 'dark', speedUnit = 'km/h', temperatureUnit = 'C', pressureUnit = 'psi',
+  version = 0, theme = 'dark', darkPalette = 'original', lightPalette = 'original',
+  speedUnit = 'km/h', temperatureUnit = 'C', pressureUnit = 'psi',
   opacity = 1, backgroundOpacity = 0.72,
   rpmWarningFraction = 0.86, rpmRedlineFraction = 0.96, fallbackRpm = 8000,
   animateIndicators = true, animateFlagAlert = true,
@@ -37,6 +39,8 @@ end
 function M.normalize()
   local v = M.values
   v.theme = v.theme == 'light' and 'light' or 'dark'
+  v.darkPalette = ColorPalettes.normalize('dark', v.darkPalette)
+  v.lightPalette = ColorPalettes.normalize('light', v.lightPalette)
   v.speedUnit = v.speedUnit == 'mph' and 'mph' or 'km/h'
   v.temperatureUnit = v.temperatureUnit == 'F' and 'F' or 'C'
   v.pressureUnit = (v.pressureUnit == 'bar' or v.pressureUnit == 'kPa') and v.pressureUnit or 'psi'
@@ -58,6 +62,15 @@ function M.apply(target)
   end
   target.instrumentOpacity, target.backdropOpacity = M.values.opacity, M.values.backgroundOpacity
   return target
+end
+
+function M.selectedPalette(name)
+  name = name == 'light' and 'light' or 'dark'
+  return ColorPalettes.normalize(name, M.values[name .. 'Palette'])
+end
+
+function M.themePalette(source, name)
+  return ColorPalettes.resolve(source, name, M.selectedPalette(name))
 end
 
 -- Draw backgrounds at their authored 72% reference, then scale their colors
@@ -101,6 +114,9 @@ function M.draw()
   SettingsUI.section('general', 'basics', 'Basics', true, function()
     SettingsUI.choice('general', 'theme', 'Theme', M.values.theme,
       {{label='Dark', value='dark'}, {label='Light', value='light'}}, function(v) M.values.theme=v end)
+    local paletteKey = M.values.theme .. 'Palette'
+    SettingsUI.choice('general', 'palette', 'Color palette', M.values[paletteKey],
+      ColorPalettes.choices(M.values.theme), function(v) M.values[paletteKey]=v end)
     SettingsUI.choice('general', 'speed', 'Speed unit', M.values.speedUnit,
       {{label='km/h', value='km/h'}, {label='mph', value='mph'}}, function(v) M.values.speedUnit=v end)
     SettingsUI.choice('general', 'temperature', 'Temperature unit', M.values.temperatureUnit,
@@ -128,10 +144,11 @@ function M.draw()
   ui.separator()
   SettingsUI.resetAppearance('general', function()
     M.values.theme, M.values.opacity, M.values.backgroundOpacity = 'dark', 1, 0.72
+    M.values.darkPalette, M.values.lightPalette = 'original', 'original'
   end)
   SettingsUI.resetAll('general', function()
     for key, value in pairs(defaults) do if key ~= 'version' then M.values[key] = value end end
-  end, 'Restore the shared theme, units, opacity and Dial/GT7 alerts for all instruments?')
+  end, 'Restore the shared theme, color palettes, units, opacity and Dial/GT7 alerts for all instruments?')
 end
 
 return M

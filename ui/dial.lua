@@ -401,9 +401,9 @@ local function flagColor(state)
   -- ac.FlagType values: Caution=2, Stop=5, ReturnToPits=8,
   -- FasterCar=12, Finished=13 and OneLapLeft=14.
   if flag == 2 then return C.flagYellow end
-  if flag == 5 or flag == 8 then return C.red end
-  if flag == 12 then return C.shiftBlue end
-  if flag == 13 or flag == 14 then return C.primary end
+  if flag == 5 or flag == 8 then return C.flagRed or C.red end
+  if flag == 12 then return C.flagBlue or C.shiftBlue end
+  if flag == 13 or flag == 14 then return C.flagNeutral or C.primary end
   return nil
 end
 

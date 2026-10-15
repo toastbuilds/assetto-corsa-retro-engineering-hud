@@ -395,8 +395,8 @@ local function statuses(c)
   text(c,'!',16,p[1],p[2]+2,ink,true)
   p=l.flag
   local flag=s.raceFlagType
-  local flagColor=flag==2 and C.flagYellow or (flag==5 or flag==8) and C.red
-    or flag==12 and C.shiftBlue or (flag==13 or flag==14) and C.primary or nil
+  local flagColor=flag==2 and C.flagYellow or (flag==5 or flag==8) and (C.flagRed or C.red)
+    or flag==12 and (C.flagBlue or C.shiftBlue) or (flag==13 or flag==14) and (C.flagNeutral or C.primary) or nil
   ink=flagColor and blink(c,c.settings.animateFlagAlert,0.42) and flagColor or C.outlineDim
   line(c,p[1]-7,p[2]-8,p[1]-7,p[2]+8,ink,2)
   ui.drawRectFilled(pt(c,p[1]-5,p[2]-8),pt(c,p[1]+9,p[2]),ink)
