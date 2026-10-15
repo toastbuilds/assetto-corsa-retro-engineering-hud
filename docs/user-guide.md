@@ -47,7 +47,7 @@ The suite provides Dial, GT7, Car Condition, Multiclass Relative, Delta Bar, Tim
 
 ## Configure the HUD
 
-**General** contains shared theme, speed/temperature/pressure units, content opacity, background opacity and RPM thresholds. Instrument tabs contain **Basics**, **Personalization** and **Advanced** sections.
+**General** contains shared theme, speed/temperature/pressure units, content opacity, background opacity, RPM thresholds and the **Suggested corner gear** switch. When enabled, GT7 and Dial show the estimated gear for the next corner. Instrument tabs contain **Basics**, **Personalization** and **Advanced** sections.
 
 GT7 includes Classic, Modern, Outer Pedals and Steering Dial presets. Presets are starting points: speed, gear, steering, RPM bar, pedals, radar, flags and lower panel can be configured independently. Analog and digital side dials can be mixed.
 

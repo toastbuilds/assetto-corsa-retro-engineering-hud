@@ -8,6 +8,7 @@ local U = require('src/utils')
 local Instruments = require('ui/side_instruments')
 local InstrumentConfig = require('src/instrument_config')
 local InstrumentLayout = require('src/instrument_layout')
+local CornerGearHint = require('ui/corner_gear_hint')
 
 local M = {}
 local C = Theme.colors
@@ -317,6 +318,14 @@ local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
     point(origin, scale, Layout.gearPodCenterX, Layout.gearCenterY), valueColor)
   centeredText('GEAR', 14 * scale, point(origin, scale, Layout.gearPodCenterX, Layout.gearLabelY),
     state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.secondary))
+  CornerGearHint.draw(state, settings, Layout.gearPodCenterX + Layout.gearPodHalfWidth - 15,
+    Layout.gearPodTop + 19, 18, {primary = C.primary, red = C.red},
+    function(x1, y1, x2, y2, color, width)
+      drawLine(point(origin, scale, x1, y1), point(origin, scale, x2, y2), color, width * scale)
+    end,
+    function(value, size, x, y, color)
+      centeredText(value, size * scale, point(origin, scale, x, y), color)
+    end)
 end
 
 local function drawSteering(origin, scale, state, settings)

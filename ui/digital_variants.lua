@@ -9,6 +9,7 @@ local Auxiliary=require('ui/analog_variants').auxiliary
 local Icons=require('ui/side_instruments')
 local Halo=require('ui/halo_dial')
 local Selector=require('src/gear_selector')
+local CornerGearHint=require('ui/corner_gear_hint')
 local M={}
 local selectors=setmetatable({}, {__mode='k'})
 local function pt(c,x,y) return c.origin+vec2(x*c.scale,y*c.scale) end
@@ -23,6 +24,14 @@ local function text(c,value,size,x,y,color,bold)
 end
 local function line(c,x,y,a,b,color,width)
   ui.drawLine(pt(c,x,y),pt(c,a,b),color,(width or 1)*c.scale)
+end
+local function drawCornerGearHint(c, gear, y)
+  if not gear then return end
+  local size=math.max(15,math.min(22,gear[3]*0.24))
+  CornerGearHint.draw(c.state,c.settings,gear[1]+gear[3]*0.49,
+    (y or gear[2])+gear[3]*0.10,size,{primary=c.C.primary,red=c.C.red},
+    function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
+    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true) end)
 end
 local function arc(c,x,y,r,a,b,color,width)
   ui.pathClear()
@@ -227,6 +236,7 @@ local function gearSelector(c)
   local p=c.layout.gear
   text(c,gear==nil and '—' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear),
     p[3],p[1],p[2],alert and rpmInk(c) or C.primary,true)
+  drawCornerGearHint(c,p)
 end
 local function rpm(c)
   local l,s,C=c.layout,c.state,c.C
@@ -568,6 +578,7 @@ local function capsuleReadout(c)
   local gear=l.gear
   local centeredValueY=l.readout[2]+6
   text(c,s.gearText or 'N',gear[3],gear[1],centeredValueY,rpmInk(c),true)
+  drawCornerGearHint(c,gear,centeredValueY)
   text(c,s.rpmText or '0',25,l.rpmValue[1],centeredValueY,rpmInk(c),true)
   local bar=l.rpmBar
   local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/math.max(s.rpmGaugeLimiter or 8000,1),0,1)
@@ -602,6 +613,7 @@ function M.draw(state,settings,origin,scale)
   elseif not layout.selector then
     local gearInk=layout.conceptStyle=='floating' and (state.rpmWarning or state.rpmRedline) and c.C.primary or rpmInk(c)
     text(c,state.gearText or 'N',gear[3],gear[1],gear[2],gearInk,true)
+    drawCornerGearHint(c,gear)
   end
   controls(c)
   auxiliary(c)

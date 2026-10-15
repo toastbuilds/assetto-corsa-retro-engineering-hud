@@ -127,6 +127,14 @@ assert(General.values.theme=='light' and General.values.speedUnit=='mph' and Gen
 assert(General.values.opacity==1 and General.values.backgroundOpacity==0.72)
 assert(General.values.rpmWarningFraction==0.86 and General.values.rpmRedlineFraction==0.96)
 assert(General.values.pedalDisplay=='estimated','Dual-layer pedals default on for existing installations too')
+assert(General.values.cornerGearHint==true,'suggested corner gear defaults on for existing installations')
+pending['Suggested corner gear']=true
+frame(General.draw)
+assert(Dial.current().cornerGearHint==false and GT7.current().cornerGearHint==false,
+  'one global switch disables corner suggestions for Dial and GT7')
+pending['Suggested corner gear']=true
+frame(General.draw)
+assert(Dial.current().cornerGearHint==true and GT7.current().cornerGearHint==true)
 pending['##general.pedals']=1
 frame(General.draw)
 assert(Dial.current().pedalDisplay=='classic' and GT7.current().pedalDisplay=='classic',

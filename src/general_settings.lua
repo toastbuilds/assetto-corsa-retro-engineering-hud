@@ -6,6 +6,7 @@ local defaults = {
   speedUnit = 'km/h', temperatureUnit = 'C', pressureUnit = 'psi',
   opacity = 1, backgroundOpacity = 0.72,
   pedalDisplay = 'estimated',
+  cornerGearHint = true,
   rpmWarningFraction = 0.86, rpmRedlineFraction = 0.96, fallbackRpm = 8000,
   animateIndicators = true, animateFlagAlert = true,
   animateShiftAlert = true, animateRedlineAlert = true
@@ -41,6 +42,7 @@ function M.normalize()
   local v = M.values
   v.theme = v.theme == 'light' and 'light' or 'dark'
   v.pedalDisplay = v.pedalDisplay == 'classic' and 'classic' or 'estimated'
+  v.cornerGearHint = v.cornerGearHint ~= false
   v.darkPalette = ColorPalettes.normalize('dark', v.darkPalette)
   v.lightPalette = ColorPalettes.normalize('light', v.lightPalette)
   v.speedUnit = v.speedUnit == 'mph' and 'mph' or 'km/h'
@@ -131,6 +133,10 @@ function M.draw()
       {{label='Estimated dual-layer', value='estimated'}, {label='Classic', value='classic'}},
       function(v) M.values.pedalDisplay=v end)
     ui.textWrapped('Dial and GT7: white pedal input with an estimated colored output overlaid at the same width. TC/ABS, shift cut and auto-blip can change its length. Output is an approximation, not measured engine torque or braking force. Missing physics data shows input only.')
+    if ui.checkbox('Suggested corner gear', M.values.cornerGearHint) then
+      M.values.cornerGearHint = not M.values.cornerGearHint
+    end
+    ui.textWrapped('Shows a gear for the next corner on GT7 and Dial while driving. Uses the track AI line and car ratios; hidden when track or car data is unavailable.')
   end)
   SettingsUI.section('general', 'personalization', 'Personalization', false, function()
     ui.text('RPM and alerts - Dial and GT7')

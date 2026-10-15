@@ -11,6 +11,7 @@ local Hybrid = require('src/hybrid')
 local Icons = require('ui/side_instruments')
 local Halo = require('ui/halo_dial')
 local Selector = require('src/gear_selector')
+local CornerGearHint = require('ui/corner_gear_hint')
 local PaletteShell = require('ui/palette_dial_shell')
 local M = {}
 -- CSP can expose the app root as __dirname inside required modules. Test both
@@ -61,6 +62,14 @@ local function text(c, value, size, x, y, color, backlight, bold)
 end
 local function line(c,x1,y1,x2,y2,color,width)
   Light.line(point(c,x1,y1),point(c,x2,y2),color,(width or 1)*c.scale,not c.statusDrawing and ((width or 1)>=2 and c.L.major or c.L.minor) or nil,c.scale)
+end
+local function drawCornerGearHint(c, gear)
+  if not gear then return end
+  local size = math.max(14, math.min(20, gear[3] * 0.34))
+  CornerGearHint.draw(c.state, c.settings, gear[1] + gear[3] * 0.48,
+    gear[2] + gear[3] * 0.10, size, {primary=c.colors.primary, red=c.colors.red},
+    function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
+    function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true,true) end)
 end
 local function arc(c,x,y,r,a,b,color,width)
   ui.pathClear()
@@ -245,6 +254,7 @@ local function drawSelectorHub(c,gear,count,cue)
   local p=l.gear
   local reading=gear==nil and '-' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear)
   text(c,reading,p[3],p[1],p[2],rpmColor(c),true,true)
+  drawCornerGearHint(c,p)
 end
 
 local function bar(c,x,y,w,h,fraction,color,signed)
@@ -588,7 +598,10 @@ function M.draw(state,settings,origin,scale)
   local speed,gear=layout.speed,layout.gear
   text(c,state.speedText or '000',speed[3],speed[1],speed[2],c.colors.primary,true,true)
   text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+9,c.colors.primary,true)
-  if not layout.selector then text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true) end
+  if not layout.selector then
+    text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true)
+    drawCornerGearHint(c,gear)
+  end
   if not layout.hideRpmValue then
     local p=layout.rpmValue
     text(c,'RPM ×1000',13,p[1],p[2]-22,c.colors.primary,true)

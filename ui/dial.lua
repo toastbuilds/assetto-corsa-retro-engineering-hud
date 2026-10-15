@@ -10,6 +10,7 @@ local Hybrid = require('src/hybrid')
 local HybridGauge = require('ui/hybrid_gauge')
 local AnalogVariants = require('ui/analog_variants')
 local DigitalVariants = require('ui/digital_variants')
+local CornerGearHint = require('ui/corner_gear_hint')
 
 local M = {}
 local drawAnalogElectronics
@@ -329,6 +330,14 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
 
   centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
     gearColor, scale, backlit)
+  CornerGearHint.draw(state, settings, Layout.centerX + Layout.analogGearPodRadius * 0.58,
+    Layout.centerY + Layout.analogGearOffsetY + 8, 18, {primary=C.primary,red=C.red},
+    function(x1,y1,x2,y2,color,width)
+      drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
+    end,
+    function(value,size,x,y,color)
+      centeredBacklitText(value,size*scale,point(origin,scale,x,y),color,scale,backlit)
+    end)
   centeredBacklitText(state.speedText, Layout.analogSpeedFontSize * scale,
     dialCenter + vec2(0, Layout.analogSpeedOffsetY * scale), C.primary, scale, backlit)
 end
@@ -882,6 +891,14 @@ function M.draw(state, settings)
     local digitalAlertColor = state.rpmRedline and redlineColor(state, settings)
       or (state.rpmWarning and C.amber or C.primary)
     centeredText(state.gearText, Layout.gearFontSize * scale, point(origin, scale, Layout.centerX, Layout.gearY), digitalAlertColor)
+    CornerGearHint.draw(state, settings, Layout.centerX + 60, Layout.gearY + 13, 24,
+      {primary=C.primary,red=C.red},
+      function(x1,y1,x2,y2,color,width)
+        drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
+      end,
+      function(value,size,x,y,color)
+        centeredText(value,size*scale,point(origin,scale,x,y),color)
+      end)
     local digitalRpmColor = state.rpmRedline and digitalAlertColor
       or (state.rpmWarning and C.amber or C.primary)
     local digitalFlagColor = flagColor(state)

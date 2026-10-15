@@ -9,6 +9,7 @@ local TyreReadouts = require('src/tyre_readouts')
 local TyreStint = require('src/tyre_stint')
 local Hybrid = require('src/hybrid')
 local GearSelector = require('src/gear_selector')
+local CornerGearHint = require('src/corner_gear_hint')
 
 local M = {}
 local SIM = ac.getSim()
@@ -102,6 +103,7 @@ local function blankState()
     rpmRedline = false,
     gear = 0,
     gearText = 'N',
+    cornerGearHint = nil,
     gearCount = 6,
     gearCountSource = 'fallback',
     steeringInput = 0,
@@ -963,6 +965,7 @@ function M.update(state, dt, settings, sampleCar)
     state.gearCount, state.gearCountSource = 6, 'fallback'
     state._gearCountCarKey, state._observedGearCount = nil, 0
     state.hybrid = nil
+    CornerGearHint.reset(state)
     state.lightsAvailable = false
     state.headlights, state.steadyHeadlights, state.flashingLights, state.highBeams = nil, nil, nil, nil
     state.ffbAvailable = false
@@ -1031,6 +1034,7 @@ function M.update(state, dt, settings, sampleCar)
 
   state.gear = U.number(U.read(car, 'gear', 0), 0)
   formattedGear(state, state.gear)
+  CornerGearHint.update(state, car, SIM, dt, settings.cornerGearHint)
   -- gearCount excludes N/R and is only meaningful with physics access.
   local count = U.read(car, 'physicsAvailable', nil) ~= false and U.read(car, 'gearCount', nil) or nil
   GearSelector.observe(state, count, state.gear, state._speedGaugeCarKey)

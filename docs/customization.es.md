@@ -158,7 +158,8 @@ Lower panel y Radar and flags. Dial usa su propio slider de aguja en Personaliza
 
 Al actualizar, tema, unidades y ajustes locales se conservan. Los nuevos
 valores globales arrancan una sola vez con contenido al 100 %, fondo al 72 %,
-umbrales RPM al 86 % y 96 %, respaldo de 8000 RPM y parpadeos activados.
+umbrales RPM al 86 % y 96 %, respaldo de 8000 RPM, sugerencia de marcha en
+curvas activada y parpadeos activados.
 **Reset appearance** restaura el aspecto local; **Reset all** pide confirmación
 para restaurar el instrumento. General dispone de sus propios resets compartidos.
 En Relative y Leaderboard, Reset all también restaura `classes.ini` y guarda
