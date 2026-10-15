@@ -22,13 +22,13 @@ function M.rect(a, b, input, output, color, neutral, inactive, horizontal, brake
     ui.drawRectFilled(tl, br, ink)
   end
   if brake then
-    -- Raw pedal pressure is the white background trace; the red inset is
-    -- pressure estimated after ABS. Draw white first so red sits above it.
+    -- Draw the original pedal input first; the estimated output overlays it
+    -- at the same width so only the pressure difference changes its length.
     fill(input, neutral, false)
     fill(output, color, false)
   else
     fill(input, color, false)
-    fill(output, neutral, true)
+    fill(output, neutral, false)
   end
 end
 
