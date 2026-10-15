@@ -25,6 +25,7 @@ def main():
         return
     suites = [
         "tests/notices.lua",
+        "tests/overtake.lua",
         "tests/leaderboard.lua",
         "tests/leaderboard_data.lua",
         "tests/leaderboard_sectors.lua",

@@ -122,6 +122,7 @@ local function makeRow(car, session, settings, sim)
   local isLocal = index == 0
   local connected = read(car, 'isConnected')
   local active = read(car, 'isActive')
+  local isAI = bool(read(car, 'isAIControlled'))
   local driver = safeDriverName(index, car)
   local best = safeNumberField(car, 'bestLapTimeMs')
   local last = safeNumberField(car, 'previousLapTimeMs')
@@ -141,7 +142,8 @@ local function makeRow(car, session, settings, sim)
   local row = {
     index = index, driver = driver, number = safeNumberMethod(car, 'driverNumber'),
     carID = carID, carName = carName, classID = classID, classSource = classSource,
-    connected = connected ~= false, active = active ~= false, isLocal = isLocal,
+    connected = connected ~= false, active = active ~= false, isLocal = isLocal, isAI = isAI,
+    justJumped = bool(read(car, 'justJumped')),
     racePosition = number(read(car, 'racePosition')) or 999,
     lapCount = lapCount, splinePosition = math.max(0, math.min(1, spline)),
     progress = lapCount + math.max(0, math.min(1, spline)), speedMs = speedMs,

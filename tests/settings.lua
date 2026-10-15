@@ -217,6 +217,14 @@ for _,page in ipairs(pages) do
     assert(not visible['Blink redline alert'] and not visible['RPM warning threshold'])
   end
 end
+local NoticeSettings=require('modules/notices/src/settings')
+assert(NoticeSettings.values.overtakeEnabled==true,'Overtake summaries should be enabled for new installs')
+pending['Overtake summaries']=true
+frame(pages[12][2])
+assert(NoticeSettings.values.overtakeEnabled==false,'Overtake summaries have an independent toggle')
+pending['Overtake summaries']=true
+frame(pages[12][2])
+assert(NoticeSettings.values.overtakeEnabled==true)
 
 -- Variants are local analog selections and remain stored while digital is shown.
 local function variantIndex(module,value)
@@ -342,6 +350,14 @@ pending['Preview Battle##notices.battle']=true
 frame(pages[12][2])
 pending['Preview Attack##notices.attack']=true
 frame(pages[12][2])
+pending['Preview Overtake##notices.overtake']=true
+frame(pages[12][2])
+local _,overtakePreview=frame(script.noticesMain)
+local sawOvertakePreview=false
+for _,call in ipairs(overtakePreview) do
+  sawOvertakePreview=sawOvertakePreview or call.kind=='text' and call.text=='OVERTAKE P5 > P4'
+end
+assert(sawOvertakePreview,'Race Notices must render the overtake preview')
 local callbacks={'windowMain','gt7Main','conditionMain','relativeMain','deltaMain','timerMain','lapsMain','leaderboardMain','telemetryMain','mapMain','noticesMain'}
 -- Exercise real callbacks with a custom palette in each theme, including the
 -- native shells that replace fixed-color artwork for numbered palettes.

@@ -18,7 +18,8 @@ local previews = {
   repair = { kind = 'repair', title = 'REPAIR REQUIRED', detail = 'FRONT SUSPENSION DAMAGE', value = 'BOX', label = 'REPAIR' },
   pit = { kind = 'pit', title = 'BOX THIS LAP', detail = '~1 FULL LAP OF FUEL / FRONT SUSPENSION DAMAGE', value = '~32 s', label = 'EST. REPAIR' },
   battle = BattleAlert.notice({behind={driver='COSTA',position=6,rate=-0.6,gapSeconds=0.8}}),
-  attack = BattleAlert.notice({ahead={driver='MARTIN',position=4,rate=0.6,gapSeconds=2.1}}, {attackEnabled=true})
+  attack = BattleAlert.notice({ahead={driver='MARTIN',position=4,rate=0.6,gapSeconds=2.1}}, {attackEnabled=true}),
+  overtake = {kind='overtake',title='OVERTAKE P5 > P4',detail='A. SATO | GT3 | FERRARI 296',value='~+0.8',label='S/LAP'}
 }
 
 function M.update(dt, telemetry)
@@ -38,7 +39,7 @@ function M.update(dt, telemetry)
   local snapshot = Leaderboard.getRaceSnapshot()
   pace:update(snapshot)
   state:update(dt, car, sim, telemetry and telemetry.condition, traffic, Settings.values, cachedRates,
-    snapshot and snapshot.fuel, pace.snapshot)
+    snapshot and snapshot.fuel, pace.snapshot, snapshot)
   controller:update(Settings.values)
 end
 

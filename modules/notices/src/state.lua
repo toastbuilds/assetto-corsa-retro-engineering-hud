@@ -2,8 +2,13 @@ local U = require('src/utils')
 local Repair = require('modules/notices/src/repair')
 local FlagCause = require('src/flag_cause')
 local BattleAlert = require('modules/notices/src/battle')
+local Overtake = require('modules/notices/src/overtake')
 local M = {}
 M.__index = M
+
+local OVERTAKE_QUEUE_LIMIT = 3
+local OVERTAKE_QUEUE_TTL = 12
+local OVERTAKE_DISPLAY_SECONDS = 4
 
 local function finite(value)
   value = tonumber(value)
@@ -11,7 +16,8 @@ local function finite(value)
 end
 
 function M.new()
-  return setmetatable({ clock = 0 }, M)
+  return setmetatable({ clock = 0, overtakeTracker = Overtake.new(),
+    overtakeQueue = {}, activeOvertake = nil }, M)
 end
 
 function M:reset()
@@ -19,6 +25,58 @@ function M:reset()
   self.pitNoticeLap, self.pitNoticeUntil, self.previousAmounts = nil, 0, nil
   self.previousReason, self.repairSeconds = nil, nil
   self.notice, self.blue, self.blueUntil = nil, nil, 0
+  Overtake.reset(self.overtakeTracker)
+  self.overtakeQueue, self.activeOvertake = {}, nil
+end
+
+local function overtakeNotice(event)
+  local detail = {event.driver}
+  if event.classID ~= '' and event.classID ~= 'UNKNOWN' then
+    detail[#detail + 1] = event.classID
+  end
+  if event.carName ~= '' then detail[#detail + 1] = event.carName end
+  local value = event.closingRate ~= nil
+    and string.format('%s%+.1f', event.estimated and '~' or '', event.closingRate) or '--'
+  return {
+    kind = 'overtake',
+    title = string.format('OVERTAKE P%d > P%d', event.fromPosition, event.toPosition),
+    detail = table.concat(detail, ' | '),
+    value = value,
+    label = event.closingRate ~= nil and 'S/LAP' or 'PACE'
+  }
+end
+
+local function addOvertakes(self, events)
+  for i = 1, #events do
+    while #self.overtakeQueue >= OVERTAKE_QUEUE_LIMIT do
+      table.remove(self.overtakeQueue, 1)
+    end
+    self.overtakeQueue[#self.overtakeQueue + 1] = {
+      notice = overtakeNotice(events[i]), queuedAt = self.clock
+    }
+  end
+end
+
+local function pruneOvertakes(self)
+  for i = #self.overtakeQueue, 1, -1 do
+    if self.clock - self.overtakeQueue[i].queuedAt >= OVERTAKE_QUEUE_TTL then
+      table.remove(self.overtakeQueue, i)
+    end
+  end
+end
+
+local function nextOvertake(self, dt)
+  if self.activeOvertake then
+    self.activeOvertake.remaining = self.activeOvertake.remaining - dt
+    if self.activeOvertake.remaining <= 0 then self.activeOvertake = nil end
+  end
+  if not self.activeOvertake then
+    local queued = table.remove(self.overtakeQueue, 1)
+    if queued then
+      self.activeOvertake = {notice = queued.notice, remaining = OVERTAKE_DISPLAY_SECONDS}
+    end
+  end
+  return self.activeOvertake and self.activeOvertake.notice or nil
 end
 
 local function repairReason(d, settings)
@@ -55,10 +113,10 @@ local function blueNotice(sim, traffic)
     value = value, label = 'BEHIND' }
 end
 
-function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel, battle)
-  if not U.read(sim, 'isPaused', false) then
-    self.clock = self.clock + math.max(0, finite(dt) or 0)
-  end
+function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel, battle, raceSnapshot)
+  local paused = U.read(sim, 'isPaused', false)
+  local elapsed = not paused and math.max(0, finite(dt) or 0) or 0
+  self.clock = self.clock + elapsed
   local session = U.read(sim, 'currentSessionIndex')
   local lap = finite(U.read(car, 'lapCount'))
   local sessionTime = finite(U.read(sim, 'currentSessionTime'))
@@ -77,6 +135,14 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel,
   if U.read(sim, 'isSessionStarted') == false then self:reset(); return end
   local inPits = U.read(car, 'isInPitlane', false) or U.read(car, 'isInPit', false)
   if inPits then self:reset(); return end
+
+  if settings.overtakeEnabled == false then
+    Overtake.reset(self.overtakeTracker)
+    self.overtakeQueue, self.activeOvertake = {}, nil
+  else
+    addOvertakes(self, self.overtakeTracker:update(raceSnapshot, true))
+    pruneOvertakes(self)
+  end
 
   local amounts = Repair.damage(condition)
   local reason = repairReason(amounts, settings)
@@ -140,6 +206,8 @@ function M:update(dt, car, sim, condition, traffic, settings, repairRates, fuel,
       value = Repair.format(self.repairSeconds), label = 'EST. REPAIR' }
     return
   end
+  self.notice = nextOvertake(self, elapsed)
+  if self.notice then return end
   self.notice = BattleAlert.notice(battle, settings)
 end
 

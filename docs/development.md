@@ -13,6 +13,16 @@ python tools/test-lua.py
 
 The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migration, 12 windows, CSP callbacks, geometry, timing, tyre data, hybrids, illumination, independent ABS/TC values, race notices and live/replay history changes.
 
+## Race Notices previews
+
+With Pillow installed alongside Lupa, render the actual Lua panel with simulated race data:
+
+```powershell
+python tools/preview-notices.py
+```
+
+The script writes `outputs/overtake-summary-dark.png` and `outputs/overtake-summary-light.png`, plus the existing notice and battle sheets. Overtake examples cover human and AI drivers, measured and estimated approach pace, insufficient history and long names, at normal and compact sizes. These previews exercise the tracker, notice formatter and Lua renderer; CSP antialiasing and live telemetry require an in-game check. Generated images stay in the ignored output folders.
+
 ## Build
 
 Set `VERSION` in `manifest.ini` and add `docs/releases/vX.Y.Z.md` and a changelog entry. The build reads the manifest version by default and rejects a mismatched explicit version.

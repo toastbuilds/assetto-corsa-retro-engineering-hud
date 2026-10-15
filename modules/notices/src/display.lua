@@ -35,6 +35,13 @@ local function icon(kind, tl, scale, color)
       ui.drawLine(p(x, 46), p(x, 53), color, 4 * scale)
       ui.drawLine(p(x, 58), p(x, 65), color, 4 * scale)
     end
+  elseif kind == 'overtake' then
+    ui.drawLine(p(16, 55), p(49, 22), color, 4 * scale)
+    ui.drawLine(p(39, 23), p(49, 22), color, 3 * scale)
+    ui.drawLine(p(49, 22), p(48, 33), color, 3 * scale)
+    ui.drawLine(p(19, 23), p(52, 56), color, 4 * scale)
+    ui.drawLine(p(42, 55), p(52, 56), color, 3 * scale)
+    ui.drawLine(p(52, 56), p(52, 45), color, 3 * scale)
   else
     ui.drawLine(p(17, 62), p(17, 23), color, 4 * scale)
     ui.drawLine(p(67, 62), p(67, 23), color, 4 * scale)
@@ -68,6 +75,7 @@ function M.draw(notice, settings)
   local function ink(color, alpha) return Theme.withAlpha(color, opacity * (alpha or color.mult or 1)) end
   local accent = notice.kind == 'blue' and (colors.flagBlue or colors.shiftBlue)
     or notice.kind == 'battle' and notice.side == 'ahead' and colors.green
+    or notice.kind == 'overtake' and colors.green
     or (notice.kind == 'repair' or notice.kind == 'battle' and notice.urgent) and colors.red or colors.amber
   TimingUI.chamferRect(p(3, 3), p(657, 93), 9 * scale,
     ink(colors.panel, General.background(colors.panel.mult)), ink(colors.outline), scale)
@@ -82,7 +90,8 @@ function M.draw(notice, settings)
   local valueSize = 31 * scale
   local valueWidth = ui.measureDWriteText(notice.value, valueSize).x
   valueSize = valueSize * math.min(1, 128 * scale / math.max(1, valueWidth))
-  TimingUI.centeredText(notice.value, valueSize, p(580, 35), ink(notice.kind == 'battle' and accent or colors.primary))
+  TimingUI.centeredText(notice.value, valueSize, p(580, 35),
+    ink((notice.kind == 'battle' or notice.kind == 'overtake') and accent or colors.primary))
   ui.popDWriteFont()
   ui.pushDWriteFont(Theme.fonts.utility)
   TimingUI.centeredText(notice.label, 13 * scale, p(580, 66), ink(colors.secondary))
