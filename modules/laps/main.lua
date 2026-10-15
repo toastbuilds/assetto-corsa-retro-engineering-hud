@@ -8,7 +8,7 @@ local Window = require('modules/timing/src/window')
 local M = {}
 local APP_TITLE = 'Retro UI Laps'
 local state = State.new()
-local controller = Window.new(APP_TITLE, Display.size, 'top-right')
+local controller = Window.new(APP_TITLE, Display.size, 'top-right', true)
 local lastError
 
 local function report(stage, err)

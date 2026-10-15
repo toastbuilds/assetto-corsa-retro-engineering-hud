@@ -36,11 +36,12 @@ local function screenSize(fallback)
   return fallback
 end
 
-function Window.new(title, sizeProvider, placement)
+function Window.new(title, sizeProvider, placement, tracksRows)
   return setmetatable({
     title = title,
     sizeProvider = sizeProvider,
     placement = placement,
+    tracksRows = tracksRows == true,
     appWindow = nil,
     checkedAt = -10,
     lastScale = nil,
@@ -98,7 +99,7 @@ function Window:update(settings)
   local win = self:find()
   if not win then return end
   local scale = settings.scale or 1
-  local rows = settings.rows
+  local rows = self.tracksRows and settings.rows or nil
   local size = self:desiredSize(settings)
   if self.lastScale == nil or math.abs(self.lastScale - scale) > 0.001 or self.lastRows ~= rows then
     pcall(function() win:resize(size) end)
