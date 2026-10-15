@@ -25,7 +25,7 @@ function M.rect(a, b, input, output, color, neutral, inactive, horizontal, brake
     -- Raw pedal pressure is the white background trace; the red inset is
     -- pressure estimated after ABS. Draw white first so red sits above it.
     fill(input, neutral, false)
-    fill(output, color, true)
+    fill(output, color, false)
   else
     fill(input, color, false)
     fill(output, neutral, true)
