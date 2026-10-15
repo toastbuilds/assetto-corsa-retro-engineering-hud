@@ -1,4 +1,5 @@
 local Session = require('modules/leaderboard/src/session')
+local FlagCause = require('src/flag_cause')
 local M = {}
 M.__index = M
 
@@ -6,6 +7,7 @@ local SAMPLE_INTERVAL = 0.5
 local MAX_SAMPLE_GAP = 2
 local MAX_HISTORY_LAPS = 3
 local MAX_HISTORY_POINTS = 720
+local INCIDENT_MEMORY_SECONDS = 20
 local EPSILON = 0.000001
 
 local function finite(value)
@@ -60,12 +62,12 @@ local function closingRate(history)
 end
 
 local function clearHistory(self)
-  self.previousRows, self.histories = {}, {}
+  self.previousRows, self.histories, self.incidents = {}, {}, {}
   self.sessionIndex, self.lastProgress, self.lastTime = nil, nil, nil
 end
 
 function M.new()
-  return setmetatable({previousRows = {}, histories = {}}, M)
+  return setmetatable({previousRows = {}, histories = {}, incidents = {}}, M)
 end
 
 function M:reset()
@@ -105,6 +107,30 @@ function M:update(snapshot, enabled)
     if finite(row.index) then rowsByIndex[row.index] = row end
   end
 
+  -- Keep recent, rival-specific context until AC reports the position swap.
+  -- A track exit describes what was observed; it does not confirm a crash.
+  local flagKind, flagIndex = FlagCause.resolve(snapshot.sim)
+  local incidents = {}
+  for index, row in pairs(rowsByIndex) do
+    if index ~= player.index and active(row) then
+      local rowIdentity = identity(row)
+      local recent = self.incidents[index]
+      if recent and (recent.identity ~= rowIdentity
+          or now - recent.time >= INCIDENT_MEMORY_SECONDS) then recent = nil end
+      if read(snapshot.sim, 'isPaused') ~= true then
+        if flagKind == 'yellow' and flagIndex == index then
+          recent = {identity = rowIdentity, kind = 'yellow', time = now}
+        elseif finite(read(row.car, 'wheelsOutside')) == 4
+            and (not recent or recent.kind ~= 'yellow') then
+          recent = {identity = rowIdentity, kind = 'offtrack', time = now}
+        end
+      end
+      incidents[index] = recent
+      if recent then self.histories[index] = nil end
+    end
+  end
+  self.incidents = incidents
+
   local previousPlayer = self.previousRows[player.index]
   local previousPlayerPosition = previousPlayer and previousPlayer.position
   local canDetect = not discontinuous and read(snapshot.sim, 'isPaused') ~= true
@@ -130,13 +156,15 @@ function M:update(snapshot, enabled)
     for i = 1, #candidates do
       local candidate = candidates[i]
       local rate, estimated = closingRate(self.histories[candidate.index])
+      local incident = self.incidents[candidate.index]
       local passed = candidate.row
       events[#events + 1] = {
         kind = 'overtake', index = candidate.index, identity = identity(passed),
         driver = tostring(passed.driver or ''), carName = tostring(passed.carName or ''),
         classID = tostring(passed.classID or ''),
         fromPosition = candidate.oldPosition + 1, toPosition = candidate.oldPosition,
-        closingRate = rate, estimated = estimated
+        closingRate = rate, estimated = estimated,
+        incident = incident and incident.kind or nil
       }
       self.histories[candidate.index] = nil
     end
@@ -153,7 +181,8 @@ function M:update(snapshot, enabled)
     local gap = finite(row.intervalSeconds)
     local history = self.histories[index]
     local isAhead = index ~= player.index and active(row) and rowPosition and playerPosition
-      and rowPosition < playerPosition and gap and gap > 0 and snapshot.timeline.measuredClock ~= false
+      and rowPosition < playerPosition and gap and gap > 0 and not self.incidents[index]
+      and snapshot.timeline.measuredClock ~= false
     if isAhead then
       if not history then history = {identity = rowIdentity, points = {}}; self.histories[index] = history end
       if history.identity ~= rowIdentity then

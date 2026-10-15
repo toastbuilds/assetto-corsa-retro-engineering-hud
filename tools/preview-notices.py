@@ -16,7 +16,7 @@ def overtake_samples(lua):
       ac.SessionType = ac.SessionType or {}
       ac.SessionType.Race = ac.SessionType.Race or 1
       local State = require('modules/notices/src/state')
-      return function(source, driver, carName, isAI, samples)
+      return function(source, driver, carName, isAI, samples, context)
         local state = State.new()
         local sim = {currentSessionIndex=1, isSessionStarted=true}
         local car = {lapCount=0, resetCounter=0}
@@ -24,13 +24,19 @@ def overtake_samples(lua):
           progress=0, active=true, connected=true, status='LIVE'}
         local rival = {index=1, driver=driver, carID='rival', carName=carName,
           classID='GT3', racePosition=4, active=true, connected=not isAI,
-          isAI=isAI, status='LIVE', intervalSource=source}
+          isAI=isAI, status='LIVE', intervalSource=source, car={wheelsOutside=0}}
         local settings = {overtakeEnabled=true, engineDamageThreshold=0.2,
           suspensionDamageThreshold=0.05, bodyDamageThreshold=0.2}
         for i=0,samples do
           local passed = i == samples
           local time, progress = i * 0.5, i / 180
           sim.currentSessionTime = time * 1000
+          sim.raceFlagType, sim.raceFlagCause = nil, nil
+          rival.car.wheelsOutside = 0
+          if i == samples - 3 then
+            if context == 'yellow' then sim.raceFlagType, sim.raceFlagCause = 2, 1
+            elseif context == 'offtrack' then rival.car.wheelsOutside = 4 end
+          end
           player.progress, player.racePosition = progress, passed and 4 or 5
           rival.progress, rival.racePosition = progress + 0.01, passed and 5 or 4
           rival.intervalSeconds = passed and -0.1 or 2 - 0.8 * progress
@@ -47,6 +53,10 @@ def overtake_samples(lua):
         ('HUMAN / MEASURED', make_notice('history', 'A. SATO', 'FERRARI 296', False, 361)),
         ('AI / ESTIMATED', make_notice('estimated', 'M. COSTA', 'PORSCHE 911 GT3 R', True, 361)),
         ('INSUFFICIENT HISTORY', make_notice('history', 'J. MARTIN', 'BMW M4 GT3', False, 30)),
+        ('RIVAL CAUSED A RECENT YELLOW', make_notice('history', 'R. SILVA', 'AUDI R8 LMS',
+            False, 361, 'yellow')),
+        ('RIVAL RECENTLY LEFT THE TRACK', make_notice('history', 'D. COSTA', 'BMW M4 GT3',
+            True, 361, 'offtrack')),
         ('LONG DRIVER / CAR NAMES', make_notice('history', 'ALEXANDER VAN DER BERG',
             'MERCEDES-AMG GT3 EVO ENDURANCE', False, 361)),
     ]

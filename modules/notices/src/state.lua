@@ -37,12 +37,16 @@ local function overtakeNotice(event)
   if event.carName ~= '' then detail[#detail + 1] = event.carName end
   local value = event.closingRate ~= nil
     and string.format('%s%+.1f', event.estimated and '~' or '', event.closingRate) or '--'
+  local incident = event.incident == 'yellow' and 'YELLOW'
+    or event.incident == 'offtrack' and 'OFF TRACK' or nil
   return {
     kind = 'overtake',
     title = string.format('OVERTAKE P%d > P%d', event.fromPosition, event.toPosition),
     detail = table.concat(detail, ' | '),
-    value = value,
-    label = event.closingRate ~= nil and 'S/LAP' or 'PACE'
+    value = incident or value,
+    label = incident and (event.incident == 'yellow' and 'RIVAL FLAG' or 'TRACK EXIT')
+      or (event.closingRate ~= nil and 'S/LAP' or 'PACE'),
+    incident = event.incident
   }
 end
 

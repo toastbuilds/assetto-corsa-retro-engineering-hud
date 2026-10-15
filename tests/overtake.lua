@@ -20,9 +20,13 @@ local function update(index, crossed, options)
   rival.progress = progress + 0.01
   rival.racePosition = crossed and 2 or 1
   rival.intervalSeconds = crossed and -0.1 or 5 - 0.6 * progress
+  if options.gap ~= nil then rival.intervalSeconds = options.gap end
   rival.intervalSource = options.estimated and 'estimated' or 'history'
   if options.status then rival.status = options.status else rival.status = 'LIVE' end
   rival.justJumped = options.justJumped == true
+  rival.car = {wheelsOutside = options.wheelsOutside or 0}
+  sim.raceFlagType = options.flagCause ~= nil and 2 or nil
+  sim.raceFlagCause = options.flagCause
   local snapshot = {
     sim = sim, session = session, localRow = player, rows = {player, rival},
     timeline = {time = time, measuredClock = true},
@@ -65,6 +69,74 @@ assert(#update(1, true, {historyReset = true}) == 0, 'History resets re-prime wi
 Tracker.reset(tracker)
 update(0, false, {historyReset = true})
 assert(#update(1, true, {justJumped = true}) == 0, 'A teleported rival cannot generate a pass')
+
+-- A large gap can collapse after a rival-specific incident, without a long battle.
+Tracker.reset(tracker)
+update(0, false, {historyReset = true, gap = 10})
+update(1, false, {flagCause = 1, gap = 10})
+update(2, false, {gap = 4})
+event = update(3, true)[1]
+assert(event and event.incident == 'yellow' and event.closingRate == nil,
+  'Remember the rival yellow flag after it clears and do not describe incident gains as pace')
+
+Tracker.reset(tracker)
+for i = 0, 19 do update(i, false, {historyReset = i == 0}) end
+update(20, false, {flagCause = 1})
+event = update(21, true)[1]
+assert(event and event.incident == 'yellow' and event.closingRate == nil,
+  'A recent incident discards even a previously available multi-lap pace estimate')
+
+for _, cause in ipairs({-1, 2}) do
+  Tracker.reset(tracker)
+  update(0, false, {historyReset = true})
+  update(1, false, {flagCause = cause})
+  event = update(2, true)[1]
+  assert(event and event.incident == nil, 'Unknown or other-car yellow causes do not implicate the rival')
+end
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {wheelsOutside = 4})
+update(2, false)
+event = update(3, true)[1]
+assert(event and event.incident == 'offtrack', 'Remember a full track exit even after the rival rejoins')
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {wheelsOutside = 3})
+event = update(2, true)[1]
+assert(event and event.incident == nil, 'A partial track excursion does not count as a full track exit')
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {flagCause = 1, wheelsOutside = 4})
+update(2, false, {wheelsOutside = 4})
+event = update(3, true)[1]
+assert(event and event.incident == 'yellow', 'Official attribution takes priority over a track exit')
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {flagCause = 1})
+for i = 2, 41 do update(i, false) end
+event = update(42, true)[1]
+assert(event and event.incident == nil and event.closingRate == nil,
+  'Context expires after 20 seconds and contaminated approach history cannot reappear')
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {flagCause = 1})
+update(2, false, {historyReset = true})
+event = update(3, true)[1]
+assert(event and event.incident == nil, 'A reset clears previous incident attribution')
+
+Tracker.reset(tracker)
+update(0, false, {historyReset = true})
+update(1, false, {flagCause = 1})
+rival.driver = 'NEW DRIVER'
+update(2, false)
+event = update(3, true)[1]
+assert(event and event.incident == nil, 'Incident context cannot transfer to a new driver in the same slot')
+rival.driver = 'RIVAL'
 
 -- Race Notices formats the event, displays it for four seconds and holds it
 -- behind higher-priority warnings.
@@ -121,6 +193,25 @@ end
 local afterDuration = raceSnapshot(14, 1, 2, 2, -0.1)
 noticeState:update(0.5, noticeCar, noticeSim, healthy, nil, noticeSettings, {}, nil, nil, afterDuration)
 assert(noticeState.notice == nil, 'The overtake summary expires after four visible seconds')
+
+-- Incident context survives the event formatter and replaces the pace readout.
+for _, kind in ipairs({'yellow', 'offtrack'}) do
+  local incidentState = State.new()
+  for i = 0, 3 do
+    noticeSim.raceFlagType = kind == 'yellow' and i == 1 and 2 or nil
+    noticeSim.raceFlagCause = 1
+    noticeRival.car = {wheelsOutside = kind == 'offtrack' and i == 1 and 4 or 0}
+    local snapshot = raceSnapshot(i * 0.5, i == 3 and 1 or 2, i == 3 and 2 or 1,
+      i / 10, i == 3 and -0.1 or 10 - i * 3, nil, i == 0)
+    incidentState:update(0.5, noticeCar, noticeSim, healthy, nil, noticeSettings, {}, nil, nil, snapshot)
+  end
+  assert(incidentState.notice.incident == kind
+    and incidentState.notice.value == (kind == 'yellow' and 'YELLOW' or 'OFF TRACK')
+    and incidentState.notice.label == (kind == 'yellow' and 'RIVAL FLAG' or 'TRACK EXIT'),
+    'Summaries show the observed incident context instead of seconds per lap')
+end
+noticeSim.raceFlagType, noticeSim.raceFlagCause = nil, nil
+noticeRival.car = nil
 
 -- Keep four distinct passes behind a blue flag: the bounded FIFO drops the
 -- oldest and presents the remaining events in order when the flag clears.
@@ -208,4 +299,4 @@ expiryState:update(0.5, expiryCar, expirySim, healthy, nil, expirySettings, {}, 
   expirySnapshot(12.7, 1, 2))
 assert(expiryState.notice == nil, 'Expired summaries do not appear after an urgent notice clears')
 
-print('Overtake: detection, same-rival pace, four-second display, priority, FIFO, expiry and false-pass filters passed')
+print('Overtake: detection, same-rival pace, incident attribution/expiry, display, priority, FIFO and false-pass filters passed')

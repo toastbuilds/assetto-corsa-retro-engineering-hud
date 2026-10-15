@@ -21,7 +21,7 @@ With Pillow installed alongside Lupa, render the actual Lua panel with simulated
 python tools/preview-notices.py
 ```
 
-The script writes `outputs/overtake-summary-dark.png` and `outputs/overtake-summary-light.png`, plus the existing notice and battle sheets. Overtake examples cover human and AI drivers, measured and estimated approach pace, insufficient history and long names, at normal and compact sizes. These previews exercise the tracker, notice formatter and Lua renderer; CSP antialiasing and live telemetry require an in-game check. Generated images stay in the ignored output folders.
+The script writes `outputs/overtake-summary-dark.png` and `outputs/overtake-summary-light.png`, plus the existing notice and battle sheets. Overtake examples cover human and AI drivers, measured and estimated approach pace, insufficient history, recent rival yellow flags and track exits, and long names, at normal and compact sizes. These previews exercise the tracker, notice formatter and Lua renderer; CSP antialiasing and live telemetry require an in-game check. Generated images stay in the ignored output folders.
 
 ## Build
 
