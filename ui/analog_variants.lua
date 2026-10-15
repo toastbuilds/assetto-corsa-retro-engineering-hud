@@ -424,17 +424,21 @@ local function drawControls(c)
     if l.pedalStyle=='arc' then
       local a,b=p[4],p[5]
       arc(c,p[1],p[2],p[3],a,b,C.inactive,width)
-      if value>0 then arc(c,p[1],p[2],p[3],a,a+(b-a)*value,color,width) end
+      if value>0 then arc(c,p[1],p[2],p[3],a,a+(b-a)*value,
+        layer and i==1 and Light.color(C.primary,c.L.subSegment) or color,width) end
       if layer and layer.output and layer.output>0 then
-        arc(c,p[1],p[2],p[3],a,a+(b-a)*layer.output,Light.color(C.primary,c.L.subSegment),width*0.7)
+        arc(c,p[1],p[2],p[3],a,a+(b-a)*layer.output,
+          i==1 and Light.color(C.red,c.L.subSegment) or Light.color(C.primary,c.L.subSegment),width*0.7)
       end
       local mid=math.rad((a+b)/2)
       text(c,i==1 and 'BRK' or 'THR',8,p[1]+(p[3]-12)*math.cos(mid),p[2]+(p[3]-12)*math.sin(mid),C.secondary)
     else
       line(c,p[1],p[2],p[3],p[4],C.inactive,width)
-      if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,color,width) end
+      if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,
+        layer and i==1 and Light.color(C.primary,c.L.subSegment) or color,width) end
       if layer and layer.output and layer.output>0 then
-        line(c,p[1],p[2],p[1]+(p[3]-p[1])*layer.output,p[2]+(p[4]-p[2])*layer.output,C.primary,width*0.7)
+        line(c,p[1],p[2],p[1]+(p[3]-p[1])*layer.output,p[2]+(p[4]-p[2])*layer.output,
+          i==1 and C.red or C.primary,width*0.7)
       end
     end
   end
