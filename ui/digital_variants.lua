@@ -1,4 +1,5 @@
 local Readout=require('src/dial_readout')
+local PedalLayers=require('ui/pedal_layers')
 local Light=require('ui/instrument_illumination')
 local Layouts=require('src/digital_dial_variants')
 local Theme=require('src/theme')
@@ -281,14 +282,24 @@ local function rpm(c)
   text(c,'RPM',14,p[1],p[2]-25,C.primary)
   text(c,s.rpmText or '0',l.rpmValueSize or 35,p[1],p[2],rpmInk(c),true)
 end
-local function meter(c,p,value,color,label,horizontal)
+local function meter(c,p,value,color,label,horizontal,layer)
   local C=c.C
+  if layer then value=layer.input end
   if #p==5 then
     if not c.layout.cleanPerimeter then arc(c,p[1],p[2],p[3]+20,p[4],p[5],C.amberDim) end
     for i=1,10 do
       local span=(p[5]-p[4])/10
       arc(c,p[1],p[2],p[3],p[4]+(i-0.9)*span,p[4]+(i-0.1)*span,
-        i<=math.floor(value*10+0.5) and Light.color(color,c.L.subSegment) or C.inactive,c.layout.pedalArcWidth or 25)
+        not layer and i<=math.floor(value*10+0.5) and Light.color(color,c.L.subSegment) or C.inactive,c.layout.pedalArcWidth or 25)
+      if layer then
+        local start=p[4]+(i-0.9)*span
+        local input=PedalLayers.fraction(layer.input,i,10)
+        local output=layer.output and PedalLayers.fraction(layer.output,i,10) or 0
+        if input>0 then arc(c,p[1],p[2],p[3],start,start+span*0.8*input,
+          Light.color(color,c.L.subSegment),c.layout.pedalArcWidth or 25) end
+        if output>0 then arc(c,p[1],p[2],p[3],start,start+span*0.8*output,
+          Light.color(C.primary,c.L.subSegment),(c.layout.pedalArcWidth or 25)*0.7) end
+      end
     end
     local a=math.rad((p[4]+p[5])/2)
     text(c,label,12,p[1]+(p[3]-32)*math.cos(a),p[2]+(p[3]-32)*math.sin(a),C.primary)
@@ -302,8 +313,15 @@ local function meter(c,p,value,color,label,horizontal)
   for i=1,count do
     local x=p[1]-p[3]/2+(horizontal and (i-1)*p[3]/count or 0)
     local y=p[2]+p[4]/2-(horizontal and p[4] or i*p[4]/count)
-    ui.drawRectFilled(pt(c,x,y),pt(c,x+(horizontal and p[3]/count-2 or p[3]),
-      y+(horizontal and p[4] or p[4]/count-2)),i<=math.floor(value*count+0.5) and Light.color(color,c.L.subSegment) or C.inactive)
+    local a,b=pt(c,x,y),pt(c,x+(horizontal and p[3]/count-2 or p[3]),
+      y+(horizontal and p[4] or p[4]/count-2))
+    if layer then
+      PedalLayers.rect(a,b,PedalLayers.fraction(layer.input,i,count),
+        layer.output and PedalLayers.fraction(layer.output,i,count),Light.color(color,c.L.subSegment),
+        Light.color(C.primary,c.L.subSegment),C.inactive,horizontal)
+    else
+      ui.drawRectFilled(a,b,i<=math.floor(value*count+0.5) and Light.color(color,c.L.subSegment) or C.inactive)
+    end
   end
   if c.layout.pedalCaptions==false then return end
   if c.layout.compactPedals then
@@ -319,12 +337,14 @@ end
 local function controls(c)
   local l,s,C=c.layout,c.state,c.C
   local compact=l.compactPedals
-  meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,compact and 'B' or 'BRAKE',compact)
+  meter(c,l.pedals[1],U.clamp(s.brake or 0,0,1),C.red,compact and 'B' or 'BRAKE',compact,
+    PedalLayers.channel(s,c.settings,'brake'))
   if c.settings.showClutch~=false and not l.noClutch then
     meter(c,l.pedals[2],U.clamp(s.clutch or 0,0,1),C.amber,compact and 'C' or 'CLUTCH',compact or l.id=='column' or l.id=='radial' or l.id=='orbit' or l.haloRpm)
   end
   local throttle=l.noClutch and l.pedals[2] or l.pedals[3]
-  meter(c,throttle,U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact)
+  meter(c,throttle,U.clamp(s.throttle or 0,0,1),C.cyan,compact and 'T' or 'THROTTLE',compact,
+    PedalLayers.channel(s,c.settings,'throttle'))
   if c.settings.showSteering~=false then
     if l.id=='orbit' or l.steeringRing then
       local p=l.core

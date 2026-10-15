@@ -6,6 +6,8 @@ Use **Retro UI Settings** from the CSP app sidebar. Every instrument is included
 
 Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/background opacity, RPM warning/redline thresholds, fallback RPM and blinking alerts. Local scale and geometry remain independent per instrument.
 
+**Pedal display** in General → Basics defaults to **Estimated dual-layer** for GT7 and every Dial layout with pedals. The full-width red brake/cyan throttle trace shows input; its neutral inner trace (70% width) shows estimated output. TC/ABS activity is averaged over 150 ms and smoothed over 60 ms; confirmed shift transitions can cut throttle and configured auto-blip can raise output above input. This is a visual approximation, not measured engine torque or braking force. Raw user controls are read when CSP permits; otherwise car controls provide the input. Replay, autopilot and unavailable physics show input only. Missing individual channels omit their corresponding estimate. **Classic** restores the previous presentation, including GT7's two fixed intervention segments. Clutch and pedal history retain their existing readings.
+
 **Color palette** appears below **Theme** in General → Basics. Each theme remembers its own selection and applies it to all instruments immediately. **Original** retains the factory colors. The numbered palettes match the color comparison gallery:
 
 - **Dark:** 01, 02, 06, 07, 08, 13, 14, 15, 25, 26, 28, 32.

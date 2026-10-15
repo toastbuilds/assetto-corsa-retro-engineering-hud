@@ -2,6 +2,7 @@ local U = require('src/utils')
 local Layout = require('src/layout')
 local Gt7Layout = require('src/gt7_retro_layout')
 local PedalHistory = require('src/pedal_history')
+local PedalLayers = require('src/pedal_layers')
 local TyreTemperature = require('src/tyre_temperature')
 local TyreGrip = require('src/tyre_grip')
 local TyreReadouts = require('src/tyre_readouts')
@@ -987,6 +988,7 @@ function M.update(state, dt, settings, sampleCar)
     state.radarLeftLevel9 = 0
     state.radarRightLevel9 = 0
     PedalHistory.clear(state.pedalHistory)
+    PedalLayers.reset(state)
     TyreStint.update(state.tyreStint, nil, SIM, dt)
     resetCondition(state)
     return
@@ -1101,6 +1103,7 @@ function M.update(state, dt, settings, sampleCar)
     state.absActive = nil
   end
   updateLimitAssistWarnings(state, dt)
+  PedalLayers.update(state, car, SIM, dt)
 
   local headlights = U.read(car, 'headlightsActive', nil)
   local flashing = U.read(car, 'flashingLightsActive', nil)

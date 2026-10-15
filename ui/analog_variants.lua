@@ -1,4 +1,5 @@
 local Readout=require('src/dial_readout')
+local PedalLayers=require('ui/pedal_layers')
 local Light=require('ui/instrument_illumination')
 local Layouts = require('src/dial_variants')
 local Theme = require('src/theme')
@@ -416,17 +417,25 @@ local function drawControls(c)
   local l,s,C=c.layout,c.state,c.colors
   for i,p in ipairs(l.pedals) do
     local value=U.clamp(i==1 and (s.brake or 0) or (s.throttle or 0),0,1)
+    local layer=PedalLayers.channel(s,c.settings,i==1 and 'brake' or 'throttle')
+    if layer then value=layer.input end
     local color=i==1 and C.red or C.cyan
     local width=l.pedalWidth or 6
     if l.pedalStyle=='arc' then
       local a,b=p[4],p[5]
       arc(c,p[1],p[2],p[3],a,b,C.inactive,width)
       if value>0 then arc(c,p[1],p[2],p[3],a,a+(b-a)*value,color,width) end
+      if layer and layer.output and layer.output>0 then
+        arc(c,p[1],p[2],p[3],a,a+(b-a)*layer.output,Light.color(C.primary,c.L.subSegment),width*0.7)
+      end
       local mid=math.rad((a+b)/2)
       text(c,i==1 and 'BRK' or 'THR',8,p[1]+(p[3]-12)*math.cos(mid),p[2]+(p[3]-12)*math.sin(mid),C.secondary)
     else
       line(c,p[1],p[2],p[3],p[4],C.inactive,width)
       if value>0 then line(c,p[1],p[2],p[1]+(p[3]-p[1])*value,p[2]+(p[4]-p[2])*value,color,width) end
+      if layer and layer.output and layer.output>0 then
+        line(c,p[1],p[2],p[1]+(p[3]-p[1])*layer.output,p[2]+(p[4]-p[2])*layer.output,C.primary,width*0.7)
+      end
     end
   end
   if c.settings.showClutch~=false and not l.noClutch and l.clutch then

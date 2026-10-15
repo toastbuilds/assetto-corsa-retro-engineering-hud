@@ -126,6 +126,14 @@ end
 assert(General.values.theme=='light' and General.values.speedUnit=='mph' and General.values.temperatureUnit=='F')
 assert(General.values.opacity==1 and General.values.backgroundOpacity==0.72)
 assert(General.values.rpmWarningFraction==0.86 and General.values.rpmRedlineFraction==0.96)
+assert(General.values.pedalDisplay=='estimated','Dual-layer pedals default on for existing installations too')
+pending['##general.pedals']=1
+frame(General.draw)
+assert(Dial.current().pedalDisplay=='classic' and GT7.current().pedalDisplay=='classic',
+  'One global selector must switch both instrument families')
+pending['##general.pedals']=0
+frame(General.draw)
+assert(Dial.current().pedalDisplay=='estimated' and GT7.current().pedalDisplay=='estimated')
 assert(Dial.values.hudScale==0.65 and Dial.values.analogNeedleStyle=='c03' and GT7.values.hudScale==0.8)
 assert(Dial.current().analogVariant=='original' and Dial.values.layoutVersion==10,
   'variant migration retains existing appearance and defaults to Original')

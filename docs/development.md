@@ -25,6 +25,16 @@ The script writes `outputs/overtake-summary-dark.png` and `outputs/overtake-summ
 
 `outputs/overtake-expanded-dark.png` and `outputs/overtake-expanded-light.png` show the optional four-lap gap graph with complete history, an incident-related gap collapse and a partially observed race, at 660 × 264 and 420 × 168.
 
+## Pedal layer previews
+
+Pedal-layer previews use the live estimator and Lua renderers with simulated controls:
+
+```powershell
+python tools/preview-pedals.py
+```
+
+`output/pedal-layers/` contains dark/light comparisons for Classic, no intervention, TC/ABS, shift cut, auto-blip and unavailable physics, plus sheets of all GT7 compositions and all Dial pedal variants. `tests/pedal_layers.lua` covers the estimate, availability, pause/reset handling, frame rates and both sizes/themes.
+
 ## Build
 
 Set `VERSION` in `manifest.ini` and add `docs/releases/vX.Y.Z.md` and a changelog entry. The build reads the manifest version by default and rejects a mismatched explicit version.

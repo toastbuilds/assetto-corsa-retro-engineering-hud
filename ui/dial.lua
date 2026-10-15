@@ -1,4 +1,5 @@
 local Readout=require('src/dial_readout')
+local PedalLayers=require('ui/pedal_layers')
 local GeneralSettings = require('src/general_settings')
 local Theme = require('src/theme')
 local Layout = require('src/layout')
@@ -574,7 +575,7 @@ local function drawSteering(center, origin, scale, state)
 end
 
 local function drawPedalBar(origin, scale, x, label, value, color, labelColor, inactiveColor,
-    panelColor, alertColor, alertLit)
+    panelColor, alertColor, alertLit, layer)
   local y = Layout.pedalY
   local width = Layout.pedalWidth
   local height = Layout.pedalHeight
@@ -624,7 +625,12 @@ local function drawPedalBar(origin, scale, x, label, value, color, labelColor, i
     local segmentY = y * scale + (segmentCount - i) * (segmentHeight + gap)
     local topLeft = origin + vec2(x * scale, segmentY)
     local bottomRight = topLeft + vec2(width * scale, segmentHeight)
-    ui.drawRectFilled(topLeft, bottomRight, i <= filled and color or inactiveColor)
+    if layer then
+      PedalLayers.rect(topLeft, bottomRight, PedalLayers.fraction(layer.input, i, segmentCount),
+        layer.output and PedalLayers.fraction(layer.output, i, segmentCount), color, C.primary, inactiveColor)
+    else
+      ui.drawRectFilled(topLeft, bottomRight, i <= filled and color or inactiveColor)
+    end
   end
 
   local tl = point(origin, scale, x, y)
@@ -865,9 +871,9 @@ function M.draw(state, settings)
     local digitalFlagLit = digitalFlagColor and flagBlinkOn(state, settings)
     local pedalPanel = Theme.withAlpha(C.panel, backdropOpacity * 0.62)
     drawPedalBar(origin, scale, Layout.brakeX, nil, state.brake, C.red, C.primary,
-      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit)
+      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'brake'))
     drawPedalBar(origin, scale, Layout.throttleX, nil, state.throttle, C.cyan, C.primary,
-      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit)
+      inactiveSurface, pedalPanel, digitalFlagColor, digitalFlagLit, PedalLayers.channel(state, settings, 'throttle'))
 
     centeredText(state.speedText, 42 * scale, point(origin, scale, Layout.centerX, Layout.speedY), C.primary)
     centeredText(state.speedUnit, 14 * scale, point(origin, scale, Layout.centerX, Layout.speedUnitY), C.secondary)

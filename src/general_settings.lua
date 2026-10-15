@@ -5,6 +5,7 @@ local defaults = {
   version = 0, theme = 'dark', darkPalette = 'original', lightPalette = 'original',
   speedUnit = 'km/h', temperatureUnit = 'C', pressureUnit = 'psi',
   opacity = 1, backgroundOpacity = 0.72,
+  pedalDisplay = 'estimated',
   rpmWarningFraction = 0.86, rpmRedlineFraction = 0.96, fallbackRpm = 8000,
   animateIndicators = true, animateFlagAlert = true,
   animateShiftAlert = true, animateRedlineAlert = true
@@ -39,6 +40,7 @@ end
 function M.normalize()
   local v = M.values
   v.theme = v.theme == 'light' and 'light' or 'dark'
+  v.pedalDisplay = v.pedalDisplay == 'classic' and 'classic' or 'estimated'
   v.darkPalette = ColorPalettes.normalize('dark', v.darkPalette)
   v.lightPalette = ColorPalettes.normalize('light', v.lightPalette)
   v.speedUnit = v.speedUnit == 'mph' and 'mph' or 'km/h'
@@ -125,6 +127,10 @@ function M.draw()
       {{label='psi', value='psi'}, {label='bar', value='bar'}, {label='kPa', value='kPa'}}, function(v) M.values.pressureUnit=v end)
     percent('Content opacity', 'opacity', 0, 1)
     percent('Background opacity', 'backgroundOpacity', 0, 1)
+    SettingsUI.choice('general', 'pedals', 'Pedal display', M.values.pedalDisplay,
+      {{label='Estimated dual-layer', value='estimated'}, {label='Classic', value='classic'}},
+      function(v) M.values.pedalDisplay=v end)
+    ui.textWrapped('Dial and GT7: colored input with a neutral estimated output for TC/ABS, shift cut and auto-blip. Output is an approximation, not measured engine torque or braking force. Missing physics data shows input only.')
   end)
   SettingsUI.section('general', 'personalization', 'Personalization', false, function()
     ui.text('RPM and alerts - Dial and GT7')
@@ -148,7 +154,7 @@ function M.draw()
   end)
   SettingsUI.resetAll('general', function()
     for key, value in pairs(defaults) do if key ~= 'version' then M.values[key] = value end end
-  end, 'Restore the shared theme, color palettes, units, opacity and Dial/GT7 alerts for all instruments?')
+  end, 'Restore the shared theme, color palettes, units, opacity, pedal display and Dial/GT7 alerts for all instruments?')
 end
 
 return M

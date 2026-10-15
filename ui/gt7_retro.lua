@@ -3,6 +3,7 @@ local Theme = require('src/theme')
 local Layouts = require('src/gt7_retro_layout')
 local Layout = Layouts
 local PedalHistory = require('src/pedal_history')
+local PedalLayers = require('ui/pedal_layers')
 local U = require('src/utils')
 local Instruments = require('ui/side_instruments')
 local InstrumentConfig = require('src/instrument_config')
@@ -477,7 +478,7 @@ local function drawPedalHistory(origin, scale, state, backdropOpacity)
   end
 end
 
-local function drawPedalBar(origin, scale, x, value, activeColor, side, assistColor)
+local function drawPedalBar(origin, scale, x, value, activeColor, side, assistColor, layer)
   local segmentCount = Layout.pedalSegments
   local gap = Layout.pedalGap * scale
   local segmentHeight = (Layout.pedalHeight * scale - gap * (segmentCount - 1)) / segmentCount
@@ -486,17 +487,29 @@ local function drawPedalBar(origin, scale, x, value, activeColor, side, assistCo
   for i = 1, segmentCount do
     local y = Layout.pedalTop * scale + (segmentCount - i) * (segmentHeight + gap)
     local color = i <= filled and activeColor or C.inactive
-    local intervention = i > segmentCount - 2 and assistColor ~= nil
+    local intervention = not layer and i > segmentCount - 2 and assistColor ~= nil
     if intervention then color = assistColor end
     if Layout.pedalUpperExtraWidth then
       local extra = i > segmentCount - 2 and Layout.pedalUpperExtraWidth or 0
       local left = x - (side == 'left' and extra or 0)
       drawChamferedPanel(origin, scale, left, y / scale,
         left + Layout.pedalWidth + extra, (y + segmentHeight) / scale, 2,
-        color, (intervention or i <= filled) and withAlpha(color, 0.6) or C.outlineDim, 0.6)
+        layer and C.inactive or color,
+        (intervention or i <= filled) and withAlpha(color, 0.6) or C.outlineDim, 0.6)
     else
       local topLeft = origin + vec2(x * scale, y)
-      ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight), color)
+      if not layer then
+        ui.drawRectFilled(topLeft, topLeft + vec2(Layout.pedalWidth * scale, segmentHeight), color)
+      end
+    end
+    if layer then
+      local extra = Layout.pedalUpperExtraWidth and i > segmentCount - 2 and Layout.pedalUpperExtraWidth or 0
+      local left = x - (side == 'left' and extra or 0)
+      local inset = Layout.pedalUpperExtraWidth and 2 * scale or 0
+      PedalLayers.rect(origin + vec2(left * scale + inset, y + inset),
+        origin + vec2((left + Layout.pedalWidth + extra) * scale - inset, y + segmentHeight - inset),
+        PedalLayers.fraction(layer.input, i, segmentCount),
+        layer.output and PedalLayers.fraction(layer.output, i, segmentCount), activeColor, C.primary, C.inactive)
     end
   end
 end
@@ -666,11 +679,11 @@ local function drawSideIndicators(origin, scale, state, settings)
   drawSide('right', state.radarRightLevel or 0, state.radarRightLevel9)
 end
 
-local function drawPedals(origin, scale, state)
+local function drawPedals(origin, scale, state, settings)
   drawPedalBar(origin, scale, Layout.brakeX, state.brake, C.red, 'left',
-    state.absActive == true and C.flagWhite or nil)
+    state.absActive == true and C.flagWhite or nil, PedalLayers.channel(state, settings, 'brake'))
   drawPedalBar(origin, scale, Layout.throttleX, state.throttle, C.cyan, 'right',
-    state.tcActive == true and C.red or nil)
+    state.tcActive == true and C.red or nil, PedalLayers.channel(state, settings, 'throttle'))
 end
 
 local function drawBrakeIcon(center, scale, color)
@@ -799,7 +812,7 @@ function M.draw(state, settings)
   drawSteering(origin, scale, state, settings)
   drawSpeedDial(origin, scale, state, settings, backdropOpacity)
   drawRpmDial(origin, scale, state, settings, backdropOpacity)
-  drawPedals(origin, scale, state)
+  drawPedals(origin, scale, state, settings)
   drawSideIndicators(origin, scale, state, settings)
   if Layout.lowerFrame and settings.gt7LowerPanelMode == 'pedal_history' then
     drawLowerFrame(origin, scale, backdropOpacity)

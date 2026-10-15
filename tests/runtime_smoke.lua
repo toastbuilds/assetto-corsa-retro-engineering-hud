@@ -336,6 +336,9 @@ Telemetry.update(flashState,1/60,Settings.current(),flashCar)
 assert(not flashState.lightsAvailable and flashState.headlights==nil,'missing lamp telemetry must remain unavailable')
 car = makeCar({ ffbFinal = 0.62 })
 for _ = 1, 30 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+assert(telemetry.pedalLayers and telemetry.pedalLayers.throttle.input == car.gas
+  and telemetry.pedalLayers.brake.input == car.brake,
+  'Live telemetry must provide pedal layers using car controls when raw controls are unavailable')
 assert(telemetry.speedGaugeMaximum == 280 and telemetry.speedGaugeStep == 40
   and telemetry.speedGaugeSource == 'car-ui',
   'GT7 speed scale must use the current car metadata with a readable rounded range')
