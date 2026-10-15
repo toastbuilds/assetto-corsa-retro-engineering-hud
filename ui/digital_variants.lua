@@ -25,13 +25,23 @@ end
 local function line(c,x,y,a,b,color,width)
   ui.drawLine(pt(c,x,y),pt(c,a,b),color,(width or 1)*c.scale)
 end
-local function drawCornerGearHint(c, gear, y)
-  if not gear then return end
-  local size=math.max(15,math.min(22,gear[3]*0.24))
-  CornerGearHint.draw(c.state,c.settings,gear[1]+gear[3]*0.49,
-    (y or gear[2])+gear[3]*0.10,size,{primary=c.C.primary,red=c.C.red},
+local function drawCornerGearHintAt(c, placement)
+  CornerGearHint.draw(c.state,c.settings,placement.x,placement.y,placement.size,
+    {primary=c.C.primary,red=c.C.red},
     function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
     function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true) end)
+end
+local function drawGearReadout(c,gear,reading,variant,color,y)
+  local cue=CornerGearHint.visual(c.state,c.settings)
+  local presentation,current,hint
+  if cue then presentation,current,hint=CornerGearHint.placements('digital',variant,gear[1],y or gear[2],gear[3]) end
+  if presentation then
+    text(c,reading,current.size,current.x,current.y,color,true)
+    drawCornerGearHintAt(c,hint)
+    return presentation
+  end
+  text(c,reading,gear[3],gear[1],y or gear[2],color,true)
+  return nil
 end
 local function arc(c,x,y,r,a,b,color,width)
   ui.pathClear()
@@ -170,6 +180,7 @@ local function gearSelector(c)
   local gear=Selector.gear(s)
   local count=Selector.count(s.gearCount,gear)
   local cue=Selector.shiftCue(s)
+  local cornerCue=CornerGearHint.visual(s,c.settings)
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
   local direction=step<0 and -1 or 1
   local gap=math.min(1.5,math.abs(step)*0.12)
@@ -181,22 +192,27 @@ local function gearSelector(c)
     local targetGear=i==0 and -1 or i
     local cueHere=cue and cue.gear==targetGear
     local cueColor=cueHere and (cue.direction=='up' and C.red or C.shiftBlue) or nil
+    local cornerHere=cornerCue and cornerCue.gear==targetGear
+    local cornerColor=cornerHere and (cornerCue.overspeed and C.red or C.cyan) or nil
     local a=Selector.startAngle+i*step+gap*direction
     local b=Selector.startAngle+(i+1)*step-gap*direction
     local ink=selected and C.amber or C.outline
-    arc(c,310,304,radius,a,b,selected and C.coreAmber or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised),outer-inner)
-    local halo=selected and Light.halo(C.amber,c.L.segment) or cueHere and Light.halo(cueColor,c.L.segment)
+    arc(c,310,304,radius,a,b,selected and C.coreAmber or (cornerHere and (cornerCue.overspeed and C.coreRed or C.cyanDim)
+      or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised)),outer-inner)
+    local halo=selected and Light.halo(C.amber,c.L.segment) or cornerHere and Light.halo(cornerColor,c.L.segment)
+      or cueHere and Light.halo(cueColor,c.L.segment)
     if halo then arc(c,310,304,outer,a,b,halo,4) end
-    arc(c,310,304,outer,a,b,Light.color(cueColor or ink,selected and c.L.segment or cueHere and c.L.segment or nil),1.5)
-    arc(c,310,304,inner,a,b,cueColor or ink,1.2)
+    arc(c,310,304,outer,a,b,Light.color(cornerColor or cueColor or ink,
+      selected and c.L.segment or cornerHere and c.L.segment or cueHere and c.L.segment or nil),cornerHere and 2.5 or 1.5)
+    arc(c,310,304,inner,a,b,cornerColor or cueColor or ink,1.2)
     for _,degrees in ipairs({a,b}) do
       local angle=math.rad(degrees)
       line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
-        310+outer*math.cos(angle),304+outer*math.sin(angle),cueColor or ink,1.2)
+        310+outer*math.cos(angle),304+outer*math.sin(angle),cornerColor or cueColor or ink,1.2)
     end
     local angle=math.rad((a+b)/2)
     text(c,i==0 and 'R' or tostring(i),size,310+radius*math.cos(angle),
-      304+radius*math.sin(angle)-size*0.065,selected and C.amber or cueColor or C.primary,true)
+      304+radius*math.sin(angle)-size*0.065,selected and C.amber or cornerColor or cueColor or C.primary,true)
   end
   local previous=selectors[s]
   if s.available==false then previous=nil end
@@ -210,8 +226,10 @@ local function gearSelector(c)
   local lit=alert and blink(c,animate,
     s.rpmRedline and 0.12 or 0.14)
   local ink=alert and rpmInk(c) or C.amber
-  local cueFill=cue and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or nil
-  local cueInk=cue and (cue.direction=='up' and C.red or C.shiftBlue) or nil
+  local cueFill=cue and (cue.direction=='up' and C.coreRed or C.shiftBlueDim)
+    or cornerCue and (cornerCue.overspeed and C.coreRed or C.cyanDim) or nil
+  local cueInk=cue and (cue.direction=='up' and C.red or C.shiftBlue)
+    or cornerCue and (cornerCue.overspeed and C.red or C.cyan) or nil
   circle(c,310,304,108.1,C.metalDim,true)
   circle(c,310,304,108.1,C.metal,false,1.5)
   circle(c,310,304,102.35,C.panelRaised,true)
@@ -234,9 +252,8 @@ local function gearSelector(c)
   poly(c,points,Light.color(gear and gear~=0 and ink or C.outline,c.L.icon),true)
   poly(c,points,C.outline,false,1.3)
   local p=c.layout.gear
-  text(c,gear==nil and '—' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear),
-    p[3],p[1],p[2],alert and rpmInk(c) or C.primary,true)
-  drawCornerGearHint(c,p)
+  drawGearReadout(c,p,gear==nil and '—' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear),
+    c.layout.id,alert and rpmInk(c) or C.primary)
 end
 local function rpm(c)
   local l,s,C=c.layout,c.state,c.C
@@ -577,8 +594,7 @@ local function capsuleReadout(c)
   local l,s,C=c.layout,c.state,c.C
   local gear=l.gear
   local centeredValueY=l.readout[2]+6
-  text(c,s.gearText or 'N',gear[3],gear[1],centeredValueY,rpmInk(c),true)
-  drawCornerGearHint(c,gear,centeredValueY)
+  drawGearReadout(c,gear,s.gearText or 'N',c.layout.id,rpmInk(c),centeredValueY)
   text(c,s.rpmText or '0',25,l.rpmValue[1],centeredValueY,rpmInk(c),true)
   local bar=l.rpmBar
   local fraction=U.clamp(s.rpmGaugeNormalized or (s.rpm or 0)/math.max(s.rpmGaugeLimiter or 8000,1),0,1)
@@ -612,8 +628,7 @@ function M.draw(state,settings,origin,scale)
   if layout.coreCapsule then capsuleReadout(c)
   elseif not layout.selector then
     local gearInk=layout.conceptStyle=='floating' and (state.rpmWarning or state.rpmRedline) and c.C.primary or rpmInk(c)
-    text(c,state.gearText or 'N',gear[3],gear[1],gear[2],gearInk,true)
-    drawCornerGearHint(c,gear)
+    drawGearReadout(c,gear,state.gearText or 'N',layout.id,gearInk)
   end
   controls(c)
   auxiliary(c)

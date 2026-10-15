@@ -1,5 +1,46 @@
 local M = {}
 
+local presentations = {
+  analog = {
+    original = 'stacked',
+    concentric = 'side', shelf = 'side', spoke = 'side',
+    snap = 'selector'
+  },
+  digital = {
+    original = 'stacked', column = 'stacked', floating = 'stacked',
+    offset = 'stacked', orbit = 'stacked',
+    bridge = 'side', core_capsule = 'side', radial = 'side',
+    snap = 'selector'
+  }
+}
+
+function M.presentation(instrument, variant)
+  if instrument == 'gt7' then return 'gt7' end
+  local group = presentations[instrument]
+  return group and group[variant or 'original'] or nil
+end
+
+-- Returns the current-gear and recommendation placements in a dial's design
+-- coordinates. Call only for a supported presentation with a visible cue.
+function M.placements(instrument, variant, x, y, size)
+  local presentation = M.presentation(instrument, variant)
+  if not presentation then return nil end
+  if presentation == 'stacked' then
+    return presentation,
+      {x=x, y=y-size*0.16, size=size*0.68},
+      {x=x, y=y+size*0.44, size=math.max(14,math.min(22,size*0.36))}
+  elseif presentation == 'side' or presentation == 'selector' then
+    return presentation,
+      {x=x-size*0.20, y=y, size=size*0.78},
+      {x=x+size*0.40, y=y, size=math.max(14,math.min(24,size*0.35))}
+  elseif presentation == 'gt7' then
+    return presentation,
+      {x=x+size*0.20, y=y, size=size*0.72},
+      {x=x-size*0.38, y=y, size=math.max(16,math.min(24,size*0.24))}
+  end
+  return nil
+end
+
 function M.visual(state, settings)
   if settings and settings.cornerGearHint == false then return nil end
   local hint = state and state.cornerGearHint

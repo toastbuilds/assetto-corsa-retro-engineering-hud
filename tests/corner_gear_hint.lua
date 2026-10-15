@@ -104,4 +104,35 @@ assert(not Visual.draw({gear=4,clock=0.15,cornerGearHint=state.cornerGearHint}, 
   100, 100, 20, {primary='primary',red='red'}, function() end, function() end),
   'the cue blinks at the braking point')
 
+local expected = {
+  analog = {stacked={'original'}, side={'concentric','shelf','spoke'}, selector={'snap'}},
+  digital = {
+    stacked={'original','column','floating','offset','orbit'},
+    side={'bridge','core_capsule','radial'}, selector={'snap'}
+  }
+}
+for instrument, presentations in pairs(expected) do
+  for presentation, variants in pairs(presentations) do
+    for _, variant in ipairs(variants) do
+      assert(Visual.presentation(instrument,variant)==presentation,
+        instrument..' '..variant..' uses '..presentation..' gear cue')
+    end
+  end
+end
+for _, variant in ipairs({'fan','track','halo','jewel','spectrum'}) do
+  assert(Visual.presentation('analog',variant)==nil,'unlisted analog faces hide the cue')
+end
+for _, variant in ipairs({'halo','jewel','spectrum'}) do
+  assert(Visual.presentation('digital',variant)==nil,'unlisted digital faces hide the cue')
+end
+local kind,current,recommendation=Visual.placements('digital','column',310,147,105)
+assert(kind=='stacked' and current.size<105 and current.y<147 and recommendation.y>147,
+  'stacked cue reduces and raises the current gear, then places the hint underneath')
+kind,current,recommendation=Visual.placements('analog','spoke',459,383,61)
+assert(kind=='side' and current.x<459 and recommendation.x>459,
+  'side-by-side cue moves the current gear left and recommendation right')
+kind,current,recommendation=Visual.placements('gt7',nil,820,172,100)
+assert(kind=='gt7' and current.x>820 and recommendation.x<820,
+  'GT7 places the current gear on the right and recommendation on the left')
+
 print('Suggested corner gear: geometry, torque selection, fallback, braking cue and hide conditions passed')

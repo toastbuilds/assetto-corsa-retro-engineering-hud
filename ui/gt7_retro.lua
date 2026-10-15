@@ -308,24 +308,33 @@ local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
   local valueColor = state.rpmRedline and (redlineOn and C.red or C.amber)
     or (state.rpmWarning and C.amber or C.primary)
   local gearPodHalfWidth = drawGearPod(origin, scale, state, settings, backdropOpacity)
-  local gearSize = 100 * scale
+  local baseGearSize = 100
+  local presentation,current,recommendation
+  if CornerGearHint.visual(state,settings) then
+    presentation,current,recommendation=CornerGearHint.placements('gt7',nil,
+      Layout.gearPodCenterX,Layout.gearCenterY,baseGearSize)
+  end
+  local gearSize = (presentation and current.size or baseGearSize) * scale
   local measuredGearWidth = ui.measureDWriteText(state.gearText, gearSize).x
   local availableGearWidth = (gearPodHalfWidth * 2 - 20) * scale
   if measuredGearWidth > availableGearWidth then
     gearSize = gearSize * availableGearWidth / measuredGearWidth
   end
   centeredText(state.gearText, gearSize,
-    point(origin, scale, Layout.gearPodCenterX, Layout.gearCenterY), valueColor)
+    point(origin, scale, presentation and current.x or Layout.gearPodCenterX,
+      presentation and current.y or Layout.gearCenterY), valueColor)
   centeredText('GEAR', 14 * scale, point(origin, scale, Layout.gearPodCenterX, Layout.gearLabelY),
     state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.secondary))
-  CornerGearHint.draw(state, settings, Layout.gearPodCenterX + Layout.gearPodHalfWidth - 15,
-    Layout.gearPodTop + 19, 18, {primary = C.primary, red = C.red},
-    function(x1, y1, x2, y2, color, width)
-      drawLine(point(origin, scale, x1, y1), point(origin, scale, x2, y2), color, width * scale)
-    end,
-    function(value, size, x, y, color)
-      centeredText(value, size * scale, point(origin, scale, x, y), color)
-    end)
+  if presentation then
+    CornerGearHint.draw(state, settings, recommendation.x, recommendation.y, recommendation.size,
+      {primary = C.primary, red = C.red},
+      function(x1, y1, x2, y2, color, width)
+        drawLine(point(origin, scale, x1, y1), point(origin, scale, x2, y2), color, width * scale)
+      end,
+      function(value, size, x, y, color)
+        centeredText(value, size * scale, point(origin, scale, x, y), color)
+      end)
+  end
 end
 
 local function drawSteering(origin, scale, state, settings)

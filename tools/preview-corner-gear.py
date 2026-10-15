@@ -57,8 +57,7 @@ def main():
             for mode, variant_module in (('analog', 'dial_variants'), ('digital', 'digital_dial_variants')):
                 module = lua.eval(f"require('src/{variant_module}')")
                 names = sorted(str(name) for name in module['layouts'].keys())
-                if mode == 'digital':
-                    names.insert(0, 'original')
+                names.insert(0, 'original')
                 sheet = Image.new('RGB', (1080, ((len(names) + 2) // 3) * 388), backgrounds[theme])
                 labels = ImageDraw.Draw(sheet)
                 for i, name in enumerate(names):

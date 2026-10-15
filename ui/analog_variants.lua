@@ -63,13 +63,23 @@ end
 local function line(c,x1,y1,x2,y2,color,width)
   Light.line(point(c,x1,y1),point(c,x2,y2),color,(width or 1)*c.scale,not c.statusDrawing and ((width or 1)>=2 and c.L.major or c.L.minor) or nil,c.scale)
 end
-local function drawCornerGearHint(c, gear)
-  if not gear then return end
-  local size = math.max(14, math.min(20, gear[3] * 0.34))
-  CornerGearHint.draw(c.state, c.settings, gear[1] + gear[3] * 0.48,
-    gear[2] + gear[3] * 0.10, size, {primary=c.colors.primary, red=c.colors.red},
+local function drawCornerGearHintAt(c, placement)
+  CornerGearHint.draw(c.state, c.settings, placement.x, placement.y, placement.size,
+    {primary=c.colors.primary, red=c.colors.red},
     function(x1,y1,x2,y2,color,width) line(c,x1,y1,x2,y2,color,width) end,
     function(value,fontSize,x,y,color) text(c,value,fontSize,x,y,color,true,true) end)
+end
+local function drawGearReadout(c,gear,reading,variant,color)
+  local cue=CornerGearHint.visual(c.state,c.settings)
+  local presentation,current,hint
+  if cue then presentation,current,hint=CornerGearHint.placements('analog',variant,gear[1],gear[2],gear[3]) end
+  if presentation then
+    text(c,reading,current.size,current.x,current.y,color,true,true)
+    drawCornerGearHintAt(c,hint)
+    return presentation
+  end
+  text(c,reading,gear[3],gear[1],gear[2],color,true,true)
+  return nil
 end
 local function arc(c,x,y,r,a,b,color,width)
   ui.pathClear()
@@ -177,7 +187,7 @@ local function drawNeedle(c)
     preset,C,c.L.light,(s.rpmWarning or s.rpmRedline) and rpmColor(c) or nil)
 end
 
-local function selectorCell(c,index,count,gear,labels,cue)
+local function selectorCell(c,index,count,gear,labels,cue,cornerCue)
   local C,l=c.colors,c.layout
   local step=(Selector.endAngle-Selector.startAngle)/(count+1)
   local gap=math.min(1.5,math.abs(step)*0.12)
@@ -190,12 +200,14 @@ local function selectorCell(c,index,count,gear,labels,cue)
   local targetGear=index==0 and -1 or index
   local cueHere=cue and cue.gear==targetGear
   local cueColor=cueHere and (cue.direction=='up' and C.red or C.shiftBlue) or nil
+  local cornerHere=cornerCue and cornerCue.gear==targetGear
+  local cornerColor=cornerHere and (cornerCue.overspeed and C.red or C.cyan) or nil
   if labels then
     local angle=math.rad((a+b)/2)
     local size=math.min(ring[4],math.abs(step)*2.2*radius/228)
     text(c,index==0 and 'R' or tostring(index),size,
       310+radius*math.cos(angle),304+radius*math.sin(angle)-size*0.065,
-      selected and C.amber or (cueHere and cueColor or C.primary),true,true)
+      selected and C.amber or cornerColor or (cueHere and cueColor or C.primary),true,true)
     return
   end
   local points={}
@@ -208,25 +220,27 @@ local function selectorCell(c,index,count,gear,labels,cue)
     local angle=math.rad(a+(b-a)*i/segments)
     points[#points+1]={310+inner*math.cos(angle),304+inner*math.sin(angle)}
   end
-  polygon(c,points,selected and C.coreAmber or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised))
-  arc(c,310,304,outer,a,b,selected and C.amber or cueColor or C.outline,selected and 2 or cueHere and 2 or 1)
-  arc(c,310,304,inner,a,b,selected and C.amber or cueColor or C.outlineDim,1)
+  polygon(c,points,selected and C.coreAmber or (cornerHere and (cornerCue.overspeed and C.coreRed or C.cyanDim)
+    or (cueHere and (cue.direction=='up' and C.coreRed or C.shiftBlueDim) or C.panelRaised)))
+  arc(c,310,304,outer,a,b,selected and C.amber or cornerColor or cueColor or C.outline,
+    selected and 2 or cornerHere and 3 or cueHere and 2 or 1)
+  arc(c,310,304,inner,a,b,selected and C.amber or cornerColor or cueColor or C.outlineDim,1)
   for _,degrees in ipairs({a,b}) do
     local angle=math.rad(degrees)
     line(c,310+inner*math.cos(angle),304+inner*math.sin(angle),
-      310+outer*math.cos(angle),304+outer*math.sin(angle),cueColor or C.outlineDim,1)
+      310+outer*math.cos(angle),304+outer*math.sin(angle),cornerColor or cueColor or C.outlineDim,1)
   end
 end
 
-local function drawSelectorRing(c)
+local function drawSelectorRing(c,cornerCue)
   local gear=Selector.gear(c.state)
   local count=Selector.count(c.state.gearCount,gear)
   local cue=Selector.shiftCue(c.state)
-  for i=0,count do selectorCell(c,i,count,gear,false,cue) end
+  for i=0,count do selectorCell(c,i,count,gear,false,cue,cornerCue) end
   return gear,count,cue
 end
 
-local function drawSelectorHub(c,gear,count,cue)
+local function drawSelectorHub(c,gear,count,cue,cornerCue)
   local s,l,C=c.state,c.layout,c.colors
   local previous=selectorAnimations[s]
   if s.available==false then previous=nil end
@@ -250,11 +264,10 @@ local function drawSelectorHub(c,gear,count,cue)
   end
   polygon(c,points,C.panel)
   polygon(c,points,Light.color(gear and gear~=0 and C.amber or C.outline,c.L.icon))
-  for i=0,count do selectorCell(c,i,count,gear,true,cue) end
+  for i=0,count do selectorCell(c,i,count,gear,true,cue,cornerCue) end
   local p=l.gear
   local reading=gear==nil and '-' or gear==0 and 'N' or gear==-1 and 'R' or tostring(gear)
-  text(c,reading,p[3],p[1],p[2],rpmColor(c),true,true)
-  drawCornerGearHint(c,p)
+  drawGearReadout(c,p,reading,l.id,rpmColor(c))
 end
 
 local function bar(c,x,y,w,h,fraction,color,signed)
@@ -570,15 +583,16 @@ function M.draw(state,settings,origin,scale)
     if customPalette then PaletteShell.back(c) else ui.drawImage(images.back,origin,finish,tint) end
   end
   drawRpm(c)
-  local selectorGear,selectorCount,selectorCue
+  local selectorGear,selectorCount,selectorCue,selectorCornerCue
   if layout.selector then
-    selectorGear,selectorCount,selectorCue=drawSelectorRing(c)
+    selectorCornerCue=CornerGearHint.visual(c.state,c.settings)
+    selectorGear,selectorCount,selectorCue=drawSelectorRing(c,selectorCornerCue)
     drawNeedle(c)
   elseif layout.id=='concentric' then
     drawControls(c)
     drawNeedle(c)
   end
-  if layout.selector then drawSelectorHub(c,selectorGear,selectorCount,selectorCue) end
+  if layout.selector then drawSelectorHub(c,selectorGear,selectorCount,selectorCue,selectorCornerCue) end
   if layout.id=='concentric' then
     -- Opaque center masks the hand regardless of shell opacity.
     local p=layout.core
@@ -599,8 +613,7 @@ function M.draw(state,settings,origin,scale)
   text(c,state.speedText or '000',speed[3],speed[1],speed[2],c.colors.primary,true,true)
   text(c,state.speedUnit or 'km/h',16,speed[1],speed[2]+speed[3]/2+9,c.colors.primary,true)
   if not layout.selector then
-    text(c,state.gearText or 'N',gear[3],gear[1],gear[2],rpmColor(c),true,true)
-    drawCornerGearHint(c,gear)
+    drawGearReadout(c,gear,state.gearText or 'N',layout.id,rpmColor(c))
   end
   if not layout.hideRpmValue then
     local p=layout.rpmValue

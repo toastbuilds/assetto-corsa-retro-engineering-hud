@@ -328,16 +328,27 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   drawRpmScale(dialCenter, scale, state, settings, Layout.analogTickRadius, 15, 0, 31, 22, 2.4,
     backlit, true, false, true)
 
-  centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
-    gearColor, scale, backlit)
-  CornerGearHint.draw(state, settings, Layout.centerX + Layout.analogGearPodRadius * 0.58,
-    Layout.centerY + Layout.analogGearOffsetY + 8, 18, {primary=C.primary,red=C.red},
-    function(x1,y1,x2,y2,color,width)
-      drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
-    end,
-    function(value,size,x,y,color)
-      centeredBacklitText(value,size*scale,point(origin,scale,x,y),color,scale,backlit)
-    end)
+  local hint=CornerGearHint.visual(state,settings)
+  local presentation,current,recommendation
+  if hint then
+    presentation,current,recommendation=CornerGearHint.placements('analog','original',
+      Layout.centerX,Layout.centerY+Layout.analogGearOffsetY,Layout.analogGearFontSize)
+  end
+  if presentation then
+    centeredBacklitText(state.gearText,current.size*scale,
+      point(origin,scale,current.x,current.y),gearColor,scale,backlit)
+    CornerGearHint.draw(state,settings,recommendation.x,recommendation.y,recommendation.size,
+      {primary=C.primary,red=C.red},
+      function(x1,y1,x2,y2,color,width)
+        drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
+      end,
+      function(value,size,x,y,color)
+        centeredBacklitText(value,size*scale,point(origin,scale,x,y),color,scale,backlit)
+      end)
+  else
+    centeredBacklitText(state.gearText, Layout.analogGearFontSize * scale, gearCenter,
+      gearColor, scale, backlit)
+  end
   centeredBacklitText(state.speedText, Layout.analogSpeedFontSize * scale,
     dialCenter + vec2(0, Layout.analogSpeedOffsetY * scale), C.primary, scale, backlit)
 end
@@ -890,15 +901,26 @@ function M.draw(state, settings)
     drawSpeedBrackets(origin, scale)
     local digitalAlertColor = state.rpmRedline and redlineColor(state, settings)
       or (state.rpmWarning and C.amber or C.primary)
-    centeredText(state.gearText, Layout.gearFontSize * scale, point(origin, scale, Layout.centerX, Layout.gearY), digitalAlertColor)
-    CornerGearHint.draw(state, settings, Layout.centerX + 60, Layout.gearY + 13, 24,
-      {primary=C.primary,red=C.red},
-      function(x1,y1,x2,y2,color,width)
-        drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
-      end,
-      function(value,size,x,y,color)
-        centeredText(value,size*scale,point(origin,scale,x,y),color)
-      end)
+    local hint=CornerGearHint.visual(state,settings)
+    local presentation,current,recommendation
+    if hint then
+      presentation,current,recommendation=CornerGearHint.placements('digital','original',
+        Layout.centerX,Layout.gearY,Layout.gearFontSize)
+    end
+    if presentation then
+      centeredText(state.gearText,current.size*scale,point(origin,scale,current.x,current.y),digitalAlertColor)
+      CornerGearHint.draw(state,settings,recommendation.x,recommendation.y,recommendation.size,
+        {primary=C.primary,red=C.red},
+        function(x1,y1,x2,y2,color,width)
+          drawLine(point(origin,scale,x1,y1),point(origin,scale,x2,y2),color,width*scale)
+        end,
+        function(value,size,x,y,color)
+          centeredText(value,size*scale,point(origin,scale,x,y),color)
+        end)
+    else
+      centeredText(state.gearText,Layout.gearFontSize*scale,
+        point(origin,scale,Layout.centerX,Layout.gearY),digitalAlertColor)
+    end
     local digitalRpmColor = state.rpmRedline and digitalAlertColor
       or (state.rpmWarning and C.amber or C.primary)
     local digitalFlagColor = flagColor(state)
