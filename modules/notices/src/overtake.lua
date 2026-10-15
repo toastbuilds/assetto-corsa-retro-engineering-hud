@@ -1,5 +1,6 @@
 local Session = require('modules/leaderboard/src/session')
 local FlagCause = require('src/flag_cause')
+local GapHistory = require('modules/notices/src/gap_history')
 local M = {}
 M.__index = M
 
@@ -63,11 +64,12 @@ end
 
 local function clearHistory(self)
   self.previousRows, self.histories, self.incidents = {}, {}, {}
+  self.gapHistories = {}
   self.sessionIndex, self.lastProgress, self.lastTime = nil, nil, nil
 end
 
 function M.new()
-  return setmetatable({previousRows = {}, histories = {}, incidents = {}}, M)
+  return setmetatable({previousRows = {}, histories = {}, incidents = {}, gapHistories = {}}, M)
 end
 
 function M:reset()
@@ -133,6 +135,25 @@ function M:update(snapshot, enabled)
 
   local previousPlayer = self.previousRows[player.index]
   local previousPlayerPosition = previousPlayer and previousPlayer.position
+  local gapHistories = {}
+  for index, row in pairs(rowsByIndex) do
+    local previous = self.previousRows[index]
+    local rowPosition = position(row)
+    local wasAhead = previous and previous.live and previous.position and previousPlayerPosition
+      and previous.position < previousPlayerPosition
+    if index ~= player.index and active(row) then
+      local history = previous and previous.identity == identity(row) and self.gapHistories[index]
+        or GapHistory.new()
+      if read(snapshot.sim, 'isPaused') ~= true then
+        local gap = snapshot.timeline.measuredClock ~= false and finite(row.intervalSeconds) or nil
+        local incident = self.incidents[index]
+        history:add(progress, gap, row.intervalSource == 'estimated', incident and incident.kind,
+          wasAhead and rowPosition and playerPosition and rowPosition > playerPosition)
+      end
+      gapHistories[index] = history
+    end
+  end
+  self.gapHistories = gapHistories
   local canDetect = not discontinuous and read(snapshot.sim, 'isPaused') ~= true
     and playerPosition and previousPlayer and previousPlayer.identity == identity(player)
     and previousPlayer.live and active(player) and previousPlayerPosition
@@ -164,7 +185,9 @@ function M:update(snapshot, enabled)
         classID = tostring(passed.classID or ''),
         fromPosition = candidate.oldPosition + 1, toPosition = candidate.oldPosition,
         closingRate = rate, estimated = estimated,
-        incident = incident and incident.kind or nil
+        incident = incident and incident.kind or nil,
+        gapHistory = self.gapHistories[candidate.index]
+          and self.gapHistories[candidate.index]:snapshot(progress) or nil
       }
       self.histories[candidate.index] = nil
     end

@@ -7,12 +7,18 @@ local Leaderboard = require('modules/leaderboard/main')
 local Pace = require('modules/notices/src/pace')
 local BattleAlert = require('modules/notices/src/battle')
 local Window = require('modules/timing/src/window')
+local WindowAnchor = require('src/window_anchor')
 local M = {}
 local state = State.new()
 local pace = Pace.new()
+local cachedCar, cachedRates, previewNotice, previewUntil, lastSize
+local function currentNotice()
+  if previewNotice and ui.time() < previewUntil then return previewNotice end
+  return state.notice
+end
 local controller = Window.new('Retro UI Race Notices',
-  function() return vec2(Display.width, Display.height) end, 'notice-center')
-local cachedCar, cachedRates, previewNotice, previewUntil
+  function(settings) return vec2(Display.width, Display.heightFor(currentNotice(), settings)) end,
+  'notice-center')
 local previews = {
   blue = { kind = 'blue', title = 'BLUE FLAG', detail = 'LMP2 APPROACHING', value = '1.8 s', label = 'BEHIND' },
   repair = { kind = 'repair', title = 'REPAIR REQUIRED', detail = 'FRONT SUSPENSION DAMAGE', value = 'BOX', label = 'REPAIR' },
@@ -21,6 +27,23 @@ local previews = {
   attack = BattleAlert.notice({ahead={driver='MARTIN',position=4,rate=0.6,gapSeconds=2.1}}, {attackEnabled=true}),
   overtake = {kind='overtake',title='OVERTAKE P5 > P4',detail='A. SATO | GT3 | FERRARI 296',value='~+0.8',label='S/LAP'}
 }
+previews.overtake.gapHistory = {endProgress = 4, points = {}}
+for i = 0, 64 do
+  previews.overtake.gapHistory.points[#previews.overtake.gapHistory.points + 1] = {
+    progress = i / 16, gap = math.max(-0.1, 3.2 - i * 0.052 + math.sin(i / 3) * 0.12),
+    estimated = true
+  }
+end
+
+local function updateWindow()
+  local size = controller:desiredSize(Settings.values)
+  if not lastSize or math.abs(lastSize.x - size.x) > 0.1 or math.abs(lastSize.y - size.y) > 0.1 then
+    controller:invalidate()
+    WindowAnchor.acceptSize('notices', size)
+    lastSize = size
+  end
+  controller:update(Settings.values)
+end
 
 function M.update(dt, telemetry)
   Settings.normalize()
@@ -40,13 +63,12 @@ function M.update(dt, telemetry)
   pace:update(snapshot)
   state:update(dt, car, sim, telemetry and telemetry.condition, traffic, Settings.values, cachedRates,
     snapshot and snapshot.fuel, pace.snapshot, snapshot)
-  controller:update(Settings.values)
+  updateWindow()
 end
 
 function M.windowMain()
-  local notice = state.notice
-  if previewNotice and ui.time() < previewUntil then notice = previewNotice end
-  Display.draw(notice, Settings.values)
+  updateWindow()
+  Display.draw(currentNotice(), Settings.values)
 end
 
 function M.windowSettings()

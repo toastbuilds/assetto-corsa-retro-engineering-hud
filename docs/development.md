@@ -23,6 +23,8 @@ python tools/preview-notices.py
 
 The script writes `outputs/overtake-summary-dark.png` and `outputs/overtake-summary-light.png`, plus the existing notice and battle sheets. Overtake examples cover human and AI drivers, measured and estimated approach pace, insufficient history, recent rival yellow flags and track exits, and long names, at normal and compact sizes. These previews exercise the tracker, notice formatter and Lua renderer; CSP antialiasing and live telemetry require an in-game check. Generated images stay in the ignored output folders.
 
+`outputs/overtake-expanded-dark.png` and `outputs/overtake-expanded-light.png` show the optional four-lap gap graph with complete history, an incident-related gap collapse and a partially observed race, at 660 × 264 and 420 × 168.
+
 ## Build
 
 Set `VERSION` in `manifest.ini` and add `docs/releases/vX.Y.Z.md` and a changelog entry. The build reads the manifest version by default and rejects a mismatched explicit version.

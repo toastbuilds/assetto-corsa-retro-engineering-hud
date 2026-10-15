@@ -139,6 +139,14 @@ function M.isAnchored(id)
   return M.initialize(id).anchored
 end
 
+-- Content-driven size changes remain allowed while manual resizing is locked.
+function M.acceptSize(id, size)
+  local x, y = size and finite(size.x), size and finite(size.y)
+  if not x or not y or x <= 0 or y <= 0 then return false end
+  anchoredSizes[id] = vec2(x, y)
+  return true
+end
+
 function M.setAnchored(id, anchored)
   local state = M.initialize(id)
   local wasAnchored = state.anchored

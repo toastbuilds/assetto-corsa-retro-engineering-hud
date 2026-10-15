@@ -1,7 +1,13 @@
 local Theme = require('src/theme')
 local General = require('src/general_settings')
 local TimingUI = require('modules/timing/src/ui')
-local M = { width = 660, height = 96 }
+local GapGraph = require('modules/notices/src/gap_graph')
+local M = { width = 660, height = 96, expandedHeight = 264 }
+
+function M.heightFor(notice, settings)
+  return notice and notice.kind == 'overtake' and settings.expandedOvertake == true
+    and M.expandedHeight or M.height
+end
 
 local function polygon(points, color)
   ui.pathClear()
@@ -66,9 +72,10 @@ end
 function M.draw(notice, settings)
   if not notice then return end
   local width, height = ui.windowWidth(), ui.windowHeight()
-  local scale = math.min(width / M.width, height / M.height)
+  local authoredHeight = M.heightFor(notice, settings)
+  local scale = math.min(width / M.width, height / authoredHeight)
   if scale <= 0 then return end
-  local origin = vec2((width - M.width * scale) / 2, (height - M.height * scale) / 2)
+  local origin = vec2((width - M.width * scale) / 2, (height - authoredHeight * scale) / 2)
   local function p(x, y) return origin + vec2(x, y) * scale end
   local colors = Theme.get(General.values.theme)
   local opacity = General.values.opacity
@@ -96,6 +103,11 @@ function M.draw(notice, settings)
   ui.pushDWriteFont(Theme.fonts.utility)
   TimingUI.centeredText(notice.label, 13 * scale, p(580, 66), ink(colors.secondary))
   ui.popDWriteFont()
+  if authoredHeight == M.expandedHeight then
+    TimingUI.chamferRect(p(3, 102), p(657, 260), 9 * scale,
+      ink(colors.panel, General.background(colors.panel.mult)), ink(colors.outline), scale)
+    GapGraph.draw(notice.gapHistory, p, scale, colors, ink)
+  end
 end
 
 return M

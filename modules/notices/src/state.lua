@@ -46,7 +46,8 @@ local function overtakeNotice(event)
     value = incident or value,
     label = incident and (event.incident == 'yellow' and 'RIVAL FLAG' or 'TRACK EXIT')
       or (event.closingRate ~= nil and 'S/LAP' or 'PACE'),
-    incident = event.incident
+    incident = event.incident,
+    gapHistory = event.gapHistory
   }
 end
 

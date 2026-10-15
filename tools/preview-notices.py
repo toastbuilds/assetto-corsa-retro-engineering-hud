@@ -33,13 +33,18 @@ def overtake_samples(lua):
           sim.currentSessionTime = time * 1000
           sim.raceFlagType, sim.raceFlagCause = nil, nil
           rival.car.wheelsOutside = 0
-          if i == samples - 3 then
+          if i == samples - 30 then
             if context == 'yellow' then sim.raceFlagType, sim.raceFlagCause = 2, 1
             elseif context == 'offtrack' then rival.car.wheelsOutside = 4 end
           end
           player.progress, player.racePosition = progress, passed and 4 or 5
           rival.progress, rival.racePosition = progress + 0.01, passed and 5 or 4
-          rival.intervalSeconds = passed and -0.1 or 2 - 0.8 * progress
+          local gap = samples / 180 * 0.8 + 0.2 - 0.8 * progress + math.sin(progress * math.pi * 2) * 0.12
+          if context then
+            gap = i < samples - 30 and 10 + math.sin(progress * math.pi * 2) * 0.4
+              or 10 * (samples - i) / 30
+          end
+          rival.intervalSeconds = passed and -0.1 or gap
           local snapshot = {sim=sim, session={type=ac.SessionType.Race},
             localRow=player, rows={player,rival}, historyReset=i == 0,
             timeline={time=time, measuredClock=true}}
@@ -50,13 +55,13 @@ def overtake_samples(lua):
       end
     """)
     return [
-        ('HUMAN / MEASURED', make_notice('history', 'A. SATO', 'FERRARI 296', False, 361)),
-        ('AI / ESTIMATED', make_notice('estimated', 'M. COSTA', 'PORSCHE 911 GT3 R', True, 361)),
+        ('HUMAN / MEASURED', make_notice('history', 'A. SATO', 'FERRARI 296', False, 721)),
+        ('AI / ESTIMATED', make_notice('estimated', 'M. COSTA', 'PORSCHE 911 GT3 R', True, 721)),
         ('INSUFFICIENT HISTORY', make_notice('history', 'J. MARTIN', 'BMW M4 GT3', False, 30)),
         ('RIVAL CAUSED A RECENT YELLOW', make_notice('history', 'R. SILVA', 'AUDI R8 LMS',
-            False, 361, 'yellow')),
+            False, 721, 'yellow')),
         ('RIVAL RECENTLY LEFT THE TRACK', make_notice('history', 'D. COSTA', 'BMW M4 GT3',
-            True, 361, 'offtrack')),
+            True, 721, 'offtrack')),
         ('LONG DRIVER / CAR NAMES', make_notice('history', 'ALEXANDER VAN DER BERG',
             'MERCEDES-AMG GT3 EVO ENDURANCE', False, 361)),
     ]
@@ -113,6 +118,22 @@ def main():
                     lua.table_from([width, height]))
                 canvas.paste(preview.raster(calls, width, height, background), (x, y + 20))
         path = output / f'overtake-summary-{theme}.png'
+        canvas.save(path)
+        print(path)
+        expanded = [overtakes[0], overtakes[3], overtakes[2]]
+        canvas = Image.new('RGB', (1140, 66 + len(expanded) * 306), background)
+        draw = ImageDraw.Draw(canvas)
+        draw.text((18, 14), 'RETRO UI / EXPANDED OVERTAKE SUMMARIES', fill=foreground)
+        draw.text((20, 38), '660 x 264', fill=foreground)
+        draw.text((704, 38), '420 x 168', fill=foreground)
+        for index, (label, notice) in enumerate(expanded):
+            y = 66 + index * 306
+            draw.text((20, y), label, fill=foreground)
+            for x, width, height in ((16, 660, 264), (700, 420, 168)):
+                calls = harness['drawRenderer'](renderer, notice,
+                    lua.table_from({'expandedOvertake': True}), lua.table_from([width, height]))
+                canvas.paste(preview.raster(calls, width, height, background), (x, y + 20))
+        path = output / f'overtake-expanded-{theme}.png'
         canvas.save(path)
         print(path)
         battle_output = ROOT / 'output'

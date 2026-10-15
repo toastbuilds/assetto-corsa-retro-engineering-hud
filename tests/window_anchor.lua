@@ -73,6 +73,16 @@ positions.dial = vec2(700, 800)
 Anchor.finish('dial')
 assert(positions.dial.x == 100, 'Automatic placement during panel drawing must also be corrected')
 
+assert(Anchor.acceptSize('dial', vec2(320, 264)))
+sizes.dial = vec2(320, 264)
+frame('dial', false)
+assert(sizes.dial.y == 264 and positions.dial.y == 200,
+  'A content-driven expansion preserves the locked position')
+sizes.dial = vec2(500, 300)
+frame('dial', false)
+assert(sizes.dial.x == 320 and sizes.dial.y == 264,
+  'Manual resizing remains blocked after an authorized content expansion')
+
 frame('dial', true)
 assert(not Anchor.isAnchored('dial'), 'A second right-click must unlock')
 assert(not feedback[#feedback].anchored, 'Unlock must replace ongoing lock feedback immediately')
