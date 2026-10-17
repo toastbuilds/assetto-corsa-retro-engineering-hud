@@ -8,7 +8,6 @@ M.values = ac.storage({
   hudScale = 0.84,
   automaticClasses = true,
   showClass = true,
-  showCompound = false,
   showFlags = true,
   showConnection = true,
   scrollLongNames = false,
@@ -62,7 +61,7 @@ local function resetAll()
   if not ok then return false, err end
   resetVisualSettings()
   M.values.automaticClasses, M.values.showClass, M.values.showFlags = true, true, true
-  M.values.showCompound, M.values.scrollLongNames = false, false
+  M.values.scrollLongNames = false
   M.values.showConnection = true
   M.values.maxRows, M.values.intervalRefresh = 5, 0.25
   M.values.sectorReference, M.values.positionChangeDuration = 'General', 40
@@ -96,7 +95,6 @@ function M.draw()
   SettingsUI.section('leaderboard', 'personalization', 'Personalization', false, function()
     ui.header('Columns')
     checkbox('Show class', 'showClass')
-    checkbox('Show tyre compound', 'showCompound')
     checkbox('Show flag indicator', 'showFlags')
     checkbox('Show online connection quality', 'showConnection')
     checkbox('Scroll long driver names', 'scrollLongNames')

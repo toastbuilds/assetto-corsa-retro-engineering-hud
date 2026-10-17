@@ -173,14 +173,11 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
       textRole(palette, snapshot.final and 'green' or 'secondary'))
   end
   ui.drawLine(origin + vec2(152 * scale, 29 * scale), origin + vec2(152 * scale, 71 * scale), role(palette, 'outlineSoft'), scale)
-  text('TIME LEFT', 15 * scale, origin + vec2(172 * scale, 27 * scale), textRole(palette, 'secondary'))
-  fittedText(h.timeText or '--:--', 28 * scale, origin + vec2(172 * scale, 44 * scale), 158 * scale, role(palette, 'primary'))
+  fittedText(h.timeText or '--:--', 38 * scale, origin + vec2(172 * scale, 29 * scale), 158 * scale, role(palette, 'primary'))
   local race = h.typeLabel == 'RACE'
   local total = tostring(h.lapsText or ''):match('LAPS:%s*(.+)') or '--'
   local lapText = tostring(h.currentLapText or '--') .. (race and (' / ' .. total) or '')
-  local lapLabel = race and (h.isTimed and 'LAP / EST. TOTAL' or 'LAP / TOTAL') or 'LAP'
-  text(lapLabel, 15 * scale, origin + vec2(350 * scale, 27 * scale), textRole(palette, 'secondary'))
-  fittedText(lapText, 28 * scale, origin + vec2(350 * scale, 44 * scale), 246 * scale, role(palette, 'amber'))
+  fittedText(lapText, 38 * scale, origin + vec2(350 * scale, 29 * scale), 246 * scale, role(palette, 'amber'))
 
   if settings.showFlags ~= false then
     local flagColors = {green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white'}
@@ -193,14 +190,12 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
   end
 
   if settings.showFuel == false then
-    text('AIR', 16 * scale, origin + vec2(650 * scale, 29 * scale), textRole(palette, 'secondary'))
-    text(h.ambientText or '--', 28 * scale, origin + vec2(650 * scale, 49 * scale), role(palette, 'primary'))
-    text('TRACK', 16 * scale, origin + vec2(830 * scale, 29 * scale), textRole(palette, 'secondary'))
-    text(h.trackText or '--', 28 * scale, origin + vec2(830 * scale, 49 * scale), role(palette, 'primary'))
+    fittedText(h.ambientText or '--', 38 * scale, origin + vec2(650 * scale, 34 * scale), 158 * scale, role(palette, 'primary'))
+    fittedText(h.trackText or '--', 38 * scale, origin + vec2(830 * scale, 34 * scale), 158 * scale, role(palette, 'primary'))
     return
   end
-  fittedText('AIR ' .. (h.ambientText or '--'), 17 * scale, origin + vec2(247 * scale, 80 * scale), 166 * scale, textRole(palette, 'secondary'))
-  fittedText('TRACK ' .. (h.trackText or '--'), 17 * scale, origin + vec2(426 * scale, 80 * scale), 170 * scale, textRole(palette, 'secondary'))
+  fittedText(h.ambientText or '--', 26 * scale, origin + vec2(247 * scale, 73 * scale), 166 * scale, role(palette, 'primary'))
+  fittedText(h.trackText or '--', 26 * scale, origin + vec2(426 * scale, 73 * scale), 170 * scale, role(palette, 'primary'))
 
   local x, y = origin.x + 620 * scale, origin.y + 21 * scale
   chamferRect(vec2(x, y), vec2(origin.x + (width - 25) * scale, y + 80 * scale), 6 * scale,
@@ -278,14 +273,14 @@ local function drawConnection(left, top, row, settings, palette, scale, opacity)
   local connection = row.connection
   local count = connection.bars or 0
   local colorName = count >= 4 and 'green' or count >= 2 and 'amber' or 'red'
-  local x, baseline = left + 653 * scale, top + 38 * scale
+  local x, baseline = left + 644 * scale, top + 39 * scale
   for i = 1, 5 do
-    local barLeft = x + (i - 1) * 7 * scale
-    ui.drawRectFilled(vec2(barLeft, baseline - (4 + i * 4) * scale), vec2(barLeft + 5 * scale, baseline),
+    local barLeft = x + (i - 1) * 9 * scale
+    ui.drawRectFilled(vec2(barLeft, baseline - (6 + i * 4) * scale), vec2(barLeft + 6 * scale, baseline),
       role(palette, i <= count and colorName or 'metal', i <= count and opacity or 0.45 * opacity))
   end
-  if ui.rectHovered and ui.setTooltip and ui.rectHovered(vec2(x - 3 * scale, top + 10 * scale),
-      vec2(x + 36 * scale, baseline + 4 * scale)) then
+  if ui.rectHovered and ui.setTooltip and ui.rectHovered(vec2(x - 5 * scale, top + 10 * scale),
+      vec2(x + 47 * scale, baseline + 4 * scale)) then
     ui.setTooltip('Connection: ' .. tostring(connection.label or 'NO PING DATA')
       .. (connection.pingMs and string.format(' (%d ms, smoothed)', connection.pingMs) or ''))
   end
@@ -319,13 +314,8 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
       vec2(left + (race and 424 or 474) * scale, top + 14 * scale), (race and 78 or 58) * scale,
       Theme.textColor(palette, row.classID == 'UNKNOWN' and 'secondary' or classColor, opacity))
   end
-  if settings.showCompound and row.tyreCompound and row.tyreCompound ~= '' then
-    fittedText(row.tyreCompound, 14 * scale, vec2(left + (race and 510 or 540) * scale, top + 19 * scale),
-      (race and 80 or 50) * scale, textRole(palette, 'cyan', opacity))
-  end
-
-  fittedText(row.status or '--', 23 * scale, vec2(left + 594 * scale, top + 14 * scale),
-    (row.connection and settings.showConnection ~= false and 52 or 80) * scale, stateColor)
+  fittedText(row.status or '--', 23 * scale, vec2(left + 552 * scale, top + 14 * scale),
+    (row.connection and settings.showConnection ~= false and 68 or 110) * scale, stateColor)
   drawConnection(left, top, row, settings, palette, scale, opacity)
   if race then
     local change = finiteNumber(row.positionChangeDelta)

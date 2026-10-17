@@ -2,7 +2,10 @@
 
 The header combines the current lap and session total. A timed race marks the
 projected total with `~`. Time remaining and lap values use larger numerals;
-position changes use a wider column beside the position badge.
+position changes use a wider column beside the position badge. Time, lap and
+temperature values omit their labels to use the available height. Air temperature
+is displayed before track temperature. The tyre compound column has been removed
+to leave more space around the larger connection bars.
 
 ## Connection quality
 

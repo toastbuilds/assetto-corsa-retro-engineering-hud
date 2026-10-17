@@ -86,6 +86,8 @@ def main():
     snapshot = lua.globals().previewSnapshot
     renderer = lua.globals().previewRenderer
     for theme, background in (("dark", "#121416"), ("light", "#e9e4d9")):
+        # Keep the retired compound flag enabled for before/after comparisons;
+        # the current renderer ignores it, including for older saved settings.
         settings = lua.table_from({"theme": theme, "maxRows": 7, "hudScale": 0.84,
             "showFlags": True, "showClass": True, "showCompound": True, "showConnection": True,
             "showFuel": True, "fuelReserve": 2})
