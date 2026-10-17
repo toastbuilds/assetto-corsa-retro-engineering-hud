@@ -56,7 +56,7 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
       local f=(i-0.5)/96
       local ink=f<0.45 and C.green or f<0.78 and C.amber or C.red
       if not speedBand then ink=f>=red and C.red or f>=warning and C.amber or f<0.45 and C.green or C.amber end
-      local active=static or f<=value
+      local active=f<=value
       if active and not speedBand and (state.rpmRedline or state.rpmWarning) then ink=warningInk(state,settings,C) end
       local a=math.rad(startAngle+(endAngle-startAngle)*(i-1)/96)
       local b=math.rad(startAngle+(endAngle-startAngle)*i/96)
@@ -93,7 +93,7 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
   for _,dot in ipairs((layout.conceptStyle=='spectrum' or layout.conceptStyle=='floating') and {} or g.dots) do
     local color=dot[3]>=red and C.red or dot[3]>=warning and C.amber
       or dot[3]<0.45 and C.green or C.amber
-    local active=fraction>0 and dot[3]<=fraction
+    local active=dot[3]<=fraction
     if active and (state.rpmRedline or state.rpmWarning) then color=warningInk(state,settings,C) end
     local center=p(dot[1],dot[2])
     local halo=active and Light.halo(color,L.segment)
@@ -110,7 +110,7 @@ function M.rpm(origin,scale,layout,state,settings,C,L)
       local startAngle=-220+i*22.5
       local endAngle=math.min(startAngle+22.5,r[5])
       local f=((startAngle+endAngle)/2-r[4])/(r[5]-r[4])
-      if f>=warning then
+      if f>=warning and fraction>=f then
         local ink=f>=red and C.red or C.amber
         if state.rpmRedline or state.rpmWarning then ink=warningInk(state,settings,C) end
         local first,last=startAngle+4,endAngle-4

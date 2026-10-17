@@ -155,7 +155,9 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
         local a=f.first+(f.last-f.first)*(i-0.88)/28
         local b=f.first+(f.last-f.first)*(i-0.12)/28
         if i/28>=redline then
-          arc(f.r-4,a,b,state.rpmRedline and arcValue(i/28) or C.redDim,9,3)
+          local progress=(i-0.12)/28
+          local active=state.rpmRedline and progress<=fraction
+          arc(f.r-4,a,b,active and arcValue(progress) or C.redDim,9,3)
         end
       end
     end
@@ -186,7 +188,7 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
       if i~=8 then
         local progress=i/16
         local a=f.first+(f.last-f.first)*progress
-        local active=progress<=fraction or (rpm and state.rpmRedline and progress>=redline)
+        local active=progress<=fraction
         local ink=active and arcValue(progress) or (rpm and progress>=redline and C.redDim or C.outlineDim)
         filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),6,ink,
           active and L.segment or L.printedWarning)
@@ -202,20 +204,28 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
       -- Join the alternating crown jewels through the limiter sector, like
       -- the broad redline strokes on the principal GT7 tachometer.
       for i=1,24 do
-        local progress=(i-0.5)/24
-        if progress>=redline then
+        local segmentStart=(i-1)/24
+        local segmentEnd=i/24
+        local redStart=math.max(segmentStart,redline)
+        if segmentEnd>redStart then
           local segmentSpan=(f.last-f.first)/24
-          local a=f.first+segmentSpan*(i-1)+math.rad(4)
-          local b=f.first+segmentSpan*i-math.rad(4)
-          arc(f.r-4,a,b,state.rpmRedline and arcValue(progress) or C.redDim,4.5,3)
+          local a=f.first+segmentSpan*redStart+math.rad(4)
+          local b=f.first+segmentSpan*segmentEnd-math.rad(4)
+          if a<b then arc(f.r-4,a,b,C.redDim,4.5,3) end
+          local litEnd=math.min(segmentEnd,fraction)
+          local litB=f.first+segmentSpan*litEnd-math.rad(4)
+          if state.rpmRedline and redStart<litEnd and a<litB then
+            arc(f.r-4,a,litB,arcValue(litEnd),4.5,3)
+          end
         end
       end
     end
     for i=0,24 do
       local progress=i/24
       local a=f.first+(f.last-f.first)*progress
-      local active=progress<=fraction or (rpm and state.rpmRedline and progress>=redline)
-      local ink=active and arcValue(progress) or Theme.withAlpha(progressInk(progress),0.28)
+      local active=progress<=fraction
+      local ink=active and arcValue(progress)
+        or (rpm and progress>=redline and C.redDim or Theme.withAlpha(progressInk(progress),0.28))
       filledCircle(f.x+(f.r-4)*math.cos(a),f.y+(f.r-4)*math.sin(a),i%2==0 and 5 or 3.3,ink,
         active and L.segment or L.printedWarning)
     end
@@ -241,7 +251,7 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
       local b=math.min(f.last,f.first+(f.last-f.first)*i/96+0.002)
       local ink=progress<0.55 and Light.mix(green,amber,progress/0.55)
         or Light.mix(amber,red,(progress-0.55)/0.45)
-      if rpm and state.rpmRedline and progress>=redline then ink=arcValue(progress) end
+      if rpm and state.rpmRedline and progress>=redline and progress<=fraction then ink=arcValue(progress) end
       arc(f.r-10,a,b,ink,22,3)
     end
     if not f.analog then
@@ -288,11 +298,15 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
     -- A physical speed dial communicates through its needle and numbered
     -- scale; never place a second numeric speed readout inside the face.
   elseif motif=='snap' then
-    label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,70)
+    if not (f.analog and rpm) then
+      label(value,f.value[3],f.value[1],f.value[2],valueColor,L.value,70)
+    end
     label('RPM',9,f.unit[1],f.unit[2],C.secondary,L.label)
     drawSnapSelector(center,scale,state,settings,C,L,f.analog and drawMainNeedle or nil)
   else
-    label(value,rpm and f.value[3]*0.92 or f.value[3],f.value[1],f.value[2],valueColor,L.value,150)
+    if not (f.analog and rpm and (motif=='track' or motif=='halo' or motif=='jewel')) then
+      label(value,rpm and f.value[3]*0.92 or f.value[3],f.value[1],f.value[2],valueColor,L.value,150)
+    end
     label(rpm and 'RPM' or settings.speedUnit,11,f.unit[1],f.unit[2],C.secondary,L.label)
   end
 end
@@ -466,8 +480,11 @@ end
     end
     if rpm then
       for i,block in ipairs(f.blocks) do
-        if i/40>=redline then Light.segment(pivot,scale,block,
-          state.rpmRedline and warningColor or C.redDim,state.rpmRedline and L.segment or L.printedWarning) end
+        if i/40>=redline then
+          local active=state.rpmRedline and i/40<=fraction
+          Light.segment(pivot,scale,block,active and warningColor or C.redDim,
+            active and L.segment or L.printedWarning)
+        end
       end
     end
   else
