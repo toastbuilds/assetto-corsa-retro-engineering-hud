@@ -30,7 +30,8 @@ function M.windowMain(_)
   local visual = {
     palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
     instrumentOpacity = GeneralSettings.values.opacity,
-    animateLapChanges = Settings.values.animateLapChanges
+    animateLapChanges = Settings.values.animateLapChanges,
+    showEstimatedLapTime = Settings.values.showEstimatedLapTime
   }
   local ok, drawError = pcall(Display.draw, state:snapshot(), Settings.values, visual)
   if not ok then

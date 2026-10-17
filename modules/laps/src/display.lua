@@ -14,7 +14,7 @@ function Display.size(settings)
   return vec2(220, 9 + (settings.rows or 10) * 37)
 end
 
-local function drawRow(row, y, width, height, colors, scale, current, fade)
+local function drawRow(row, y, width, height, colors, scale, current, fade, showEstimatedLapTime)
   local tl = vec2(6 * scale, y)
   local br = vec2(width - 6 * scale, y + height)
   local status = row.invalid and 'invalid' or row.status or 'current'
@@ -33,21 +33,36 @@ local function drawRow(row, y, width, height, colors, scale, current, fade)
   TimingUI.centeredText(string.format('%02d', row.number or 0), 17 * scale,
     vec2(tl.x + numberWidth / 2, centerY), colors.primary, fade)
   if current then
-    local progress = math.max(0, math.min(1, tonumber(row.progress) or 0))
-    local progressTL = timeTL + vec2(5 * scale, 5 * scale)
-    local progressBR = br - vec2((row.inPits and 26 or 5) * scale, 5 * scale)
-    local pulse = 0.80 + 0.15 * ((math.sin((type(ui.time) == 'function' and ui.time() or 0) * 3.2) + 1) / 2)
-    local tinted = Theme.blend(fill, accent, 0.36 * pulse)
-    local activeColor = rgbm(tinted.r, tinted.g, tinted.b, fill.mult)
-    local inactiveTint = Theme.blend(fill, colors.metalDim, 0.25)
-    local inactiveColor = rgbm(inactiveTint.r, inactiveTint.g, inactiveTint.b, fill.mult)
-    local segmentGap = 2 * scale
-    local segmentWidth = (progressBR.x - progressTL.x - (PROGRESS_SEGMENTS - 1) * segmentGap) / PROGRESS_SEGMENTS
-    local filled = math.ceil(progress * PROGRESS_SEGMENTS)
-    for segmentIndex = 1, PROGRESS_SEGMENTS do
-      local left = progressTL.x + (segmentIndex - 1) * (segmentWidth + segmentGap)
-      ui.drawRectFilled(vec2(left, progressTL.y), vec2(left + segmentWidth, progressBR.y),
-        segmentIndex <= filled and activeColor or inactiveColor)
+    if showEstimatedLapTime then
+      local estimate = tonumber(row.estimatedTime)
+      local estimateText = estimate and estimate > 0 and TimingUI.formatTime(estimate) or '--:--'
+      local availableWidth = br.x - timeTL.x - (row.inPits and 26 or 5) * scale
+      local textSize = 18 * scale
+      local measured = ui.measureDWriteText(estimateText, textSize)
+      if measured.x > availableWidth - 10 * scale then
+        textSize = textSize * (availableWidth - 10 * scale) / measured.x
+        measured = ui.measureDWriteText(estimateText, textSize)
+      end
+      TimingUI.centeredText(estimateText, textSize,
+        vec2(timeTL.x + availableWidth / 2, centerY),
+        estimate and estimate > 0 and accent or colors.secondary, fade)
+    else
+      local progress = math.max(0, math.min(1, tonumber(row.progress) or 0))
+      local progressTL = timeTL + vec2(5 * scale, 5 * scale)
+      local progressBR = br - vec2((row.inPits and 26 or 5) * scale, 5 * scale)
+      local pulse = 0.80 + 0.15 * ((math.sin((type(ui.time) == 'function' and ui.time() or 0) * 3.2) + 1) / 2)
+      local tinted = Theme.blend(fill, accent, 0.36 * pulse)
+      local activeColor = rgbm(tinted.r, tinted.g, tinted.b, fill.mult)
+      local inactiveTint = Theme.blend(fill, colors.metalDim, 0.25)
+      local inactiveColor = rgbm(inactiveTint.r, inactiveTint.g, inactiveTint.b, fill.mult)
+      local segmentGap = 2 * scale
+      local segmentWidth = (progressBR.x - progressTL.x - (PROGRESS_SEGMENTS - 1) * segmentGap) / PROGRESS_SEGMENTS
+      local filled = math.ceil(progress * PROGRESS_SEGMENTS)
+      for segmentIndex = 1, PROGRESS_SEGMENTS do
+        local left = progressTL.x + (segmentIndex - 1) * (segmentWidth + segmentGap)
+        ui.drawRectFilled(vec2(left, progressTL.y), vec2(left + segmentWidth, progressBR.y),
+          segmentIndex <= filled and activeColor or inactiveColor)
+      end
     end
   else
     TimingUI.beginFade(fade)
@@ -93,7 +108,7 @@ function Display.draw(snapshot, settings, visual)
   local visibleRows = settings.rows or 10
   if snapshot.current then
     ui.pushStyleVarAlpha(smoothStep(math.max(0, 1 - remaining / 0.15)))
-    drawRow(snapshot.current, y, width, rowHeight, colors, scale, true)
+    drawRow(snapshot.current, y, width, rowHeight, colors, scale, true, nil, settings.showEstimatedLapTime)
     ui.popStyleVar(1)
     y = y + rowHeight + rowGap
     visibleRows = visibleRows - 1

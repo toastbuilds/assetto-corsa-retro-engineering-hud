@@ -6,6 +6,7 @@ local DEFAULTS = {
   scale = 1.0,
   rows = 10,
   animateLapChanges = true,
+  showEstimatedLapTime = false,
   autoPlacement = true,
   locked = false
 }
@@ -31,6 +32,7 @@ function Settings.normalize()
   v.scale = clamp(v.scale, 0.65, 1.50, DEFAULTS.scale)
   v.rows = math.floor(clamp(v.rows, 5, 10, DEFAULTS.rows) + 0.5)
   v.animateLapChanges = v.animateLapChanges ~= false
+  v.showEstimatedLapTime = v.showEstimatedLapTime == true
   v.autoPlacement = v.autoPlacement ~= false
   v.locked = v.locked == true
 end
@@ -55,9 +57,11 @@ function Settings.draw()
     checkbox('Auto-placement', 'autoPlacement')
     checkbox('Stay visible when mouse leaves', 'locked')
     checkbox('Animate lap changes', 'animateLapChanges')
+    checkbox('Show estimated lap time instead of progress bars', 'showEstimatedLapTime')
   end)
   SettingsUI.section('laps', 'advanced', 'Advanced', false, function()
-    ui.textWrapped('The first row shows track progress, colored by projected lap pace. Completed laps show their times, newest first.')
+    ui.textWrapped('The first row shows track progress, colored by projected lap pace, or the estimated lap time when enabled. Completed laps show their times, newest first.')
+    ui.textWrapped('Estimated time comes from Assetto Corsa. --:-- means the estimate is not available.')
   end)
   ui.separator()
   SettingsUI.resetAppearance('laps', function() Settings.values.scale = DEFAULTS.scale end)

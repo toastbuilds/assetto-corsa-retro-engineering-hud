@@ -77,6 +77,7 @@ function State:startCurrent(car)
   self.current = {
     number = lapCount + 1,
     time = Timing.lapTimeMs(car),
+    estimatedTime = positive(Timing.field(car, 'estimatedLapTimeMs', nil)),
     progress = Timing.currentSpline(car, self.trackName),
     status = 'current',
     invalid = invalid(car),
@@ -177,6 +178,7 @@ function State:update()
   end
 
   self.current.time = Timing.lapTimeMs(car)
+  self.current.estimatedTime = positive(Timing.field(car, 'estimatedLapTimeMs', nil))
   self.current.progress = spline
   if invalid(car) then self.current.invalid = true end
   if Timing.isInPit(car) then self.current.inPits = true end
