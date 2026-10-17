@@ -3,6 +3,7 @@ local Classes = require('modules/leaderboard/src/classes')
 local FlagCause = require('src/flag_cause')
 local Sectors = require('modules/leaderboard/src/sectors')
 local Timeline = require('modules/leaderboard/src/timeline')
+local Connection = require('modules/leaderboard/src/connection')
 
 local M = {}
 
@@ -143,6 +144,7 @@ local function makeRow(car, session, settings, sim)
     index = index, driver = driver, number = safeNumberMethod(car, 'driverNumber'),
     carID = carID, carName = carName, classID = classID, classSource = classSource,
     connected = connected ~= false, active = active ~= false, isLocal = isLocal, isAI = isAI,
+    pingMs = safeNumberField(car, 'ping'), sessionID = read(car, 'sessionID'),
     justJumped = bool(read(car, 'justJumped')),
     racePosition = number(read(car, 'racePosition')) or 999,
     lapCount = lapCount, splinePosition = math.max(0, math.min(1, spline)),
@@ -242,7 +244,7 @@ end
 function M.new()
   return {
     sessionIndex = nil, rows = {}, shownRows = {}, localRow = nil,
-    pilots = {}, sectorConnections = {}, sectors = Sectors.new(), timeline = nil,
+    pilots = {}, sectorConnections = {}, sectors = Sectors.new(), timeline = nil, connections = {},
     bestSeen = {}, improvementUntil = {}, sessionBest = nil, enteredAt = 0,
     snapshot = nil
   }
@@ -251,7 +253,7 @@ end
 function M.empty()
   return {
     header = { typeLabel = 'WAIT', timeText = '--:--', currentLapText = '--', lapsText = 'LAPS: --', ambientText = '--', trackText = '--' },
-    rows = {}, shownRows = {}, localRow = nil, session = nil, sim = nil,
+    rows = {}, shownRows = {}, localRow = nil, session = nil, sim = nil, online = false,
     flagLabel = nil, flagRole = nil, lapsRemaining = nil, enteredAt = ui.time(), error = nil
   }
 end
@@ -314,6 +316,7 @@ function M.update(state, settings)
     state.sessionType = session and session.type
     state.rows, state.shownRows, state.localRow = {}, {}, nil
     state.pilots, state.sectorConnections, state.bestSeen, state.improvementUntil = {}, {}, {}, {}
+    state.connections = {}
     Sectors.reset(state.sectors)
     state.finalRows = nil
     state.sessionBest, state.enteredAt = nil, now
@@ -321,6 +324,7 @@ function M.update(state, settings)
   state.timeline, state.started, state.playerLap = timeline, started, playerLap
   local race = Session.isRace(session)
   local personal = Session.isPersonal(session)
+  local online = read(sim, 'isOnlineRace') == true and read(sim, 'isReplayActive') ~= true
 
   local rows = {}
   local flagKind, flagIndex = FlagCause.resolve(sim)
@@ -347,8 +351,18 @@ function M.update(state, settings)
     end
     final = final or started and sawFinish and allFinished
   end
+  Connection.update(state.connections, rows, online, now)
   if final and not state.finalRows then state.finalRows = rows end
-  if state.finalRows then rows, final = state.finalRows, true end
+  if state.finalRows then
+    local live = {}
+    for _, row in ipairs(rows) do live[row.index] = row end
+    for _, row in ipairs(state.finalRows) do
+      local current = live[row.index]
+      row.connection = current and current.driver == row.driver and current.carID == row.carID
+        and current.sessionID == row.sessionID and current.connection or nil
+    end
+    rows, final = state.finalRows, true
+  end
   if not race then
     local present = {}
     for i = 1, #rows do
@@ -385,7 +399,7 @@ function M.update(state, settings)
     leaderRow = leaderRow, session = session, sim = sim, sessionBest = sessionBest,
     lapsRemaining = Session.lapsRemaining(session, sim, localRow, leaderRow, sessionBest),
     flagLabel = header.flagLabel, flagRole = header.flagRole, enteredAt = state.enteredAt,
-    historyReset = historyReset, timeline = timeline, final = final, personal = personal
+    historyReset = historyReset, timeline = timeline, final = final, personal = personal, online = online
   }
   state.snapshot = snapshot
   return snapshot

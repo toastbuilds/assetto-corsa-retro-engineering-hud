@@ -10,6 +10,7 @@ M.values = ac.storage({
   showClass = true,
   showCompound = false,
   showFlags = true,
+  showConnection = true,
   scrollLongNames = false,
   maxRows = 5,
   sectorReference = 'General',
@@ -62,6 +63,7 @@ local function resetAll()
   resetVisualSettings()
   M.values.automaticClasses, M.values.showClass, M.values.showFlags = true, true, true
   M.values.showCompound, M.values.scrollLongNames = false, false
+  M.values.showConnection = true
   M.values.maxRows, M.values.intervalRefresh = 5, 0.25
   M.values.sectorReference, M.values.positionChangeDuration = 'General', 40
   M.values.showFuel, M.values.fuelReserve, M.values.showLapEstimate = true, 2, true
@@ -77,6 +79,7 @@ function M.normalize()
   M.values.intervalRefresh = clamp(tonumber(M.values.intervalRefresh) or 0.25, 0.10, 1.00)
   M.values.fuelReserve = math.max(0, tonumber(M.values.fuelReserve) or 2)
   M.values.temperatureUnit = M.values.temperatureUnit == 'F' and 'F' or 'C'
+  M.values.showConnection = M.values.showConnection ~= false
   M.values.lockX = tonumber(M.values.lockX) or -1
   M.values.lockY = tonumber(M.values.lockY) or -1
 end
@@ -95,6 +98,7 @@ function M.draw()
     checkbox('Show class', 'showClass')
     checkbox('Show tyre compound', 'showCompound')
     checkbox('Show flag indicator', 'showFlags')
+    checkbox('Show online connection quality', 'showConnection')
     checkbox('Scroll long driver names', 'scrollLongNames')
     slider('Interval refresh', 'intervalRefresh', 0.10, 1.00, '%.2fs')
     SettingsUI.choice('leaderboard', 'sectorReference', 'Sector comparison', M.values.sectorReference,
@@ -105,12 +109,14 @@ function M.draw()
       ui.header('Fuel calculator')
       slider('Fuel reserve', 'fuelReserve', 0, 20, '%.1f L')
       checkbox('Timed-race lap estimate', 'showLapEstimate')
+      ui.textWrapped('TANK is fuel as a percentage of tank capacity. RANGE is complete laps of fuel after subtracting your reserve, using the median consumption of up to five valid observed laps. FINISH is the estimated surplus or shortfall in litres at the finish, including your reserve.')
     end
   end)
   SettingsUI.section('leaderboard', 'advanced', 'Advanced', false, function()
     checkbox('Automatic class detection', 'automaticClasses')
     anchorCheckbox()
     checkbox('Developer debug view', 'debug')
+    ui.textWrapped('Connection bars use smoothed ping: 5 at 60 ms or less, 4 up to 100, 3 up to 150, 2 up to 250, otherwise 1. Dim bars mean no data. AI and replays have no connection indicator.')
   end)
   ui.separator()
   SettingsUI.resetAppearance('leaderboard', resetVisualSettings)

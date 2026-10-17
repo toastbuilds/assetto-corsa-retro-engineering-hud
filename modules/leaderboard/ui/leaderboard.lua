@@ -161,73 +161,74 @@ end
 
 local function drawHeader(origin, scale, width, snapshot, settings, palette, opacity)
   local headerTL, headerBR = origin + vec2(18 * scale, 16 * scale), origin + vec2((width - 18) * scale, 108 * scale)
-  -- Header telemetry remains legible over a bright track even when the shared
-  -- HUD intentionally lowers its general backdrop opacity.
   local surfaceOpacity = math.max(0.92, opacity)
-  local textOpacity = math.max(0.98, opacity)
-  local labelOpacity = math.max(0.94, opacity)
   chamferRect(headerTL, headerBR, 7 * scale, role(palette, 'panel', surfaceOpacity), role(palette, 'outline', 0.96), 1.3 * scale)
   chamferRect(headerTL + vec2(4 * scale, 4 * scale), headerBR - vec2(4 * scale, 4 * scale), 4 * scale,
     role(palette, 'void', surfaceOpacity * 0.96), role(palette, 'outlineDim', 0.90), 0.8 * scale)
 
   local h = snapshot.header or {}
-  fittedText(h.typeLabel or 'WAIT', 29 * scale, origin + vec2(36 * scale, 34 * scale), 99 * scale, role(palette, 'primary', textOpacity))
-  ui.drawLine(origin + vec2(145 * scale, 29 * scale), origin + vec2(145 * scale, 70 * scale), role(palette, 'outlineSoft', 0.98), 1 * scale)
-  fittedText('TIME  ' .. (h.timeText or '--:--'), 18 * scale, origin + vec2(170 * scale, 38 * scale), 181 * scale, role(palette, 'primary', textOpacity))
-  fittedText('LAP  ' .. (h.currentLapText or '--'), 18 * scale, origin + vec2(365 * scale, 38 * scale), 290 * scale, role(palette, 'primary', textOpacity))
-  if snapshot.final == true then
-    centered('FINAL', 13 * scale, origin + vec2(296 * scale, 87 * scale), textRole(palette, 'green', textOpacity))
-  elseif snapshot.personal == true then
-    centered('PERSONAL', 13 * scale, origin + vec2(296 * scale, 87 * scale), textRole(palette, 'secondary', labelOpacity))
+  fittedText(h.typeLabel or 'WAIT', 28 * scale, origin + vec2(36 * scale, 35 * scale), 112 * scale, role(palette, 'primary'))
+  if snapshot.final or snapshot.personal then
+    text(snapshot.final and 'FINAL' or 'PERSONAL', 15 * scale, origin + vec2(36 * scale, 62 * scale),
+      textRole(palette, snapshot.final and 'green' or 'secondary'))
   end
+  ui.drawLine(origin + vec2(152 * scale, 29 * scale), origin + vec2(152 * scale, 71 * scale), role(palette, 'outlineSoft'), scale)
+  text('TIME LEFT', 15 * scale, origin + vec2(172 * scale, 27 * scale), textRole(palette, 'secondary'))
+  fittedText(h.timeText or '--:--', 28 * scale, origin + vec2(172 * scale, 44 * scale), 158 * scale, role(palette, 'primary'))
+  local race = h.typeLabel == 'RACE'
+  local total = tostring(h.lapsText or ''):match('LAPS:%s*(.+)') or '--'
+  local lapText = tostring(h.currentLapText or '--') .. (race and (' / ' .. total) or '')
+  local lapLabel = race and (h.isTimed and 'LAP / EST. TOTAL' or 'LAP / TOTAL') or 'LAP'
+  text(lapLabel, 15 * scale, origin + vec2(350 * scale, 27 * scale), textRole(palette, 'secondary'))
+  fittedText(lapText, 28 * scale, origin + vec2(350 * scale, 44 * scale), 246 * scale, role(palette, 'amber'))
+
   if settings.showFlags ~= false then
-    local flagColors = { green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white' }
+    local flagColors = {green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white'}
     local flagColor = flagColors[h.flagRole] or 'green'
     local pulse = flagPulse(h.flagLabel, ui.time())
-    local flagTL, flagBR = origin + vec2(32 * scale, 74 * scale), origin + vec2(230 * scale, 99 * scale)
-    chamferRect(flagTL, flagBR, 4 * scale, role(palette, flagColor, (0.14 + 0.26 * pulse) * surfaceOpacity), role(palette, flagColor, 0.58 + 0.40 * pulse), 0.9 * scale)
-    text('FLAG', 12 * scale, origin + vec2(42 * scale, 81 * scale), textRole(palette, 'secondary', labelOpacity))
-    emphasizedText(h.flagLabel or 'CLEAR', 15 * scale, origin + vec2(92 * scale, 78 * scale), textRole(palette, flagColor, 1))
+    local flagTL, flagBR = origin + vec2(32 * scale, 78 * scale), origin + vec2(228 * scale, 100 * scale)
+    chamferRect(flagTL, flagBR, 4 * scale, role(palette, flagColor, (0.14 + 0.26 * pulse) * surfaceOpacity),
+      role(palette, flagColor, 0.58 + 0.40 * pulse), 0.9 * scale)
+    fittedText(h.flagLabel or 'CLEAR', 17 * scale, flagTL + vec2(10 * scale, scale), 176 * scale, textRole(palette, flagColor))
   end
 
-  local lapTL, lapBR = origin + vec2(360 * scale, 72 * scale), origin + vec2(665 * scale, 100 * scale)
-  chamferRect(lapTL, lapBR, 6 * scale, role(palette, 'panelRaised', surfaceOpacity), role(palette, 'amber', 0.96), 1.2 * scale)
-  centered(h.lapsText or 'LAPS: --', 19 * scale, vec2((lapTL.x + lapBR.x) / 2, lapTL.y + 14 * scale), role(palette, 'amber', textOpacity))
-
-  local fuelX, fuelY, fuelW, fuelH = origin.x + (width - 375) * scale, origin.y + 21 * scale, 350 * scale, 80 * scale
   if settings.showFuel == false then
-    text(settings.lockWindow and 'LOCK' or 'MOVE', 9 * scale, origin + vec2((width - 54) * scale, 92 * scale), textRole(palette, 'secondary', opacity))
+    text('AIR', 16 * scale, origin + vec2(650 * scale, 29 * scale), textRole(palette, 'secondary'))
+    text(h.ambientText or '--', 28 * scale, origin + vec2(650 * scale, 49 * scale), role(palette, 'primary'))
+    text('TRACK', 16 * scale, origin + vec2(830 * scale, 29 * scale), textRole(palette, 'secondary'))
+    text(h.trackText or '--', 28 * scale, origin + vec2(830 * scale, 49 * scale), role(palette, 'primary'))
     return
   end
-  chamferRect(vec2(fuelX, fuelY), vec2(fuelX + fuelW, fuelY + fuelH), 6 * scale,
+  fittedText('AIR ' .. (h.ambientText or '--'), 17 * scale, origin + vec2(247 * scale, 80 * scale), 166 * scale, textRole(palette, 'secondary'))
+  fittedText('TRACK ' .. (h.trackText or '--'), 17 * scale, origin + vec2(426 * scale, 80 * scale), 170 * scale, textRole(palette, 'secondary'))
+
+  local x, y = origin.x + 620 * scale, origin.y + 21 * scale
+  chamferRect(vec2(x, y), vec2(origin.x + (width - 25) * scale, y + 80 * scale), 6 * scale,
     role(palette, 'panelRaised', surfaceOpacity), role(palette, 'outlineSoft', 0.96), 1.1 * scale)
-  -- Minimal geometric pump and a segmented gauge: high signal, no decorative image asset.
-  local ix, iy = fuelX + 17 * scale, fuelY + 22 * scale
-  ui.drawLine(vec2(ix, iy), vec2(ix + 12 * scale, iy), role(palette, 'amber', textOpacity), 2 * scale)
-  ui.drawLine(vec2(ix, iy), vec2(ix, iy + 20 * scale), role(palette, 'amber', textOpacity), 2 * scale)
-  ui.drawLine(vec2(ix, iy + 20 * scale), vec2(ix + 12 * scale, iy + 20 * scale), role(palette, 'amber', textOpacity), 2 * scale)
-  ui.drawLine(vec2(ix + 12 * scale, iy), vec2(ix + 16 * scale, iy + 5 * scale), role(palette, 'amber', textOpacity), 1.4 * scale)
-  ui.drawLine(vec2(ix + 16 * scale, iy + 5 * scale), vec2(ix + 16 * scale, iy + 12 * scale), role(palette, 'amber', textOpacity), 1.4 * scale)
-  local gaugeLeft, gaugeTop = fuelX + 51 * scale, fuelY + 6 * scale
-  ui.drawRectFilled(vec2(gaugeLeft, gaugeTop), vec2(gaugeLeft + 23 * scale, gaugeTop + 60 * scale), role(palette, 'void', 0.98))
-  for i = 0, 7 do
-    local filled = snapshot.fuel and snapshot.fuel.available and snapshot.fuel.maxFuel and snapshot.fuel.fuel
-      and snapshot.fuel.fuel / math.max(0.1, snapshot.fuel.maxFuel) >= (i + 1) / 8
-    local barColor = filled and role(palette, 'amber', textOpacity) or role(palette, 'metal', labelOpacity)
-    ui.drawRectFilled(vec2(fuelX + 54 * scale, fuelY + (8 + i * 7) * scale),
-      vec2(fuelX + 72 * scale, fuelY + (14 + i * 7) * scale), barColor)
-  end
   local fuel = snapshot.fuel or {}
-  local labels = { 'FUEL', 'AVG', 'EST' }
-  local values = { fuel.available and (fuel.fuelText or 'N/A') or 'N/A', fuel.averageText or '--', fuel.estimatedLapsText or '--' }
-  for i = 1, 3 do
-    local cy = fuelY + (14 + (i - 1) * 26) * scale
-    local labelSize, valueSize = 16 * scale, 24 * scale
-    local measured = ui.measureDWriteText(values[i], valueSize)
-    valueSize = valueSize * math.min(1, 196 * scale / math.max(1, measured.x))
-    text(labels[i], labelSize, vec2(fuelX + 88 * scale, cy - ui.measureDWriteText(labels[i], labelSize).y / 2), textRole(palette, 'secondary', labelOpacity))
-    text(values[i], valueSize, vec2(fuelX + 144 * scale, cy - ui.measureDWriteText(values[i], valueSize).y / 2), role(palette, 'primary', textOpacity))
+  local finishRole = fuel.finishAvailable and ((finiteNumber(fuel.fuelNeeded) or 0) <= (finiteNumber(fuel.fuel) or 0) and 'green' or 'red') or 'secondary'
+  fittedText('FUEL ' .. (fuel.available and fuel.fuelText or 'N/A'), 22 * scale,
+    vec2(x + 12 * scale, y + 4 * scale), 182 * scale, role(palette, 'primary'))
+  fittedText('USE ' .. (fuel.averageText or '--'), 20 * scale,
+    vec2(x + 205 * scale, y + 6 * scale), 177 * scale, textRole(palette, 'cyan'))
+  fittedText('RANGE ' .. (fuel.estimatedLapsText or '--'), 20 * scale,
+    vec2(x + 12 * scale, y + 30 * scale), 182 * scale, role(palette, 'primary'))
+  fittedText('FINISH ' .. (fuel.finishAvailable and fuel.finishText or '--'), 20 * scale,
+    vec2(x + 205 * scale, y + 30 * scale), 177 * scale, textRole(palette, finishRole))
+
+  local amount, capacity = finiteNumber(fuel.fuel), finiteNumber(fuel.maxFuel)
+  local fraction = fuel.available and amount and capacity and capacity > 0 and clamp(amount / capacity, 0, 1) or nil
+  local tankLabel = fraction and string.format('TANK %.0f%%', fraction * 100) or 'TANK --'
+  text(tankLabel, 15 * scale, vec2(x + 12 * scale, y + 59 * scale), textRole(palette, 'secondary'))
+  local gaugeTL = vec2(x + 108 * scale, y + 64 * scale)
+  local gaugeBR = gaugeTL + vec2(130 * scale, 7 * scale)
+  ui.drawRectFilled(gaugeTL, gaugeBR, role(palette, 'metalDim'))
+  if fraction and fraction > 0 then
+    ui.drawRectFilled(gaugeTL, gaugeTL + vec2(130 * scale * fraction, 7 * scale),
+      role(palette, fraction <= 0.1 and 'red' or 'amber'))
   end
+  text(string.format('RES %.1f L', finiteNumber(settings.fuelReserve) or 2), 15 * scale,
+    vec2(x + 254 * scale, y + 59 * scale), textRole(palette, 'secondary'))
 end
 
 local sectorRoles = { PURPLE = 'flagPurple', GREEN = 'green', AMBER = 'amber', RED = 'red', NEUTRAL = 'secondary' }
@@ -272,6 +273,24 @@ local function drawPositionBadge(x, y, size, value, palette, scale, isLocal)
   centered(value, 22 * scale, vec2(x + size / 2, y + size / 2), isLocal and role(palette, 'amber', 1) or role(palette, 'primary', 1))
 end
 
+local function drawConnection(left, top, row, settings, palette, scale, opacity)
+  if settings.showConnection == false or not row.connection then return end
+  local connection = row.connection
+  local count = connection.bars or 0
+  local colorName = count >= 4 and 'green' or count >= 2 and 'amber' or 'red'
+  local x, baseline = left + 653 * scale, top + 38 * scale
+  for i = 1, 5 do
+    local barLeft = x + (i - 1) * 7 * scale
+    ui.drawRectFilled(vec2(barLeft, baseline - (4 + i * 4) * scale), vec2(barLeft + 5 * scale, baseline),
+      role(palette, i <= count and colorName or 'metal', i <= count and opacity or 0.45 * opacity))
+  end
+  if ui.rectHovered and ui.setTooltip and ui.rectHovered(vec2(x - 3 * scale, top + 10 * scale),
+      vec2(x + 36 * scale, baseline + 4 * scale)) then
+    ui.setTooltip('Connection: ' .. tostring(connection.label or 'NO PING DATA')
+      .. (connection.pingMs and string.format(' (%d ms, smoothed)', connection.pingMs) or ''))
+  end
+end
+
 local function drawRow(origin, scale, width, top, row, snapshot, settings, palette, opacity, now)
   local left, right = origin.x + 22 * scale, origin.x + (width - 22) * scale
   local bottom = top + (ROW_HEIGHT - 4) * scale
@@ -291,7 +310,7 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
   drawPositionBadge(left + 10 * scale, top + 6 * scale, 40 * scale, row.position or '--', palette, scale, row.isLocal)
   local stateColor = rowStateColor(row, palette)
   local race = snapshot.header and snapshot.header.typeLabel == 'RACE'
-  driverText(row.driver, 24 * scale, vec2(left + 104 * scale, top + 13 * scale), (race and 308 or 230) * scale,
+  driverText(row.driver, 24 * scale, vec2(left + 118 * scale, top + 13 * scale), (race and 294 or 216) * scale,
     row.isLocal and textRole(palette, 'amber') or stateColor, settings.scrollLongNames, now)
 
   if settings.showClass ~= false then
@@ -305,7 +324,9 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
       (race and 80 or 50) * scale, textRole(palette, 'cyan', opacity))
   end
 
-  fittedText(row.status or '--', 23 * scale, vec2(left + 600 * scale, top + 14 * scale), 74 * scale, stateColor)
+  fittedText(row.status or '--', 23 * scale, vec2(left + 594 * scale, top + 14 * scale),
+    (row.connection and settings.showConnection ~= false and 52 or 80) * scale, stateColor)
+  drawConnection(left, top, row, settings, palette, scale, opacity)
   if race then
     local change = finiteNumber(row.positionChangeDelta)
     local untilTime = finiteNumber(row.positionChangeUntil)
@@ -315,14 +336,14 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
     -- the completed-lap balance. No explanatory line or unchanged-position 0.
     if delta and delta ~= 0 then
       ui.pushDWriteFont(EMPHASIS_FONT)
-      fittedText(signedDelta(delta), 17 * scale,
-        vec2(left + 58 * scale, top + 17 * scale),
-        38 * scale, deltaColor(delta, palette, opacity))
+      fittedText(signedDelta(delta), 25 * scale,
+        vec2(left + 58 * scale, top + 12 * scale),
+        50 * scale, deltaColor(delta, palette, opacity))
       ui.popDWriteFont()
     end
     if not row.isLocal then
-      fittedText(row.interval or '--', 23 * scale, vec2(left + 690 * scale, top + 14 * scale),
-        128 * scale, textRole(palette, 'cyan', opacity))
+      fittedText(row.interval or '--', 23 * scale, vec2(left + 700 * scale, top + 14 * scale),
+        118 * scale, textRole(palette, 'cyan', opacity))
     end
     fittedText(formatMs(row.lastLapTimeMs), 23 * scale, vec2(left + 834 * scale, top + 14 * scale),
       148 * scale, role(palette, 'primary', opacity))
@@ -331,11 +352,11 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
     local best, reference = finiteNumber(row.bestLapTimeMs), finiteNumber(snapshot.sessionBest)
     local gap = best and best > 0 and reference and reference > 0 and best - reference or nil
     if gap ~= 0 then
-      fittedText(formatGap(gap), 19 * scale, vec2(left + 690 * scale, top + 16 * scale),
-        128 * scale, textRole(palette, 'amber', opacity))
+      fittedText(formatGap(gap), 23 * scale, vec2(left + 700 * scale, top + 14 * scale),
+        118 * scale, textRole(palette, 'amber', opacity))
     end
     local bestRole = row.sessionBest and 'flagPurple' or row.improvement and 'green' or 'primary'
-    fittedText(formatMs(best), 19 * scale, vec2(left + 834 * scale, top + 16 * scale),
+    fittedText(formatMs(best), 23 * scale, vec2(left + 834 * scale, top + 14 * scale),
       148 * scale, textRole(palette, bestRole, opacity))
   end
 
