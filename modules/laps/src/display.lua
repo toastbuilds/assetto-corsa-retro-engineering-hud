@@ -35,7 +35,7 @@ local function drawRow(row, y, width, height, colors, scale, current, fade, show
   if current then
     if showEstimatedLapTime then
       local estimate = tonumber(row.estimatedTime)
-      local estimateText = estimate and estimate > 0 and TimingUI.formatTime(estimate) or '--:--'
+      local estimateText = estimate and estimate > 0 and ('~' .. TimingUI.formatTime(estimate)) or '--:--'
       local availableWidth = br.x - timeTL.x - (row.inPits and 26 or 5) * scale
       local textSize = 18 * scale
       local measured = ui.measureDWriteText(estimateText, textSize)
