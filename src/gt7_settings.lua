@@ -49,6 +49,7 @@ M.values = ac.storage({
   gt7VacuumMinimum = InstrumentConfig.vacuumMinimum,
   gt7LowerPanelMode = 'limit',
   gt7ProximityRadar = true,
+  gt7SlipstreamBackground = true,
   -- Legacy preference. Versions 2.2 and later store presentation separately.
   gt7RadarStyle = 'arcs',
   rpmWarningFraction = 0.86,
@@ -90,6 +91,7 @@ if (M.values.compositionVersion or 0) < COMPOSITION_VERSION then
 end
 
 local function sanitizeComposition()
+  M.values.gt7SlipstreamBackground = M.values.gt7SlipstreamBackground ~= false
   local normalized = Layout.normalize(M.values)
   setComposition(normalized)
   if not presetIds[M.values.gt7Layout] then M.values.gt7Layout = 'classic' end
@@ -141,7 +143,7 @@ function M.current()
     'gt7SpeedNeedleMode', 'gt7RpmNeedleMode', 'gt7SpeedDialStyle', 'gt7RpmDialStyle', 'gt7LowerPanelMode',
     'gt7SpeedAuxiliaryStyle', 'gt7RpmAuxiliaryStyle',
     'gt7SpeedNeedleStyle', 'gt7RpmNeedleStyle', 'gt7SimulateVacuum', 'gt7VacuumMinimum',
-    'gt7ProximityRadar', 'gt7RadarStyle', 'showSteering', 'showLights', 'debug'
+    'gt7ProximityRadar', 'gt7SlipstreamBackground', 'gt7RadarStyle', 'showSteering', 'showLights', 'debug'
   }) do
     values[key] = M.values[key]
   end
@@ -207,6 +209,8 @@ function M.draw()
     SettingsUI.section('gt7', 'dials', 'Side dials', true, function()
       choice('speedDialStyle', 'Speed dial style',
         DialStyles.choices(M.values.gt7SpeedNeedleMode, 'speed'))
+      checkbox('Show slipstream background', 'gt7SlipstreamBackground')
+      ui.textWrapped('The theme-colored background grows with relative slipstream strength. It uses air-density physics after learning a clean-air reference, or estimates the wake from traffic position when physics is unavailable, including replays and remote cars. It is not a power-gain percentage.')
       choice('rpmDialStyle', 'RPM dial style',
         DialStyles.choices(M.values.gt7RpmNeedleMode, 'rpm'))
       choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliary)
@@ -277,6 +281,7 @@ function M.draw()
     M.values.gt7SpeedNeedleMode, M.values.gt7RpmNeedleMode = 'digital', 'digital'
     M.values.gt7SimulateVacuum, M.values.gt7VacuumMinimum = true, InstrumentConfig.vacuumMinimum
     M.values.gt7LowerPanelMode, M.values.gt7RadarStyle, M.values.gt7ProximityRadar = 'limit', 'arcs', true
+    M.values.gt7SlipstreamBackground = true
     M.values.showSteering, M.values.showLights, M.values.debug = true, true, false
     M.applyPreset('classic')
   end, 'Restore all local GT7 settings? Global settings are managed in General.')

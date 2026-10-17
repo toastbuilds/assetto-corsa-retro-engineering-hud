@@ -9,6 +9,7 @@ local U = require('src/utils')
 local Layout = require('src/gt7_retro_layout')
 local DialStyles = require('src/gt7_dial_styles')
 local Selector = require('src/gear_selector')
+local SlipstreamBackground = require('ui/slipstream_background')
 local M = {}
 
 local faces = {
@@ -128,6 +129,9 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   local valueColor=rpm and state.rpmRedline and C.red or C.primary
 
   ui.drawCircleFilled(center,f.r*scale,Theme.withAlpha(C.panel,0.88),72)
+  if not rpm then
+    SlipstreamBackground.draw(center+vec2(f.x*scale,(f.y-10)*scale),scale,state,settings,C,75,65)
+  end
   if not dotsOnly and motif~='spectrum' then
     arc(f.r-23,f.first,f.last,C.panelRaised,20)
   end
@@ -461,6 +465,13 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
   end
 end
 
+  if not rpm and not f.core then
+    if id=='offset' then
+      SlipstreamBackground.draw(p(-35,-15),scale,state,settings,C,84,55)
+    else
+      SlipstreamBackground.draw(p(0,-20),scale,state,settings,C,84,50)
+    end
+  end
   if not f.vertical then
     arc(f.r-24,f.first,f.last,C.panelRaised,21)
     if light>0 then
@@ -533,6 +544,9 @@ end
   end
   if f.core then
     ui.drawCircleFilled(p(f.core[1],f.core[2]),f.core[3]*scale,C.panel,64)
+    if not rpm then
+      SlipstreamBackground.draw(p(f.core[1],f.core[2]),scale,state,settings,C,math.min(f.core[3]-2,82))
+    end
     circle(f.core[1],f.core[2],f.core[3],C.primary,1.2)
     if id=='concentric' then circle(0,-6,78,C.metalDim,4) end
   end

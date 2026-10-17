@@ -10,6 +10,7 @@ local Layout = require('src/gt7_retro_layout')
 local DialStyles = require('src/gt7_dial_styles')
 local StyledInstruments = require('ui/gt7_styled_instruments')
 local AuxiliaryStyles = require('ui/auxiliary_dial_styles')
+local SlipstreamBackground = require('ui/slipstream_background')
 local M = {}
 local D, S = Config.dial, Config.sub
 
@@ -422,6 +423,9 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
     StyledInstruments.draw(selectedStyle, center, scale, state, settings, C, L,
       digital, light, rpm, rpmColor, subGauge, lowerArcGauge, mode, role, useLowerArc)
     return
+  end
+  if not rpm then
+    SlipstreamBackground.draw(center+vec2(0,-20*scale),scale,state,settings,C,84,50)
   end
   -- The established three-ring bezel is drawn by ui/gt7_retro, unchanged.
   arc(center, D.numberRadius * scale, first, last,

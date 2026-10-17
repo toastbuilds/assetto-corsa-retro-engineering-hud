@@ -11,6 +11,7 @@ local Hybrid = require('src/hybrid')
 local GearSelector = require('src/gear_selector')
 local CornerGearHint = require('src/corner_gear_hint')
 local FocusedCar = require('src/focused_car')
+local Slipstream = require('src/slipstream')
 
 local M = {}
 local SIM = ac.getSim()
@@ -959,6 +960,7 @@ local function resetFocusedCarState(state)
   PedalHistory.clear(state.pedalHistory)
   PedalLayers.reset(state)
   CornerGearHint.reset(state)
+  Slipstream.reset(state)
   state.tyreStint = TyreStint.new()
   resetAero(state)
   resetCondition(state)
@@ -1002,6 +1004,7 @@ function M.update(state, dt, settings, sampleCar, sampleCarIndex)
     state._gearCountCarKey, state._observedGearCount = nil, 0
     state.hybrid = nil
     CornerGearHint.reset(state)
+    Slipstream.reset(state)
     state.lightsAvailable = false
     state.headlights, state.steadyHeadlights, state.flashingLights, state.highBeams = nil, nil, nil, nil
     state.ffbAvailable = false
@@ -1039,6 +1042,8 @@ function M.update(state, dt, settings, sampleCar, sampleCarIndex)
   local speedValue = U.round(settings.speedUnit == 'mph' and speedKmh * 0.621371 or speedKmh)
   formattedSpeed(state, speedValue, settings.speedUnit)
   state.speedKmh = speedKmh
+  Slipstream.update(state, car, SIM, dt, settings.instrumentMode == 'gt7_retro'
+    and settings.gt7SlipstreamBackground ~= false)
   updateSpeedGauge(state, settings, carIndex)
   updateAero(state, car, speedKmh, settings, dt)
 

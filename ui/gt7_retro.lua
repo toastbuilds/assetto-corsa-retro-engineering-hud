@@ -780,10 +780,14 @@ local function drawStatusStrips(origin, scale, state, settings, backdropOpacity)
 end
 
 local function drawDebug(origin, scale, state, width, height)
+  local wake = state.slipstream or {}
   local function raw(value)
     return value == nil and '---' or string.format('%+.2f', value)
   end
   local rows = {
+    string.format('WAKE %s %.2f', wake.source or 'unavailable', wake.intensity or 0),
+    string.format('WAKE CAR %s DIST %.1fm', tostring(wake.targetIndex or '-'), wake.distanceM or 0),
+    string.format('WAKE RHO LOSS %.3f', wake.densityReduction or 0),
     string.format('FIT %.0fx%.0f', width, height),
     string.format('RPM %.0f / %.0f', state.rpm or 0, state.rpmDisplayLimiter or 0),
     string.format('FFB RAW %+.3f', state.ffbSigned or 0),
