@@ -97,7 +97,10 @@ local function rpmColor(c)
   if c.state.rpmRedline then
     return pulse(c.state,c.settings.animateRedlineAlert,0.12) and c.colors.red or c.colors.amber
   end
-  return c.state.rpmWarning and c.colors.amber or c.colors.primary
+  if c.state.rpmWarning then
+    return pulse(c.state,c.settings.animateShiftAlert,0.14) and c.colors.shiftBlue or c.colors.amber
+  end
+  return c.colors.primary
 end
 
 -- Mirrors the standalone auxiliary's existing selection rules. A missing

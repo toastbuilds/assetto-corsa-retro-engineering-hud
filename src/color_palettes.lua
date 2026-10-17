@@ -1,7 +1,8 @@
 local M = {}
 
--- IDs match outputs/variaciones-color. Each row stores the exact preview
--- assignment: background, readings, labels, accent and bezel.
+-- IDs match outputs/variaciones-color. Each row stores background, readings,
+-- labels, accent and bezel. Readings/labels target WCAG AA 4.5:1; graphic
+-- accents and bezel details target at least 3:1 against their palette base.
 local definitions = {
   ['01'] = {'Midnight Yellow', '11012E', 'FFCC00', 'FFCC00', 'FF018F', '2A0C62'},
   ['02'] = {'Fuchsia Focus', '11012E', 'FF018F', 'FFCC00', 'FFCC00', '2A0C62'},
@@ -68,17 +69,21 @@ function M.resolve(source, name, id)
   if variants[id] then return variants[id] end
   local row = definitions[id]
   local bg, primary, secondary, accent, trim = color(row[2]), color(row[3]), color(row[4]), color(row[5]), color(row[6])
+  -- Keep the two redline pulse phases visually distinct. Palettes provide one
+  -- authored accent, so tint the theme's amber with it instead of assigning
+  -- that same accent to both alert roles.
+  local alertAmber = blend(accent, source.amber, 0.28)
   local result = {}
   -- Preserve module-specific roles, official flags and race classification colors.
   for role, value in pairs(source) do result[role] = value end
   local roles = {
     void=bg, surface=bg, panel=bg, panelRaised=bg, coreAmber=bg, coreRed=bg, debug=bg,
-    primary=primary, secondary=secondary, amber=accent, backlight=primary,
-    cyan=secondary, shiftBlue=trim, green=secondary, red=accent,
+    primary=primary, secondary=secondary, amber=alertAmber, backlight=primary,
+    cyan=secondary, shiftBlue=primary, green=secondary, red=accent,
     metal=trim, metalDim=blend(trim,bg,.40), outline=trim,
     outlineSoft=blend(trim,bg,.70), outlineDim=blend(trim,bg,.30), divider=blend(trim,bg,.30),
-    amberDim=blend(accent,bg,.25), cyanDim=blend(secondary,bg,.35),
-    shiftBlueDim=trim, redDim=accent, inactive=blend(trim,bg,.25)
+    amberDim=blend(alertAmber,bg,.25), cyanDim=blend(secondary,bg,.35),
+    shiftBlueDim=blend(primary,bg,.25), redDim=blend(accent,bg,.25), inactive=blend(trim,bg,.25)
   }
   for role, value in pairs(roles) do result[role] = value end
   result.flagRed = source.red

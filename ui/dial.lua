@@ -133,6 +133,12 @@ local function redlinePulseOn(state, settings)
   return true
 end
 
+local function shiftPulseOn(state, settings)
+  if not state.rpmWarning then return false end
+  if settings == nil or settings.animateShiftAlert == false then return true end
+  return math.floor(state.clock / Layout.shiftBlinkPeriod) % 2 == 0
+end
+
 local function redlineColor(state, settings)
   return redlinePulseOn(state, settings) and C.red or C.amber
 end
@@ -163,9 +169,7 @@ local function rpmScaleColor(fraction, state, settings)
   local shiftZoneStart = math.max(0, math.min(rpmArcFraction(state, state.rpmWarningFraction),
     redlineFraction - Layout.shiftZoneMinimumFraction))
   if fraction >= shiftZoneStart then
-    local shiftLit = state.rpmWarning
-      and (settings == nil or settings.animateShiftAlert ~= false)
-      and math.floor(state.clock / Layout.shiftBlinkPeriod) % 2 == 0
+    local shiftLit = shiftPulseOn(state, settings)
     return state.rpmWarning and shiftLit and C.shiftBlue or C.shiftBlueDim
   end
   return C.primary
@@ -237,9 +241,7 @@ local function drawRpmArc(center, scale, state, settings, illumination)
   local span = (Layout.rpmEnd - Layout.rpmStart) / segmentCount
   local filled = math.floor((state.rpmGaugeNormalized or state.rpmNormalized) * segmentCount + 0.5)
 
-  local shiftLit = state.rpmWarning
-    and (settings == nil or settings.animateShiftAlert ~= false)
-    and math.floor(state.clock / Layout.shiftBlinkPeriod) % 2 == 0
+  local shiftLit = shiftPulseOn(state, settings)
   local redlineFraction = rpmArcFraction(state, state.rpmRedlineFraction)
   local shiftZoneStart = math.max(0, math.min(rpmArcFraction(state, state.rpmWarningFraction),
     redlineFraction - Layout.shiftZoneMinimumFraction))
@@ -277,9 +279,7 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   local tickRadius = Layout.analogTickRadius * scale
   local tickCount = Layout.analogMinorTickCount
   local span = Layout.rpmEnd - Layout.rpmStart
-  local shiftLit = state.rpmWarning
-    and (settings == nil or settings.animateShiftAlert ~= false)
-    and math.floor(state.clock / Layout.shiftBlinkPeriod) % 2 == 0
+  local shiftLit = shiftPulseOn(state, settings)
   local redlineFraction = rpmArcFraction(state, state.rpmRedlineFraction)
   local shiftZoneStart = math.max(0, math.min(rpmArcFraction(state, state.rpmWarningFraction),
     redlineFraction - Layout.shiftZoneMinimumFraction))
@@ -320,7 +320,8 @@ local function drawAnalogDial(center, scale, state, settings, surface, origin)
   ui.drawCircle(gearCenter, (Layout.analogGearPodRadius - 5) * scale, C.outlineDim, 32, 1 * scale)
 
   local needleAngle = Layout.rpmStart + span * state.analogNeedleNormalized
-  local needleColor = state.rpmWarning and C.amber or nil
+  local needleColor = state.rpmRedline and redlineColor(state, settings)
+    or state.rpmWarning and (shiftLit and C.shiftBlue or C.shiftBlueDim) or nil
   local style = InstrumentConfig.normalizeNeedleStyle(settings.analogNeedleStyle, 'a01')
   local preset = InstrumentConfig.needlePreset(style)
   Needle.draw(dialCenter, scale * Layout.analogNeedleLength / preset.length,

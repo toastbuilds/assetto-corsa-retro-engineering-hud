@@ -550,7 +550,8 @@ function M.draw(center, scale, state, settings, layout, C, backdropOpacity, rpm,
       center + vec2(0, -33 * scale), C.secondary, nil, L.label, scale)
     local needleFraction = rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local style = rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
-    local tint = rpm and (state.rpmRedline and redlineColor or (state.rpmWarning and C.amber or nil)) or nil
+    local tint = rpm and (state.rpmRedline and redlineColor
+      or state.rpmWarning and rpmColor(fraction, true, state, settings) or nil) or nil
     Needle.draw(center, scale, first + (last - first)
       * U.clamp(needleFraction or fraction, 0, 1), Config.needlePreset(style), C, light, tint, L)
     ui.popStyleVar(1)

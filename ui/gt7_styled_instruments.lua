@@ -277,7 +277,8 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   local function drawMainNeedle()
     local needleFraction=rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local needleStyle=rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
-    local tint=rpm and (state.rpmRedline and arcValue(1) or state.rpmWarning and C.amber or nil) or nil
+    local tint=rpm and (state.rpmRedline or state.rpmWarning)
+      and rpmColor(fraction,true,state,settings) or nil
     Needle.draw(pivot,scale*f.r/150,f.first+(f.last-f.first)*U.clamp(needleFraction or fraction,0,1),
       Config.needlePreset(needleStyle),C,light,tint,L)
   end
@@ -508,7 +509,8 @@ end
   if f.analog then
     local needleFraction=rpm and state.gt7RpmNeedleNormalized or state.gt7SpeedNeedleNormalized
     local needleStyle=rpm and settings.gt7RpmNeedleStyle or settings.gt7SpeedNeedleStyle
-    local tint=rpm and (state.rpmRedline and warningColor or (state.rpmWarning and C.amber or nil)) or nil
+    local tint=rpm and (state.rpmRedline or state.rpmWarning)
+      and rpmColor(fraction,true,state,settings) or nil
     Needle.draw(pivot,scale*f.r/150,f.first+(f.last-f.first)*U.clamp(needleFraction or fraction,0,1),
       Config.needlePreset(needleStyle),C,light,tint,L)
   end
