@@ -22,11 +22,11 @@ local function visualStyle()
   return visual
 end
 
-function M.update(dt)
+function M.update(dt, selectedCar, selectedCarIndex, sim)
   if telemetryError then return end
   local ok, errorMessage = pcall(function()
-    Telemetry.update(state, dt)
-    if state.sessionChanged then History.clear(history) end
+    Telemetry.update(state, dt, selectedCar, selectedCarIndex, sim)
+    if state.sessionChanged or state.carChanged then History.clear(history) end
     History.update(history, dt, state)
   end)
   if not ok then

@@ -3,6 +3,7 @@ local Gt7Settings = require('src/gt7_settings')
 local ConditionSettings = require('src/condition_settings')
 local SettingsUI = require('src/settings_ui')
 local Telemetry = require('src/telemetry')
+local FocusedCar = require('src/focused_car')
 local Instruments = require('src/instrument_state')
 local GeneralSettings = require('src/general_settings')
 local Dial = require('ui/dial')
@@ -55,10 +56,10 @@ local function drawHudWindow(id, callback)
   WindowAnchor.draw(id, callback)
 end
 
-local function updateCore(name, state, dt, values)
+local function updateCore(name, state, dt, values, selectedCar, selectedCarIndex)
   local ok, err = pcall(function()
     local resolved = type(values) == 'function' and values() or values
-    Telemetry.update(state, dt, resolved)
+    Telemetry.update(state, dt, resolved, selectedCar, selectedCarIndex)
     if name == 'GT7' and resolved.gt7InstrumentsEnabled then
       Instruments.update(state, resolved, dt)
     elseif name == 'dial' then
@@ -80,12 +81,19 @@ end
 
 function script.update(dt)
   WindowAnchor.beginFrame(dt)
-  updateCore('dial', dialState, dt, DialSettings.current)
-  updateCore('GT7', gt7State, dt, Gt7Settings.current)
+  local sim = ac.getSim()
+  local selectedCar, selectedCarIndex = FocusedCar.resolve(sim)
+  selectedCar = selectedCar or false
+  updateCore('dial', dialState, dt, DialSettings.current, selectedCar, selectedCarIndex)
+  updateCore('GT7', gt7State, dt, Gt7Settings.current, selectedCar, selectedCarIndex)
   local ok, err = pcall(publishTheme, dt)
   if not ok then reportOnce('theme update', tostring(err)) end
   for _, name in ipairs({ 'relative', 'delta', 'timer', 'laps', 'leaderboard', 'telemetry' }) do
-    invoke(name, 'update', dt)
+    if name == 'telemetry' then
+      invoke(name, 'update', dt, selectedCar, selectedCarIndex, sim)
+    else
+      invoke(name, 'update', dt)
+    end
   end
   invoke('notices', 'update', dt, dialState)
 end

@@ -1,6 +1,6 @@
 param(
   [string]$AssettoCorsaRoot,
-  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments', 'notices', 'battle')][string]$App,
+  [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments', 'notices', 'battle', 'palette')][string]$App,
   [string[]]$SharedFiles = @(),
   [switch]$Finalize,
   [switch]$Validated
@@ -50,7 +50,9 @@ if ($App) {
   New-Item -ItemType Directory -Path $backup -Force | Out-Null
   Copy-Item -LiteralPath $target -Destination (Join-Path $backup 'previous-RetroUI') -Recurse
   $files = @()
-  if ($App -eq 'condition') {
+  if ($App -eq 'palette') {
+    $files = @()
+  } elseif ($App -eq 'condition') {
     $files += @('ui/car_condition.lua', 'src/condition_settings.lua', 'src/tyre_grip.lua')
   } elseif ($App -eq 'instruments') {
     $files += @('app.lua', 'src/hybrid.lua', 'ui/hybrid_gauge.lua', 'src/telemetry.lua', 'src/instrument_state.lua',

@@ -10,6 +10,7 @@ local TyreStint = require('src/tyre_stint')
 local Hybrid = require('src/hybrid')
 local GearSelector = require('src/gear_selector')
 local CornerGearHint = require('src/corner_gear_hint')
+local FocusedCar = require('src/focused_car')
 
 local M = {}
 local SIM = ac.getSim()
@@ -246,13 +247,13 @@ local function niceGaugeScale(value, minimum)
   return math.ceil(value / step) * step, step
 end
 
-local function updateSpeedGauge(state, settings)
+local function updateSpeedGauge(state, settings, carIndex)
   local carId = nil
   if type(ac.getCarID) == 'function' then
-    local ok, value = pcall(ac.getCarID, 0)
+    local ok, value = pcall(ac.getCarID, carIndex or 0)
     if ok and type(value) == 'string' then carId = value end
   end
-  local carKey = carId or false
+  local carKey = tostring(carIndex or 0) .. '/' .. tostring(carId or '')
   if state._speedGaugeCarKey ~= carKey then
     state._speedGaugeCarKey = carKey
     state.speedGaugeTopSpeedKmh = readCarTopSpeedKmh(carId)
@@ -852,7 +853,7 @@ local function vectorComponent(vector, key)
   return U.number(U.read(vector, key, nil), nil)
 end
 
-local function updateProximityRadar(state, playerCar, settings)
+local function updateProximityRadar(state, focusedCar, settings)
   state.proximityRadarAvailable = false
   state.radarLeftLevel = 0
   state.radarRightLevel = 0
@@ -865,8 +866,8 @@ local function updateProximityRadar(state, playerCar, settings)
   if settings.instrumentMode ~= 'gt7_retro' then return end
 
   local ok = pcall(function()
-    local position = U.read(playerCar, 'position', nil)
-    local look = U.read(playerCar, 'look', nil)
+    local position = U.read(focusedCar, 'position', nil)
+    local look = U.read(focusedCar, 'look', nil)
     local px, pz = vectorComponent(position, 'x'), vectorComponent(position, 'z')
     local lookX, lookZ = vectorComponent(look, 'x'), vectorComponent(look, 'z')
     if not px or not pz or not lookX or not lookZ then return end
@@ -879,13 +880,14 @@ local function updateProximityRadar(state, playerCar, settings)
     -- when the car faces positive Z. Keep this sign aligned with the HUD.
     local sideX, sideZ = -lookZ, lookX
 
-    local playerSize = U.read(playerCar, 'aabbSize', nil)
+    local focusedIndex = U.number(U.read(focusedCar, 'index', 0), 0)
+    local playerSize = U.read(focusedCar, 'aabbSize', nil)
     local playerLength = math.max(2, math.abs(vectorComponent(playerSize, 'z') or 4.5))
     local foundGridData = false
 
     for _, opponent in ac.iterateCars() do
       local index = U.number(U.read(opponent, 'index', -1), -1)
-      local usable = index > 0 and (U.read(opponent, 'isConnected', false)
+      local usable = index >= 0 and index ~= focusedIndex and (U.read(opponent, 'isConnected', false)
         or U.read(opponent, 'isActive', false))
       local opponentPosition = U.read(opponent, 'position', nil)
       local ox, oz = vectorComponent(opponentPosition, 'x'), vectorComponent(opponentPosition, 'z')
@@ -953,13 +955,47 @@ local function updateProximityRadar(state, playerCar, settings)
   end
 end
 
+local function resetFocusedCarState(state)
+  PedalHistory.clear(state.pedalHistory)
+  PedalLayers.reset(state)
+  CornerGearHint.reset(state)
+  state.tyreStint = TyreStint.new()
+  resetAero(state)
+  resetCondition(state)
+  resetLimit(state)
+  state.hybrid = nil
+  state._speedGaugeCarKey = nil
+  state._gearCountCarKey, state._observedGearCount = nil, 0
+  state.analogNeedleNormalized, state.analogNeedleVelocity = 0, 0
+  state.gt7SpeedNeedleNormalized, state.gt7SpeedNeedleVelocity = 0, 0
+  state.gt7RpmNeedleNormalized, state.gt7RpmNeedleVelocity = 0, 0
+  state.fuelNeedleNormalized, state.fuelNeedleVelocity, state.fuelNeedleReady = 0, 0, false
+  state.boostNeedleNormalized, state.boostNeedleVelocity = 0, 0
+  state.ffbMagnitude, state.ffbNeedle, state.ffbNeedleVelocity = 0, 0, 0
+  state.ffbClipHold, state.ffbClipping = 0, false
+end
+
 -- Optional read-only sample car is used by the isolated instrument preview.
 -- Live callers retain the same source and processing path.
-function M.update(state, dt, settings, sampleCar)
+function M.update(state, dt, settings, sampleCar, sampleCarIndex)
   state.clock = state.clock + math.max(dt or 0, 0)
   state.raceFlagType = U.read(SIM, 'raceFlagType', nil)
 
-  local car = sampleCar or ac.getCar(0)
+  local car, carIndex
+  if sampleCar == false then
+    car, carIndex = nil, sampleCarIndex
+  elseif sampleCar ~= nil then
+    car = sampleCar
+    carIndex = sampleCarIndex or U.number(U.read(car, 'index', 0), 0)
+  else
+    car, carIndex = FocusedCar.resolve(SIM)
+  end
+  local carIdentity = FocusedCar.identity(car, carIndex)
+  if state._focusedCarIdentity ~= carIdentity then
+    state._focusedCarIdentity = carIdentity
+    resetFocusedCarState(state)
+  end
+  state.focusedCarIndex = car and carIndex or nil
   if not car then
     state.available = false
     state.gearCount, state.gearCountSource = 6, 'fallback'
@@ -1003,7 +1039,7 @@ function M.update(state, dt, settings, sampleCar)
   local speedValue = U.round(settings.speedUnit == 'mph' and speedKmh * 0.621371 or speedKmh)
   formattedSpeed(state, speedValue, settings.speedUnit)
   state.speedKmh = speedKmh
-  updateSpeedGauge(state, settings)
+  updateSpeedGauge(state, settings, carIndex)
   updateAero(state, car, speedKmh, settings, dt)
 
   state.rpm = math.max(U.number(U.read(car, 'rpm', 0), 0), 0)
@@ -1045,9 +1081,11 @@ function M.update(state, dt, settings, sampleCar)
   if steerAngle and steerLock and math.abs(steerLock) > 0.1 then
     steeringInput = U.clamp(steerAngle / steerLock, -1, 1)
   else
-    local ok, controllerSteer = pcall(ac.getControllerSteerValue)
-    if ok and type(controllerSteer) == 'number' then
-      steeringInput = U.clamp(controllerSteer, -1, 1)
+    if carIndex == 0 and U.read(SIM, 'isReplayActive', false) ~= true then
+      local ok, controllerSteer = pcall(ac.getControllerSteerValue)
+      if ok and type(controllerSteer) == 'number' then
+        steeringInput = U.clamp(controllerSteer, -1, 1)
+      end
     end
   end
   state.steeringInput = steeringInput or 0

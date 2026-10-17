@@ -1,4 +1,5 @@
 local U = require('modules/telemetry/src/utils')
+local FocusedCar = require('src/focused_car')
 
 local M = {}
 
@@ -8,8 +9,12 @@ local function blankState()
   return {
     available = false,
     sessionChanged = false,
+    carChanged = false,
     sessionKey = nil,
+    carKey = nil,
+    focusedCarIndex = nil,
     steeringNormalized = 0,
+    steeringAvailable = false,
     steeringAngle = 0,
     steerRange = FALLBACK_STEER_LOCK,
     throttle = 0,
@@ -29,9 +34,13 @@ function M.new()
   return blankState()
 end
 
-local function sessionKey()
-  local ok, sim = pcall(ac.getSim)
-  if not ok or sim == nil then return nil end
+local function sessionKey(sim)
+  if sim == nil then
+    local ok
+    ok, sim = pcall(ac.getSim)
+    if not ok then return nil end
+  end
+  if sim == nil then return nil end
   local index = U.read(sim, 'currentSessionIndex', 0)
   return tostring(index)
 end
@@ -57,18 +66,43 @@ local function updateFfbNeedle(state, dt)
   state.ffbNeedleVelocity = velocity
 end
 
-function M.update(state, dt)
+function M.update(state, dt, sampleCar, sampleCarIndex, sampleSim)
   state.sessionChanged = false
+  state.carChanged = false
 
-  local currentSession = sessionKey()
+  local sim = sampleSim
+  if sim == nil then
+    local ok
+    ok, sim = pcall(ac.getSim)
+    if not ok then sim = nil end
+  end
+
+  local currentSession = sessionKey(sim)
   if state.sessionKey ~= nil and currentSession ~= nil and currentSession ~= state.sessionKey then
     state.sessionChanged = true
   end
   state.sessionKey = currentSession
 
-  local ok, car = pcall(ac.getCar, 0)
-  if not ok or car == nil then
+  local car, carIndex
+  if sampleCar == false then
+    car, carIndex = nil, sampleCarIndex
+  elseif sampleCar ~= nil then
+    car = sampleCar
+    carIndex = sampleCarIndex or U.read(car, 'index', 0)
+  else
+    car, carIndex = FocusedCar.resolve(sim)
+  end
+  local carKey = FocusedCar.identity(car, carIndex)
+  state.carChanged = state.carKey ~= carKey
+  state.carKey = carKey
+  state.focusedCarIndex = car and carIndex or nil
+
+  if car == nil then
     state.available = false
+    state.steeringAvailable = false
+    state.steeringAngle, state.steeringNormalized = 0, 0
+    state.throttle, state.brake, state.clutchPressed, state.handbrake = 0, 0, 0, 0
+    state.handbrakeAvailable = false
     state.ffbMagnitude = 0
     state.ffbClipping = false
     updateFfbNeedle(state, dt)
@@ -80,18 +114,25 @@ function M.update(state, dt)
   local steer = U.number(U.read(car, 'steer', nil), nil)
   local steerLock = U.number(U.read(car, 'steerLock', nil), nil)
   if steer ~= nil and steerLock ~= nil and math.abs(steerLock) > 0.1 then
+    state.steeringAvailable = true
     state.steerRange = math.abs(steerLock)
     state.steeringAngle = steer
     state.steeringNormalized = U.clamp(steer / steerLock, -1, 1)
   elseif steer ~= nil then
+    state.steeringAvailable = true
     state.steerRange = FALLBACK_STEER_LOCK
     state.steeringAngle = steer
     state.steeringNormalized = U.clamp(steer / FALLBACK_STEER_LOCK, -1, 1)
-  else
+  elseif carIndex == 0 and U.read(sim, 'isReplayActive', false) ~= true then
+    state.steeringAvailable = true
     state.steerRange = FALLBACK_STEER_LOCK
     local controllerSteer = controllerSteerFallback()
     state.steeringAngle = controllerSteer * FALLBACK_STEER_LOCK
     state.steeringNormalized = controllerSteer
+  else
+    state.steeringAvailable = false
+    state.steerRange = FALLBACK_STEER_LOCK
+    state.steeringAngle, state.steeringNormalized = 0, 0
   end
 
   state.throttle = U.clamp(U.number(U.read(car, 'gas', 0), 0), 0, 1)

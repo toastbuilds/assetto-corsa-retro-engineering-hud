@@ -5,10 +5,24 @@ local I = Config.illumination
 local cache = setmetatable({}, {__mode = 'k'})
 local segmentPositions = setmetatable({}, {__mode = 'k'})
 
+local function linearChannel(value)
+  if value <= 0.04045 then return value / 12.92 end
+  return ((value + 0.055) / 1.055) ^ 2.4
+end
+
+local function luminance(color)
+  return linearChannel(color.r) * 0.2126 + linearChannel(color.g) * 0.7152
+    + linearChannel(color.b) * 0.0722
+end
+
 function M.mix(a, b, amount)
   if amount <= 0 then return a end
-  return rgbm(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount,
+  local mixed = rgbm(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount,
     a.b + (b.b - a.b) * amount, a.mult)
+  -- A selected palette can supply a darker backlight target than its ink.
+  -- Keep the authored color in that case so headlights never dim the face.
+  if luminance(mixed) < luminance(a) then return a end
+  return mixed
 end
 
 -- One settled style set per palette. Both instruments reuse its colors and
