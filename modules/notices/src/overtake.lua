@@ -26,18 +26,29 @@ local function identity(row)
   return table.concat({tostring(row.index), tostring(row.driver or ''), tostring(row.carID or '')}, '/')
 end
 
-local function position(row)
-  local value = finite(row and row.racePosition)
-  if not value or value < 1 or value >= 999 then return nil end
-  return math.floor(value + 0.5)
-end
-
 local function active(row)
   if not row or row.justJumped == true or row.active == false
       or row.status == 'PIT' or row.status == 'RET'
       or row.status == 'FIN' then return false end
   if row.isAI then return true end
   return row.connected ~= false and row.status ~= 'OFF'
+end
+
+local function racePositions(rows)
+  -- AC racePosition can be stale at the timing line; rank live cars by laps
+  -- completed plus spline progress, matching physical distance around track.
+  local ordered = {}
+  for i = 1, #rows do
+    local row = rows[i]
+    if active(row) and finite(row.index) and finite(row.progress) then ordered[#ordered + 1] = row end
+  end
+  table.sort(ordered, function(a, b)
+    if a.progress ~= b.progress then return a.progress > b.progress end
+    return (finite(a.index) or math.huge) < (finite(b.index) or math.huge)
+  end)
+  local result = {}
+  for i = 1, #ordered do result[ordered[i].index] = i end
+  return result
 end
 
 local function sampleAt(points, progress)
@@ -89,13 +100,14 @@ function M:update(snapshot, enabled)
   local player = snapshot.localRow
   local now = finite(snapshot.timeline and snapshot.timeline.time)
   local progress = finite(player and player.progress)
+  local positions = racePositions(snapshot.rows or {})
   local sessionIndex = finite(read(snapshot.sim, 'currentSessionIndex')) or 0
-  if not active(player) or not now or not progress then
+  local playerPosition = player and positions[player.index]
+  if not active(player) or not now or not progress or not playerPosition then
     self:reset()
     return {}
   end
 
-  local playerPosition = position(player)
   local discontinuous = snapshot.historyReset == true
     or self.sessionIndex ~= nil and self.sessionIndex ~= sessionIndex
     or self.lastTime ~= nil and (now < self.lastTime or now - self.lastTime > MAX_SAMPLE_GAP)
@@ -109,7 +121,7 @@ function M:update(snapshot, enabled)
     if finite(row.index) then rowsByIndex[row.index] = row end
   end
 
-  -- Keep recent, rival-specific context until AC reports the position swap.
+  -- Keep recent, rival-specific context until progress confirms the pass.
   -- A track exit describes what was observed; it does not confirm a crash.
   local flagKind, flagIndex = FlagCause.resolve(snapshot.sim)
   local incidents = {}
@@ -138,9 +150,9 @@ function M:update(snapshot, enabled)
   local gapHistories = {}
   for index, row in pairs(rowsByIndex) do
     local previous = self.previousRows[index]
-    local rowPosition = position(row)
-    local wasAhead = previous and previous.live and previous.position and previousPlayerPosition
-      and previous.position < previousPlayerPosition
+    local rowPosition = positions[index]
+    local wasAhead = previous and previous.live and previous.progress and previousPlayer
+      and previous.progress > previousPlayer.progress + EPSILON
     if index ~= player.index and active(row) then
       local history = previous and previous.identity == identity(row) and self.gapHistories[index]
         or GapHistory.new()
@@ -154,19 +166,25 @@ function M:update(snapshot, enabled)
     end
   end
   self.gapHistories = gapHistories
+  local playerProgressDelta = previousPlayer and progress - previousPlayer.progress
   local canDetect = not discontinuous and read(snapshot.sim, 'isPaused') ~= true
     and playerPosition and previousPlayer and previousPlayer.identity == identity(player)
     and previousPlayer.live and active(player) and previousPlayerPosition
-    and playerPosition < previousPlayerPosition
+    and playerProgressDelta and playerProgressDelta > EPSILON and playerProgressDelta <= 0.25
 
   if canDetect then
     for index, row in pairs(rowsByIndex) do
       if index ~= player.index then
         local previous = self.previousRows[index]
-        local rowPosition = position(row)
+        local rowPosition = positions[index]
+        local rowProgress = finite(row.progress)
+        local rivalProgressDelta = previous and rowProgress and previous.progress
+          and rowProgress - previous.progress
         if previous and previous.identity == identity(row) and previous.live and active(row)
-            and previous.position and rowPosition
-            and previous.position < previousPlayerPosition and rowPosition > playerPosition then
+            and previous.position and rowPosition and previous.progress and rowProgress
+            and rivalProgressDelta and rivalProgressDelta >= -EPSILON and rivalProgressDelta <= 0.25
+            and previous.progress > previousPlayer.progress + EPSILON
+            and rowProgress < progress - EPSILON then
           candidates[#candidates + 1] = {row = row, oldPosition = previous.position,
             index = index}
         end
@@ -196,15 +214,17 @@ function M:update(snapshot, enabled)
   local currentPrevious = {}
   for index, row in pairs(rowsByIndex) do
     local rowIdentity = identity(row)
-    local rowPosition = position(row)
+    local rowPosition = positions[index]
+    local rowProgress = finite(row.progress)
     local old = self.previousRows[index]
     if old and old.identity ~= rowIdentity then self.histories[index] = nil end
-    currentPrevious[index] = {identity = rowIdentity, position = rowPosition, live = active(row)}
+    currentPrevious[index] = {identity = rowIdentity, position = rowPosition,
+      progress = rowProgress, live = active(row)}
 
     local gap = finite(row.intervalSeconds)
     local history = self.histories[index]
-    local isAhead = index ~= player.index and active(row) and rowPosition and playerPosition
-      and rowPosition < playerPosition and gap and gap > 0 and not self.incidents[index]
+    local isAhead = index ~= player.index and active(row) and rowProgress and progress
+      and rowProgress > progress and gap and gap > 0 and not self.incidents[index]
       and snapshot.timeline.measuredClock ~= false
     if isAhead then
       if not history then history = {identity = rowIdentity, points = {}}; self.histories[index] = history end

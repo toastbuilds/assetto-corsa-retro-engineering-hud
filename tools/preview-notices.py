@@ -38,7 +38,9 @@ def overtake_samples(lua):
             elseif context == 'offtrack' then rival.car.wheelsOutside = 4 end
           end
           player.progress, player.racePosition = progress, passed and 4 or 5
-          rival.progress, rival.racePosition = progress + 0.01, passed and 5 or 4
+          local offset = i == samples and -0.00001
+            or math.max(0.00001, 0.01 * (1 - i / math.max(1, samples - 1)))
+          rival.progress, rival.racePosition = progress + offset, passed and 5 or 4
           local gap = samples / 180 * 0.8 + 0.2 - 0.8 * progress + math.sin(progress * math.pi * 2) * 0.12
           if context then
             gap = i < samples - 30 and 10 + math.sin(progress * math.pi * 2) * 0.4
