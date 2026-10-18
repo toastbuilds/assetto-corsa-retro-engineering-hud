@@ -1,4 +1,4 @@
-param([string]$Version)
+param([string]$Version, [switch]$Provisional)
 
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
@@ -17,7 +17,8 @@ if (-not $stage.StartsWith($stageRoot, [System.StringComparison]::OrdinalIgnoreC
   throw 'Package staging directory must be a generated child of the temporary directory.'
 }
 $app = Join-Path $stage 'apps\lua\RetroUI'
-$package = Join-Path $dist "RetroUI-v$Version.zip"
+$packageName = if ($Provisional) { "RetroUI-v$Version-provisional.zip" } else { "RetroUI-v$Version.zip" }
+$package = Join-Path $dist $packageName
 
 New-Item -ItemType Directory -Path $app, $dist -Force | Out-Null
 try {

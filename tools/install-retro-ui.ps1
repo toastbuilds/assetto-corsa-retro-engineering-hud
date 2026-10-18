@@ -1,5 +1,6 @@
 param(
   [string]$AssettoCorsaRoot,
+  [string]$PackagePath,
   [ValidateSet('leaderboard', 'relative', 'condition', 'laps', 'timer', 'instruments', 'notices', 'battle', 'palette')][string]$App,
   [string[]]$SharedFiles = @(),
   [switch]$Finalize,
@@ -132,7 +133,14 @@ if ($Finalize) {
 }
 
 $build = Join-Path $PSScriptRoot 'build-package.ps1'
-$zip = & $build
+if ($PackagePath) {
+  $zip = (Resolve-Path -LiteralPath $PackagePath -ErrorAction Stop).Path
+  if (-not (Test-Path -LiteralPath $zip -PathType Leaf) -or [System.IO.Path]::GetExtension($zip) -ne '.zip') {
+    throw 'PackagePath must refer to a ZIP file.'
+  }
+} else {
+  $zip = & $build
+}
 $backup = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
 $legacyBackup = Join-Path $backup 'legacy-apps'
 New-Item -ItemType Directory -Path $legacyBackup -Force | Out-Null

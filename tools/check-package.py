@@ -15,7 +15,7 @@ ASSETS.update(f'assets/dial_variants/{variant}_{theme}_{layer}.png'
 
 def verify(path):
     version = re.search(r'^VERSION = (\d+\.\d+\.\d+)$', (ROOT / 'manifest.ini').read_text(), re.M).group(1)
-    assert path.name == f'RetroUI-v{version}.zip', 'Package and manifest versions must match'
+    assert path.name in (f'RetroUI-v{version}.zip', f'RetroUI-v{version}-provisional.zip'), 'Package and manifest versions must match'
     expected = {p.relative_to(ROOT).as_posix(): p for folder in ('src', 'ui', 'modules')
                 for p in (ROOT / folder).rglob('*.lua')}
     for name in ('app.lua', 'RetroUI.lua', 'manifest.ini', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
