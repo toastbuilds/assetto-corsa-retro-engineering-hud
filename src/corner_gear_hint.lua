@@ -4,11 +4,11 @@ local M = {}
 local geometryCache = {}
 local drivetrainCache = {}
 
-local LATERAL_G = 0.9
+local LATERAL_G = 1.15
 local BRAKING_DECELERATION = 5
 local RED_DIFFERENTIAL_MS = 10 / 3.6
 local RPM_SAFETY_FRACTION = 0.90
-local CORNER_EARLY_ENTRY_METERS = 200
+local MIN_CORNER_RADIUS_METERS = 260
 local LOG_INTERVAL_SECONDS = 10
 local MIN_LOG_INTERVAL_SECONDS = 1
 local lastDiagnosticLog = {signature = nil, at = -math.huge}
@@ -105,7 +105,7 @@ local function buildGeometry(sim)
     local after = points[((i + offset) % count) + 1]
     local radius = circumradius(before, middle, after)
     radii[i + 1] = radius
-    corner[i + 1] = radius < 500
+    corner[i + 1] = radius < MIN_CORNER_RADIUS_METERS
   end
 
   local groups, current = {}, nil
@@ -163,9 +163,9 @@ local function buildGeometry(sim)
       or finish - group.first + 1
     if group.minRadius >= 6 and countInGroup >= 2 then
       corners[#corners + 1] = {
-        entry = (((group.first - 1) * step) - CORNER_EARLY_ENTRY_METERS) % length,
+        entry = ((group.first - 1) * step) % length,
         exit = (finish * step) % length,
-        arcLength = countInGroup * step + CORNER_EARLY_ENTRY_METERS,
+        arcLength = countInGroup * step,
         apex = ((group.apex - 1) * step) % length,
         radius = group.minRadius,
         targetSpeed = math.sqrt(LATERAL_G * 9.81 * group.minRadius)
@@ -328,39 +328,52 @@ end
 
 local function nextCorner(track, progress)
   local position = U.clamp(progress, 0, 1) * track.length
-  local selected, bestDistance, selectedInside, selectedApexDistance
+  local selected, bestDistance, selectedApexDistance
   for _, corner in ipairs(track.corners) do
     local toEntry = wrapDistance(position, corner.entry, track.length)
     local fromEntry = wrapDistance(corner.entry, position, track.length)
     local inside = fromEntry <= corner.arcLength
     local toExit = wrapDistance(position, corner.exit, track.length)
-    if inside and toExit < 1 then inside = false end
-    local distance = inside and 0 or toEntry
-    if not selected or distance < bestDistance then
-      selected, bestDistance, selectedInside = corner, distance, inside
-      selectedApexDistance = wrapDistance(position, corner.apex, track.length)
+    local toApex = wrapDistance(position, corner.apex, track.length)
+    -- A corner stops being relevant at its apex. Without this check, the
+    -- wrapped distance makes the same apex look one full lap away on exit.
+    local beforeApex = toApex > 0.5 and (not inside or toApex <= toExit)
+    if beforeApex then
+      local distance = inside and 0 or toEntry
+      if not selected or distance < bestDistance then
+        selected, bestDistance = corner, distance
+        selectedApexDistance = toApex
+      end
     end
   end
   if not selected then return nil end
-  return selected, bestDistance, selectedApexDistance, selectedInside
+  return selected, bestDistance, selectedApexDistance
 end
 
 local function selectGear(drivetrain, targetSpeed, limiter)
   local safeRpm = limiter * RPM_SAFETY_FRACTION
-  local bestGear, bestForce, fallbackGear, fallbackRatio
+  local preferredRpm = limiter * 0.68
+  local curve = drivetrain.torqueCurve
+  if curve then
+    local bestPower
+    for rpm = math.max(1000, limiter * 0.25), safeRpm, 250 do
+      local ok, torque = pcall(function() return curve:get(rpm) end)
+      torque = ok and number(torque) or nil
+      local power = torque and torque > 0 and torque * rpm or nil
+      if power and (not bestPower or power > bestPower) then
+        bestPower, preferredRpm = power, rpm
+      end
+    end
+  end
+  local bestGear, bestRpmDelta, fallbackGear, fallbackRpm
   for gear = 1, drivetrain.count do
     local ratio = drivetrain.ratios[gear] * drivetrain.finalRatio
     local rpm = targetSpeed / (2 * math.pi * drivetrain.wheelRadius) * 60 * ratio
     if rpm <= safeRpm then
-      if not fallbackGear or ratio > fallbackRatio then fallbackGear, fallbackRatio = gear, ratio end
-      local curve, torque = drivetrain.torqueCurve, nil
-      if curve then
-        local ok, value = pcall(function() return curve:get(rpm) end)
-        torque = ok and number(value) or nil
-      end
-      if torque and torque > 0 then
-        local wheelForce = torque * ratio
-        if not bestForce or wheelForce > bestForce then bestGear, bestForce = gear, wheelForce end
+      local rpmDelta = math.abs(rpm - preferredRpm)
+      if not fallbackGear or rpm > fallbackRpm then fallbackGear, fallbackRpm = gear, rpm end
+      if not bestGear or rpmDelta < bestRpmDelta then
+        bestGear, bestRpmDelta = gear, rpmDelta
       end
     end
   end
@@ -458,6 +471,14 @@ function M.update(state, car, sim, dt, enabled)
   local excess = speed - target
   local brakingDistance = excess > 0 and (speed * speed - target * target) / (2 * BRAKING_DECELERATION) or 0
   local brakingWindow = math.max(8, speed * 0.15)
+  if distanceToApex > brakingDistance + brakingWindow then
+    diagnostic(state, 'hidden:before-braking-window', {
+      {'progress', string.format('%.3f', progress)},
+      {'apex_m', math.floor(distanceToApex + 0.5)},
+      {'brake_m', math.floor(brakingDistance + 0.5)}
+    })
+    return
+  end
   state.cornerGearHint = {
     gear = targetGear,
     direction = targetGear > gear and 'up' or 'down',
