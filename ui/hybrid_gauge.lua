@@ -3,6 +3,8 @@ local Light = require('ui/instrument_illumination')
 local Theme = require('src/theme')
 local Readout = require('src/dial_readout')
 local AuxiliaryStyles = require('ui/auxiliary_dial_styles')
+local MiniProfiles = require('src/mini_dial_profiles')
+local MiniDial = require('ui/mini_dial')
 local M = {}
 
 local profiles = {
@@ -44,9 +46,27 @@ end
 
 -- Triptych option C: independent bipolar CHG/PWR arc plus a thinner state-
 -- of-charge arc at the bezel. Both views share identical telemetry semantics.
-function M.draw(center, scale, hybrid, palette, theme, lights, profile, style, consumeSpectrum)
+function M.draw(center, scale, hybrid, palette, theme, lights, profile, style, consumeSpectrum, digital)
   local p = profiles[profile]
   local L = Theme.dialBacklight and Light.resolve(palette, theme, lights or 0) or {}
+  if profile~='standalone' and MiniProfiles.get(style) then
+    local power=hybrid.needle
+    local charge=hybrid.charge
+    local value=hybrid.powerKw~=nil and string.format('%.0f kW',hybrid.powerKw)
+      or hybrid.delivery~=nil and string.format('ERS %.0f%%',hybrid.delivery*100) or 'ERS --'
+    if hybrid.batteryRecovery then
+      value=hybrid.chargeRecoveryRate and string.format('-%.1f%%/s',hybrid.chargeRecoveryRate) or 'CHG'
+    end
+    local battery=AuxiliaryStyles.channel({kind='battery',value=charge,available=charge~=nil,
+      warning=0.15,lowInk=charge and charge<=0.15 and palette.red or nil},palette,L)
+    MiniDial.draw(style,center,scale,digital or (consumeSpectrum and 0 or 1),
+      AuxiliaryStyles.channel({kind='power',zero=0.5,value=power and (power+1)/2 or nil,
+        available=power~=nil},palette,L),palette,L,{
+        left='CHG',right='PWR',value=value,
+        label=charge~=nil and string.format('%.0f%%',charge*100) or '--%',battery=battery
+      })
+    return
+  end
   local function text(value, size, x, y, color, style)
     if profile == 'standalone' and value ~= 'CHG' and value ~= 'PWR'
         and not value:match('^ERS[%s%-]') then

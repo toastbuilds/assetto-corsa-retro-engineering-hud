@@ -10,6 +10,8 @@ local Layout = require('src/gt7_retro_layout')
 local DialStyles = require('src/gt7_dial_styles')
 local StyledInstruments = require('ui/gt7_styled_instruments')
 local AuxiliaryStyles = require('ui/auxiliary_dial_styles')
+local MiniProfiles = require('src/mini_dial_profiles')
+local MiniDial = require('ui/mini_dial')
 local SlipstreamBackground = require('ui/slipstream_background')
 local M = {}
 local D, S = Config.dial, Config.sub
@@ -203,11 +205,11 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local style = DialStyles.auxiliaryStyle(settings, rpm)
   local hybrid = rpm and Hybrid.forGauge(state)
   if hybrid then
-    HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7', style, digital<0.5)
+    HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7', style, digital<0.5, digital)
     return
   end
   Light.ambient(subCenter, scale, L, true)
-  if digital>=0.5 or (style~='halo' and style~='jewel') then
+  if not MiniProfiles.get(style) and (digital>=0.5 or (style~='halo' and style~='jewel')) then
     arc(subCenter, S.housingRadius * scale,
       math.pi, math.pi * 2, C.metalDim, 2 * scale)
     arc(subCenter, (S.housingRadius - 3) * scale,
@@ -229,6 +231,26 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local blink = low and fraction < 0.10 and settings.animateIndicators ~= false
     and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
   local lowInk = blink and Theme.withAlpha(C.red, 0.18) or C.red
+  if MiniProfiles.get(style) then
+    local needleValue = fraction
+    if not rpm then needleValue=U.clamp(state.fuelNeedleNormalized or fraction,0,1)
+    elseif not aero then
+      local smoothed=visual and visual.boostNeedleValue or (state.boostNeedleNormalized or 0)*maximum
+      needleValue=U.clamp((smoothed-minimum)/(maximum-minimum),0,1)
+    end
+    local warning=aero and 0.82 or rpm and (Config.boostWarning*maximum-minimum)/(maximum-minimum)
+      or Config.fuelWarning
+    MiniDial.draw(style,subCenter,scale,digital,AuxiliaryStyles.channel({
+      kind=not rpm and 'fuel' or aero and 'aero' or 'boost', available=available,
+      value=fraction,needleValue=needleValue,zero=zero,warning=warning,lowInk=low and lowInk or nil
+    },C,L),C,L,{
+      left=aero and '0' or rpm and string.format('%.1f',minimum) or 'E',
+      right=aero and '100' or rpm and string.format('%.1f',maximum) or 'F',
+      label=not available and 'N/A' or aero and 'AERO' or rpm and 'BOOST' or 'FUEL',
+      icon=aero and M.aeroIcon or rpm and M.boostIcon or M.fuelIcon
+    })
+    return
+  end
   local function zone(f, active)
     if not available then return C.outlineDim end
     if aero then
@@ -348,6 +370,15 @@ local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
   local visual = state.gt7Instruments
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
   if digital==nil then digital=settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode']=='analog' and 0 or 1 end
+  if MiniProfiles.get(style) then
+    -- The lower-arc slot starts below the largest central capsule (87px).
+    -- Full faces now use 15% more room. Lower their anchor just enough to keep
+    -- the outer hybrid battery track clear of the central capsule as well.
+    local miniScale=scale*0.58
+    local miniY=MiniProfiles.get(style).half and 125 or 129
+    subGauge(center+vec2(0,(miniY-S.offsetY*0.58)*scale),miniScale,state,settings,C,digital,light,rpm,L)
+    return
+  end
   local hybrid = rpm and Hybrid.forGauge(state)
   if hybrid then
     HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc', style, digital<0.5)

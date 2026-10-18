@@ -8,6 +8,7 @@ local Needle = require('ui/instrument_needle')
 local U = require('src/utils')
 local Layout = require('src/gt7_retro_layout')
 local DialStyles = require('src/gt7_dial_styles')
+local MiniProfiles = require('src/mini_dial_profiles')
 local Selector = require('src/gear_selector')
 local SlipstreamBackground = require('ui/slipstream_background')
 local M = {}
@@ -285,7 +286,8 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
     local aux=f.aux
     local auxScale=scale*aux[3]
     auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
-      state,settings,C,f.analog and 0 or 1,light,rpm,L)
+      state,settings,C,MiniProfiles.get(DialStyles.auxiliaryStyle(settings,rpm)) and digital
+        or (f.analog and 0 or 1),light,rpm,L)
   end
 
   local function drawMainNeedle()

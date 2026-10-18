@@ -104,8 +104,8 @@ local function sanitizeComposition()
     M.values.gt7SpeedNeedleMode, 'speed')
   M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle,
     M.values.gt7RpmNeedleMode, 'rpm')
-  M.values.gt7SpeedAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7SpeedAuxiliaryStyle)
-  M.values.gt7RpmAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7RpmAuxiliaryStyle)
+  M.values.gt7SpeedAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7SpeedAuxiliaryStyle,M.values.gt7SpeedNeedleMode)
+  M.values.gt7RpmAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7RpmAuxiliaryStyle,M.values.gt7RpmNeedleMode)
 end
 sanitizeComposition()
 
@@ -198,11 +198,13 @@ function M.draw()
       modes, function(value)
         M.values.gt7SpeedNeedleMode = value
         M.values.gt7SpeedDialStyle = DialStyles.normalize(M.values.gt7SpeedDialStyle, value, 'speed')
+        M.values.gt7SpeedAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7SpeedAuxiliaryStyle,value)
       end)
     SettingsUI.choice('gt7', 'rpmNeedle', 'RPM dial mode', M.values.gt7RpmNeedleMode,
       modes, function(value)
         M.values.gt7RpmNeedleMode = value
         M.values.gt7RpmDialStyle = DialStyles.normalize(M.values.gt7RpmDialStyle, value, 'rpm')
+        M.values.gt7RpmAuxiliaryStyle = DialStyles.normalizeAuxiliary(M.values.gt7RpmAuxiliaryStyle,value)
       end)
   end)
   SettingsUI.section('gt7', 'personalization', 'Personalization', false, function()
@@ -213,8 +215,8 @@ function M.draw()
       ui.textWrapped('The theme-colored background grows with relative slipstream strength. It uses air-density physics after learning a clean-air reference, or estimates the wake from traffic position when physics is unavailable, including replays and remote cars. It is not a power-gain percentage.')
       choice('rpmDialStyle', 'RPM dial style',
         DialStyles.choices(M.values.gt7RpmNeedleMode, 'rpm'))
-      choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliary)
-      choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliary)
+      choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliaryChoices(M.values.gt7SpeedNeedleMode))
+      choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliaryChoices(M.values.gt7RpmNeedleMode))
       if M.values.gt7SpeedNeedleMode == 'analog' then
         SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
           InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)

@@ -51,6 +51,14 @@ The suite provides Dial, GT7, Car Condition, Multiclass Relative, Delta Bar, Tim
 
 GT7 includes Classic, Modern, Outer Pedals and Steering Dial presets. Presets are starting points: speed, gear, steering, RPM bar, pedals, radar, flags and lower panel can be configured independently. Analog and digital side dials can be mixed.
 
+Under **GT7 → Personalization → Side dials**, **Fuel gauge style** and **Turbo / AERO / battery gauge style** each include 16 mini dial families, identified by reference-sheet coordinates **F1C1–F4C4**. Choose either side independently. Each family follows its main dial's analog/digital mode: analog uses the concept's own needle; digital uses segments on the same scale. Hybrid cars retain a CHG/PWR dial and a thin outer battery band with its percentage. Faces fit the existing auxiliary area; compositions with a large central readout use a smaller complete face below it. Existing styles and saved selections remain available.
+
+**F4C2 is analog only** and is omitted from digital selectors; a previously saved digital F4C2 selection falls back to Original. Mini dials have no fixed reserve band: actual low fuel still changes the reading color and flashes when configured. Digital cells align with the face divisions. The wider final cell in F1C4 represents the same value increment as each narrow cell.
+
+The final 15% of every digital mini scale uses the theme's red warning ink (dim while inactive). Wide cells change color at exactly 85% without changing their value step. F1C1, F2C1 and F2C2 leave gaps for bezel graduations; F3C1 replaces minor graduations on its outer scale, while F4C1 keeps them visible beside the digital track. E/F and other scale end labels sit below the face in a foreground strip. F2C4 uses a rotating semicircular needle counterweight.
+
+Full circular mini dials are 15% larger, including their graduations, needles and labels. Semicircular faces keep their size. The lower position makes room for the enlarged face and footer; capsule layouts also leave clearance for the hybrid battery track.
+
 **Reset appearance** restores the instrument's presentation. **Reset all** asks for confirmation and restores its local settings. In Relative and Leaderboard it also restores the class map and saves a copy of the previous file under `Documents/Assetto Corsa/RetroUI/Class Backups`.
 
 See the [settings reference](https://github.com/yukkine0704/assetto-corsa-retro-engineering-hud/blob/main/docs/settings.md) or `docs/settings.md` inside the installed app for more details.
