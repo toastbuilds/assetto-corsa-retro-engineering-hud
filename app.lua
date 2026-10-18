@@ -19,6 +19,7 @@ local panels = {
   laps = require('modules/laps/main'),
   leaderboard = require('modules/leaderboard/main'),
   telemetry = require('modules/telemetry/main'),
+  dash = require('modules/dash/main'),
   map = require('modules/map/main'),
   notices = require('modules/notices/main')
 }
@@ -139,6 +140,7 @@ function script.timerMain(_) drawHudWindow('timer', function() invoke('timer', '
 function script.lapsMain(_) drawHudWindow('laps', function() invoke('laps', 'windowMain', _) end) end
 function script.leaderboardMain(_) drawHudWindow('leaderboard', function() invoke('leaderboard', 'windowMain', _) end) end
 function script.telemetryMain(_) drawHudWindow('telemetry', function() invoke('telemetry', 'windowMain', _) end) end
+function script.dashMain(_) drawHudWindow('dash', function() invoke('dash', 'windowMain', dialState) end) end
 function script.mapMain(_) drawHudWindow('map', function() invoke('map', 'windowMain', _) end) end
 function script.noticesMain(_) drawHudWindow('notices', function() invoke('notices', 'windowMain', _) end) end
 
@@ -159,6 +161,7 @@ local pages = {
   { id = 'laps', label = 'Laps', draw = function() invoke('laps', 'windowSettings') end },
   { id = 'leaderboard', label = 'Leaderboard', draw = function() invoke('leaderboard', 'windowSettings') end },
   { id = 'telemetry', label = 'Telemetry', draw = function() invoke('telemetry', 'settingsMain') end },
+  { id = 'dash', label = 'Dash', draw = function() invoke('dash', 'settingsMain') end },
   { id = 'map', label = 'Map', draw = function() invoke('map', 'windowSettings') end },
   { id = 'notices', label = 'Race Notices', draw = function() invoke('notices', 'windowSettings') end }
 }

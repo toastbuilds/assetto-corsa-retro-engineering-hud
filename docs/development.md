@@ -11,7 +11,11 @@ npm run check:lua
 python tools/test-lua.py
 ```
 
-The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migration, 12 windows, CSP callbacks, geometry, timing, tyre data, hybrids, illumination, independent ABS/TC values, race notices and live/replay history changes.
+The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migration, 13 windows, CSP callbacks, geometry, timing, tyre data, hybrids, illumination, independent ABS/TC values, race notices, both Dash compositions and live/replay history changes.
+
+## Dash previews
+
+Run `python tools/preview-dashboard.py` to render both Dash compositions in dark/light themes at the default 1280 × 220 and minimum 900 × 160 sizes, plus vacuum, active telltales and headlights on/off. The images are written to `output/dashboard/` and use simulated vehicle telemetry; CSP antialiasing and live signals still require an in-game check.
 
 ## Race Notices previews
 

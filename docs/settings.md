@@ -65,6 +65,8 @@ Delta compares current progress against local lap references. Timer shows lap cl
 
 Telemetry displays input/FFB histories and associated driving channels. Map switches between the full circuit and a car-centred mini map, with fixed or rotating orientation, numbered selected/all cars and configurable track/marker sizes.
 
+The new Dash window offers **RPM bar above** and **Side tachometer** compositions. Each composition stores its own visibility choices for the pedal history graph and status indicators; Side tachometer also has a steering display toggle. Both styles inherit theme, palette, opacity and units from General. Boost converts from the simulator's BAR value to the selected pressure unit. Its negative range uses the same estimated vacuum as GT7, marked with `~`. Dash and GT7 share the same instrument symbols; headlights illuminate the faces and active telltales light their rings. Unsupported signals remain dim or show a dash instead of a fabricated zero. The battery indicator uses hybrid charge when the car reports it.
+
 Map backgrounds use dots or a radial surface. Off-track and flag alerts depend on the simulation's reported state; four-wheel-off highlighting is suppressed in pitlane.
 
 ## Race Notices

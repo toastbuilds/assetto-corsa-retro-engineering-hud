@@ -109,6 +109,7 @@ local function blankState()
     gearCount = 6,
     gearCountSource = 'fallback',
     steeringInput = 0,
+    steeringAvailable = false,
     steeringAngle = nil,
     steerLock = nil,
     throttle = 0,
@@ -163,6 +164,7 @@ local function blankState()
     radarRightLevel9 = 0,
     raceFlagType = nil,
     pitLane = false,
+    pitLaneAvailable = false,
     pitLimiter = nil,
     tyreStint = TyreStint.new(),
     condition = {
@@ -1000,6 +1002,8 @@ function M.update(state, dt, settings, sampleCar, sampleCarIndex)
   state.focusedCarIndex = car and carIndex or nil
   if not car then
     state.available = false
+    state.steeringAvailable = false
+    state.pitLane, state.pitLaneAvailable, state.pitLimiter = false, false, nil
     state.gearCount, state.gearCountSource = 6, 'fallback'
     state._gearCountCarKey, state._observedGearCount = nil, 0
     state.hybrid = nil
@@ -1094,6 +1098,7 @@ function M.update(state, dt, settings, sampleCar, sampleCarIndex)
     end
   end
   state.steeringInput = steeringInput or 0
+  state.steeringAvailable = steeringInput ~= nil
   state.steeringAngle = steerAngle
   state.steerLock = steerLock
 
@@ -1175,7 +1180,10 @@ function M.update(state, dt, settings, sampleCar, sampleCarIndex)
 
   updateProximityRadar(state, car, settings)
 
-  state.pitLane = U.read(car, 'isInPit', false) or U.read(car, 'isInPitlane', false)
+  local isInPit = U.read(car, 'isInPit', nil)
+  local isInPitlane = U.read(car, 'isInPitlane', nil)
+  state.pitLaneAvailable = isInPit ~= nil or isInPitlane ~= nil
+  state.pitLane = isInPit == true or isInPitlane == true
 
   -- CSP exposes the driver's manual limiter selection and the final in-action
   -- state separately. Prefer the selection so the telltale stays lit while

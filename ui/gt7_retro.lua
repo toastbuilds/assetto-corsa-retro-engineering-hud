@@ -6,6 +6,7 @@ local PedalHistory = require('src/pedal_history')
 local PedalLayers = require('ui/pedal_layers')
 local U = require('src/utils')
 local Instruments = require('ui/side_instruments')
+local Icons = require('ui/instrument_icons')
 local InstrumentConfig = require('src/instrument_config')
 local InstrumentLayout = require('src/instrument_layout')
 local CornerGearHint = require('ui/corner_gear_hint')
@@ -705,30 +706,9 @@ local function drawPedals(origin, scale, state, settings)
     state.tcActive == true and C.red or nil, PedalLayers.channel(state, settings, 'throttle'))
 end
 
-local function drawBrakeIcon(center, scale, color)
-  ui.drawCircle(center, 12 * scale, color, 24, 2 * scale)
-  drawArc(center, 17 * scale, math.rad(120), math.rad(240), color, 2 * scale, 12)
-  drawArc(center, 17 * scale, math.rad(-60), math.rad(60), color, 2 * scale, 12)
-  centeredText('!', 15 * scale, center, color)
-end
-
-local function drawLightIcon(center, scale, color)
-  ui.drawRectFilled(center + vec2(-12 * scale, -8 * scale), center + vec2(-4 * scale, 8 * scale), color)
-  for i = -1, 1 do
-    drawLine(center + vec2(1 * scale, i * 5 * scale), center + vec2(16 * scale, i * 8 * scale), color, 2 * scale)
-  end
-end
-
-local function drawEngineIcon(center, scale, color)
-  -- This icon uses screen-space lines to stay crisp at small HUD scales.
-  drawLine(center + vec2(-14 * scale, -8 * scale), center + vec2(10 * scale, -8 * scale), color, 2 * scale)
-  drawLine(center + vec2(10 * scale, -8 * scale), center + vec2(15 * scale, -2 * scale), color, 2 * scale)
-  drawLine(center + vec2(15 * scale, -2 * scale), center + vec2(15 * scale, 9 * scale), color, 2 * scale)
-  drawLine(center + vec2(15 * scale, 9 * scale), center + vec2(-14 * scale, 9 * scale), color, 2 * scale)
-  drawLine(center + vec2(-14 * scale, 9 * scale), center + vec2(-14 * scale, -8 * scale), color, 2 * scale)
-  drawLine(center + vec2(-8 * scale, -8 * scale), center + vec2(-8 * scale, -13 * scale), color, 2 * scale)
-  drawLine(center + vec2(-8 * scale, -13 * scale), center + vec2(2 * scale, -13 * scale), color, 2 * scale)
-end
+local drawBrakeIcon = Icons.brakeIcon
+local drawLightIcon = Icons.lightIcon
+local drawEngineIcon = Icons.engineIcon
 
 local function drawStatusPod(origin, scale, x, label, available, active, color, icon, backdropOpacity)
   local factor = Layout.indicatorScale or 1

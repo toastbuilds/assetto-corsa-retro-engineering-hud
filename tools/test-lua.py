@@ -35,6 +35,7 @@ def main():
         "tests/map.lua",
         "tests/window_anchor.lua",
         "tests/runtime_smoke.lua",
+        "tests/dashboard.lua",
         "tests/relative.lua",
         "tests/car_condition.lua",
         "tests/tyre_readouts.lua",

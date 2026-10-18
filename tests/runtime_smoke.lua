@@ -336,6 +336,8 @@ Telemetry.update(flashState,1/60,Settings.current(),flashCar)
 assert(not flashState.lightsAvailable and flashState.headlights==nil,'missing lamp telemetry must remain unavailable')
 car = makeCar({ ffbFinal = 0.62 })
 for _ = 1, 30 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end
+assert(telemetry.steeringAvailable and telemetry.pitLaneAvailable,
+  'dashboard availability flags must preserve reported steering and pitlane telemetry')
 assert(telemetry.pedalLayers and telemetry.pedalLayers.throttle.input == car.gas
   and telemetry.pedalLayers.brake.input == car.brake,
   'Live telemetry must provide pedal layers using car controls when raw controls are unavailable')
@@ -359,6 +361,10 @@ assert(telemetry.condition.wheels[4].isBlown
   'punctures must take priority over other tyre-condition signals')
 assert(math.abs(telemetry.fuelNeedleNormalized - telemetry.fuelNormalized) < 0.00001,
   'fuel needle must initialize at the true fuel level without sweeping in')
+local unavailableDashSignals = Telemetry.new()
+Telemetry.update(unavailableDashSignals, 1 / 60, Settings.current(), false, 0)
+assert(not unavailableDashSignals.steeringAvailable and not unavailableDashSignals.pitLaneAvailable,
+  'dashboard must not report steering or pitlane as available without a car')
 
 car.acceleration = { x = 0, y = 0, z = 1.2 }
 for _ = 1, 75 do Telemetry.update(telemetry, 1 / 60, Settings.current()) end

@@ -1,6 +1,7 @@
 local U = require('src/utils')
 local Light = require('ui/instrument_illumination')
 local Theme = require('src/theme')
+local Icons = require('ui/instrument_icons')
 local Readout = require('src/dial_readout')
 local AuxiliaryStyles = require('ui/auxiliary_dial_styles')
 local MiniProfiles = require('src/mini_dial_profiles')
@@ -35,14 +36,7 @@ local function arc(center, radius, first, last, width, color, scale, style)
   ui.pathStroke(Light.color(color, style), false, width * scale)
 end
 
-local function batteryIcon(center, scale, color)
-  local function p(x, y) return center + vec2(x * scale, y * scale) end
-  ui.drawRect(p(-11, -6), p(8, 6), color, scale, nil, 1.5 * scale)
-  ui.drawLine(p(10, -3), p(10, 3), color, 2 * scale)
-  ui.drawLine(p(-7, 0), p(-1, 0), color, 1.3 * scale)
-  ui.drawLine(p(-4, -3), p(-4, 3), color, 1.3 * scale)
-  ui.drawLine(p(2, 0), p(5, 0), color, 1.3 * scale)
-end
+local batteryIcon = Icons.batteryIcon
 
 -- Triptych option C: independent bipolar CHG/PWR arc plus a thinner state-
 -- of-charge arc at the bezel. Both views share identical telemetry semantics.
