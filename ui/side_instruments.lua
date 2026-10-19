@@ -137,8 +137,8 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     or U.clamp(state.fuelNormalized or 0, 0, 1))
   local zero = rpm and not aero and -minimum / (maximum - minimum) or 0
   local low = not rpm and available and fraction < Config.fuelWarning
-  local blink = low and fraction < 0.10 and settings.animateIndicators ~= false
-    and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
+  local flashPhase = settings.animateIndicators ~= false and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
+  local blink = low and fraction < 0.10 and flashPhase
   local lowInk = blink and Theme.withAlpha(C.red, 0.18) or C.red
   if MiniProfiles.get(style) then
     local needleValue = fraction
@@ -149,9 +149,11 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     end
     local warning=aero and 0.82 or rpm and (Config.boostWarning*maximum-minimum)/(maximum-minimum)
       or Config.fuelWarning
-    MiniDial.draw(style,subCenter,scale,digital,AuxiliaryStyles.channel({
+    local miniCenter=not rpm and subCenter-vec2(0,18*scale) or subCenter
+    MiniDial.draw(style,miniCenter,scale,digital,AuxiliaryStyles.channel({
       kind=not rpm and 'fuel' or aero and 'aero' or 'boost', available=available,
-      value=fraction,needleValue=needleValue,zero=zero,warning=warning,lowInk=low and lowInk or nil
+      value=fraction,needleValue=needleValue,zero=zero,warning=warning,lowInk=low and lowInk or nil,
+      alertInk=low and (flashPhase and Theme.withAlpha(C.red,0.18) or C.red) or nil
     },C,L),C,L,{
       left=aero and '0' or rpm and string.format('%.1f',minimum) or 'E',
       right=aero and '100' or rpm and string.format('%.1f',maximum) or 'F',
@@ -262,35 +264,24 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local tint = not available and C.outlineSoft or (low and lowInk or C.primary)
   icon(aero and M.aeroIcon or (rpm and M.boostIcon or M.fuelIcon),
     iconCenter, S.iconScale * scale, tint, available and L.icon or L.inner)
-  local labelFirst = S.analogStart + (S.startAngle - S.analogStart) * digital
-  local labelLast = S.analogEnd + (S.endAngle - S.analogEnd) * digital
-  local labelRadius = S.analogRadius - 20 + (S.radius - 16 - S.analogRadius + 20) * digital
   text(aero and '0' or (rpm and string.format('%.1f', minimum) or 'E'), S.endSize * scale,
-    U.polar(subCenter, labelRadius * scale, labelFirst) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
+    subCenter + vec2(-74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
   text(aero and '100' or (rpm and string.format('%.1f', maximum) or 'F'), S.endSize * scale,
-    U.polar(subCenter, labelRadius * scale, labelLast) + vec2(0, 18 * scale), C.secondary, nil, L.label, scale)
-  text(not available and 'N/A' or (aero and 'AERO' or (rpm and 'BOOST' or 'FUEL')), S.labelSize * scale,
-    subCenter + vec2(0, S.labelY * scale), low and lowInk or C.secondary, nil, L.label, scale)
+    subCenter + vec2(74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
+  if not available then
+    text('N/A', S.labelSize * scale,
+      subCenter + vec2(0, 29 * scale), low and lowInk or C.secondary, nil, L.label, scale)
+  end
 end
 
 -- Radial and Orbit use the lower circumference for their auxiliary reading.
 local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
-  local style = DialStyles.auxiliaryStyle(settings, rpm)
   local visual = state.gt7Instruments
   local digital = visual and (rpm and visual.rpmDigital or visual.speedDigital)
   if digital==nil then digital=settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode']=='analog' and 0 or 1 end
-  if MiniProfiles.get(style) then
-    -- The lower-arc slot starts below the largest central capsule (87px).
-    -- Full faces now use 15% more room. Lower their anchor just enough to keep
-    -- the outer hybrid battery track clear of the central capsule as well.
-    local miniScale=scale*0.58
-    local miniY=MiniProfiles.get(style).half and 125 or 129
-    subGauge(center+vec2(0,(miniY-S.offsetY*0.58)*scale),miniScale,state,settings,C,digital,light,rpm,L)
-    return
-  end
   local hybrid = rpm and Hybrid.forGauge(state)
   if hybrid then
-    HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc', style, digital<0.5)
+    HybridGauge.draw(center, scale, hybrid, C, settings.theme, light, 'gt7_lower_arc', 'original', digital<0.5)
     return
   end
   local pressure, minimum, maximum = Presentation.boost(state, settings)
@@ -305,28 +296,16 @@ local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
   local blink = low and fraction < 0.10 and settings.animateIndicators ~= false
     and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
   local lowInk = blink and Theme.withAlpha(C.red, 0.18) or C.red
-  if style ~= 'original' then
-    local warning = aero and 0.82 or rpm and (Config.boostWarning * maximum - minimum) / (maximum - minimum)
-      or Config.fuelWarning
-    AuxiliaryStyles.draw(style,center,scale,{
-      radius=143,width=10,count=16,first=math.rad(150),last=math.rad(30),consume=digital<0.5
-    },AuxiliaryStyles.channel({
-      kind=not rpm and 'fuel' or aero and 'aero' or 'boost',
-      available=available,value=fraction,zero=zero,marker=true,
-      warning=warning,lowInk=low and lowInk or nil
-    },C,L),C,L)
-  else
-    for i, block in ipairs(lowerSubGeometry) do
-      local f = (i - 0.5) / 32
-      local active = available and (rpm and f >= math.min(zero, fraction) and f <= math.max(zero, fraction)
-        or not rpm and i <= math.ceil(fraction * 32))
-      local warning = not rpm and (low or f <= Config.fuelWarning)
-        or rpm and not aero and f >= (Config.boostWarning * maximum - minimum) / (maximum - minimum)
-      local color = not available and C.outlineDim or (active and (warning and (low and lowInk or C.red)
-        or aero and (f >= 0.82 and C.amber or C.cyan) or rpm and C.primary or C.cyan)
-        or warning and C.redDim or C.inactive)
-      Light.segment(center, scale, block, color, active and L.subSegment or nil)
-    end
+  for i, block in ipairs(lowerSubGeometry) do
+    local f = (i - 0.5) / 32
+    local active = available and (rpm and f >= math.min(zero, fraction) and f <= math.max(zero, fraction)
+      or not rpm and i <= math.ceil(fraction * 32))
+    local warning = not rpm and (low or f <= Config.fuelWarning)
+      or rpm and not aero and f >= (Config.boostWarning * maximum - minimum) / (maximum - minimum)
+    local color = not available and C.outlineDim or (active and (warning and (low and lowInk or C.red)
+      or aero and (f >= 0.82 and C.amber or C.cyan) or rpm and C.primary or C.cyan)
+      or warning and C.redDim or C.inactive)
+    Light.segment(center, scale, block, color, active and L.subSegment or nil)
   end
   local tint = not available and C.outlineSoft or low and lowInk or C.primary
   icon(aero and M.aeroIcon or rpm and M.boostIcon or M.fuelIcon,

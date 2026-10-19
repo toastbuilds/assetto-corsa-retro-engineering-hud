@@ -31,13 +31,30 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
   end
   local available = channel.available and channel.value~=nil
   local value = U.clamp(channel.value or 0,0,1)
-  local tint = available and (channel.lowInk or C.primary) or C.outlineDim
+  local fuel=channel.kind=='fuel'
+  local fuelLow=available and fuel and value<(channel.warning or 0.15)
+  local fuelCaution=available and fuel and value<(channel.warning or 0.15)*2
+  local fuelInk=channel.lowInk or (fuelLow and C.red or fuelCaution and C.amber or C.cyan)
+  local tint = available and (fuel and fuelCaution and fuelInk or channel.lowInk or C.primary) or C.outlineDim
+  local needleValue=U.clamp(channel.needleValue or value,0,1)
+  local zero=(fuel or channel.kind=='battery') and 0 or channel.zero or 0
+  local analogFirst=Profiles.angle(f,math.min(zero,needleValue))
+  local analogLast=Profiles.angle(f,math.max(zero,needleValue))
   local function segmentInk(v,active)
-    -- No printed reserve zone: idle cells have one neutral ink. Fuel changes
-    -- color only when the owning instrument actually reports low fuel.
     if not active then return available and C.inactive or C.outlineDim end
-    if channel.kind=='fuel' then return channel.lowInk or C.cyan end
+    if fuel then return fuelInk end
     return channel.color(v,true)
+  end
+  local function analogInk(v)
+    if fuel then return fuelCaution and fuelInk or C.primary end
+    return channel.color(v,true)
+  end
+  local function analogActive(v)
+    return available and needleValue~=zero and v>=math.min(zero,needleValue) and v<=math.max(zero,needleValue)
+  end
+  local function analogFill(radius,a,b,width,v)
+    a,b=math.max(a,analogFirst),math.min(b,analogLast)
+    if available and b>a then arc(radius,a,b,width,analogInk(v),L.subSegment) end
   end
   local function cellAngles(i)
     local first,last=f.edges[i],f.edges[i+1]
@@ -56,12 +73,26 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     if a<terminalAngle then arc(radius,a,terminalAngle,width,ink,style) end
     arc(radius,math.max(a,terminalAngle),b,width,active and C.red or C.redDim,style)
   end
-  local function printedCells(radius,width,ink,persistent)
+  local function printedCells(radius,width,ink,persistent,fuelBackground)
     if not persistent and digital>=1 then return end
     ui.pushStyleVarAlpha(persistent and 1 or 1-digital)
     for i=1,f.segmentCount do
       local a,b=cellAngles(i)
-      arc(radius,a,b,width,ink)
+      local warningStart=fuelBackground=='cell' and f.edges[f.segmentCount] or terminalAngle
+      if available and fuel and fuelBackground and b>warningStart then
+        if a<warningStart then arc(radius,a,warningStart,width,ink) end
+        arc(radius,math.max(a,warningStart),b,width,fuelLow and fuelInk or C.redDim)
+      else arc(radius,a,b,width,ink) end
+    end
+    ui.popStyleVar(1)
+  end
+  local function analogCells(radius,width,persistent)
+    printedCells(radius,width,available and C.inactive or C.outlineDim,persistent)
+    if digital>=1 then return end
+    ui.pushStyleVarAlpha(1-digital)
+    for i=1,f.segmentCount do
+      local a,b=cellAngles(i)
+      analogFill(radius,a,b,width,(i-0.5)/f.segmentCount)
     end
     ui.popStyleVar(1)
   end
@@ -72,7 +103,9 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     circle(r,2.6,C.metal)
     if f.rim==2 then circle(r-4,1,C.primary) end
   end
-  if f.accent then arc(r-6,math.rad(300),math.rad(410),3,C.primary) end
+  if f.accent then
+    arc(r-6,math.rad(300),math.rad(410),3,fuelLow and (channel.alertInk or fuelInk) or C.primary)
+  end
   if f.inner then arc(r-8,math.rad(135),math.rad(405),1.4,C.primary) end
   if f.wheel then
     arc(r-9,f.first,f.last,1.6,C.primary)
@@ -82,15 +115,16 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     end
   end
   if f.cells then
+    if fuel then printedCells(r-10.5,4.8,available and C.inactive or C.outlineDim,false,'cell') end
     arc(r-7,f.first,f.last,1,C.primary); arc(r-14,f.first,f.last,1.4,C.primary)
     for _,a in ipairs(f.edges) do
       line(polar(r-14,a),polar(r-7,a),C.primary,1.5)
     end
   end
-  if f.inward then printedCells(r-9,10,C.outline) end
+  if f.inward then analogCells(r-9,10,false) end
   if f.sun then circle(r-17,1.4,C.primary) end
   if f.dashed then
-    printedCells(r-8,3,C.primary)
+    printedCells(r-8,3,C.primary,false,'terminal')
   end
   if f.arch or f.lattice then
     arc(r-6,math.pi,math.pi*2,1.8,C.primary)
@@ -105,9 +139,13 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     local shelfX=math.abs((r-9)*math.cos(f.first))
     line(p(-shelfX,cy+shelfY),p(shelfX,cy+shelfY),C.primary,1.5)
   end
-  if f.sweep then arc(r-5,math.rad(190),math.rad(360),10,C.primary) end
+  if f.sweep then
+    local a,b=math.rad(190),math.rad(360)
+    arc(r-5,a,b,10,available and C.inactive or C.outlineDim)
+    analogFill(r-5,a,b,10,value)
+  end
   if f.blocks then
-    printedCells(r-9,f.broad and 10 or 6,C.primary,true)
+    analogCells(r-9,f.broad and 10 or 6,true)
   end
   if f.base then
     ui.pathClear()
@@ -127,6 +165,10 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
       if f.sun then inner,outer=r-17,r-11 end
       if f.inward then inner,outer=r-19,r-15 end
       local ink=available and ((f.inward or major) and C.primary or C.secondary) or C.outlineDim
+      if f.inward and digital<1 then
+        local activeInk=analogActive(v) and analogInk(v) or available and C.inactive or C.outlineDim
+        ink=digital<=0 and activeInk or Light.mix(activeInk,ink,digital)
+      end
       if f.shelf and not major then ui.pushStyleVarAlpha(1-digital) end
       line(polar(inner,a),polar(outer,a),ink,major and 1.6 or 0.9)
       if f.shelf and not major then ui.popStyleVar(1) end
@@ -226,14 +268,20 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
   if f.plaque then
     ui.drawRectFilled(p(-13,cy+14),p(13,cy+21),Light.color(C.outline,L.inner))
   end
-  if content.icon then content.icon(p(0,f.half and 16 or cy+32),scale*0.5,tint) end
-  text(content.value,10,0,f.half and 16 or cy+31,tint)
-  text(content.label,10,0,35,available and (channel.lowInk or C.secondary) or C.outlineDim)
-  -- Keep the end labels outside the face and beyond the principal hand's
-  -- reach. Draw their local backing and high-contrast text last.
+  local caption=not content.icon and content.label or not available and 'N/A' or nil
+  if content.icon and available then
+    -- Fuel, boost and aero share the centered icon-only presentation.
+    content.icon(p(0,f.half and 16 or cy+33),scale*0.5,tint)
+  end
+  text(content.value,10,0,f.half and 16 or cy+22,tint)
+  if caption then
+    text(caption,10,0,f.half and 31 or cy+36,
+      available and (channel.lowInk or C.secondary) or C.outlineDim)
+  end
+  -- Side labels leave the lower rim free and remain outside the bezel.
   local function endpoint(value,x)
     if not value then return end
-    local position=p(x,f.half and 19 or 27)
+    local position=p(x,f.half and 12 or cy+17)
     local size=11*scale
     local half=ui.measureDWriteText(value,size)/2
     ui.drawRectFilled(position-half-vec2(scale,scale*0.5),
@@ -242,7 +290,7 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
   end
   local labelWidth=math.max(ui.measureDWriteText(content.left or '',11*scale).x,
     ui.measureDWriteText(content.right or '',11*scale).x)/scale
-  local labelX=f.half and 48 or labelWidth>11 and 32 or 24
+  local labelX=f.half and 61 or math.max(r+8,r+3+labelWidth/2)
   endpoint(content.left,-labelX)
   endpoint(content.right,labelX)
 end

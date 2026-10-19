@@ -285,7 +285,8 @@ local function drawInspired(id,f,center,scale,state,settings,C,L,digital,light,r
   elseif f.aux and auxiliary then
     local aux=f.aux
     local auxScale=scale*aux[3]
-    auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
+    local auxY=MiniProfiles.get(DialStyles.auxiliaryStyle(settings,rpm)) and math.min(aux[2],124) or aux[2]
+    auxiliary(p(aux[1],auxY)-vec2(0,Config.sub.offsetY*auxScale),auxScale,
       state,settings,C,MiniProfiles.get(DialStyles.auxiliaryStyle(settings,rpm)) and digital
         or (f.analog and 0 or 1),light,rpm,L)
   end
@@ -532,7 +533,8 @@ end
   else
     local aux=f.aux
     local auxScale=scale*aux[3]
-    auxiliary(p(aux[1],aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
+    local auxX=MiniProfiles.get(DialStyles.auxiliaryStyle(settings,rpm)) and aux[1]*0.8 or aux[1]
+    auxiliary(p(auxX,aux[2])-vec2(0,Config.sub.offsetY*auxScale),auxScale,
       state,settings,C,digital,light,rpm,L)
   end
 

@@ -34,15 +34,19 @@ def main():
         local L=require('ui/instrument_illumination').resolve(C,options.theme,options.light)
         local Channels=require('ui/auxiliary_dial_styles')
         local Mini=require('ui/mini_dial')
+        local Theme=require('src/theme')
+        local low=options.available and options.kind=='fuel' and options.value<0.15
+        local flash=options.animate~=false and math.floor((options.clock or 0)/0.25)%2~=0
         local content={left=options.kind=='boost' and '-0.5' or 'E',
           right=options.kind=='boost' and '1.5' or 'F',label=options.available and
             (options.kind=='boost' and 'BOOST' or 'FUEL') or 'N/A',
           icon=options.kind=='boost' and require('ui/side_instruments').boostIcon or require('ui/side_instruments').fuelIcon}
-        Mini.draw(options.id,vec2(85,72),1,options.digital,Channels.channel({
+        Mini.draw(options.id,vec2(110,90),1,options.digital,Channels.channel({
           kind=options.kind,available=options.available,value=options.value,
           needleValue=options.value,zero=options.kind=='boost' and 0.25 or 0,
           warning=options.kind=='boost' and 0.925 or 0.15,
-          lowInk=options.kind=='fuel' and options.value<0.15 and C.red or nil
+          lowInk=low and (flash and options.value<0.1 and Theme.withAlpha(C.red,0.18) or C.red) or nil,
+          alertInk=low and (flash and Theme.withAlpha(C.red,0.18) or C.red) or nil
         },C,L),C,L,content)
       end}
     ''')
@@ -51,16 +55,16 @@ def main():
     small = ImageFont.truetype(str(preview.FONT), 14)
     profiles = [p for _, p in lua.globals().miniProfiles.choices.items()]
 
-    def render(id, digital, theme='dark', kind='fuel', value=0.6, available=True, light=0):
+    def render(id, digital, theme='dark', kind='fuel', value=0.6, available=True, light=0, clock=0):
         if digital==1 and lua.globals().miniProfiles.get(id)['digital']==False:
-            picture=Image.new('RGB',(170,132),'#121416' if theme=='dark' else '#f2eee6')
+            picture=Image.new('RGB',(220,160),'#121416' if theme=='dark' else '#f2eee6')
             ImageDraw.Draw(picture).text((10,45),'SOLO ANALOGICO',font=small,
                 fill='#969c9e' if theme=='dark' else '#555555')
             return picture
         options = lua.table_from(dict(id=id, digital=digital, theme=theme,
-            kind=kind, value=value, available=available, light=light))
-        calls = harness['drawRenderer'](lua.globals().miniRenderer, harness['state'], options, lua.table_from((170,132)))
-        return preview.raster(calls,170,132,'#121416' if theme=='dark' else '#f2eee6')
+            kind=kind, value=value, available=available, light=light, clock=clock))
+        calls = harness['drawRenderer'](lua.globals().miniRenderer, harness['state'], options, lua.table_from((220,160)))
+        return preview.raster(calls,220,160,'#121416' if theme=='dark' else '#f2eee6')
 
     tile_w, tile_h = (660 if source else 450), 260
     sheet = Image.new('RGB',(tile_w*4,128+tile_h*4),'#121416')
@@ -90,7 +94,7 @@ def main():
                 filename.unlink(missing_ok=True)
             else:
                 picture.save(filename)
-            parts.append((mode,picture.resize((200,155),Image.Resampling.LANCZOS)))
+            parts.append((mode,ImageOps.pad(picture,(200,155),color='#121416')))
         for part,(label,picture) in enumerate(parts):
             px=x+16+part*214
             sheet.paste(picture,(px,y+48))
@@ -99,21 +103,36 @@ def main():
     sheet.save(destination)
 
     # Review at native size: opposite themes, lighting, warnings, pressure and
-    # missing data. Each tile uses exactly 170x132 design pixels, no enlargement.
+    # missing data. Each tile uses exactly 220x160 design pixels, no enlargement.
     scenarios=(('Light','light','fuel',0.6,True,0),('Backlight','dark','fuel',0.6,True,1),
         ('Reserve','dark','fuel',0.08,True,0),('Full','dark','fuel',1,True,0),('Vacuum','dark','boost',0.1,True,0),
         ('Boost','dark','boost',0.98,True,0),('No data','dark','fuel',0,False,0))
-    review=Image.new('RGB',(16*170,70+len(scenarios)*156*2),'#121416')
+    review=Image.new('RGB',(16*220,70+len(scenarios)*184*2),'#121416')
     rd=ImageDraw.Draw(review)
     for col,choice in enumerate(profiles):
-        rd.text((col*170+8,12),choice['label'].split(' - ')[0],font=face,fill='#efe5ce')
+        rd.text((col*220+8,12),choice['label'].split(' - ')[0],font=face,fill='#efe5ce')
     for row,(name,theme,kind,value,available,light) in enumerate(scenarios):
         for digital in (0,1):
-            y=50+(row*2+digital)*156
+            y=50+(row*2+digital)*184
             for col,choice in enumerate(profiles):
-                review.paste(render(choice['value'],digital,theme,kind,value,available,light),(col*170,y+20))
-                rd.text((col*170+6,y),f'{name} / {"A" if digital==0 else "D"}',font=small,fill='#aab0b1')
+                review.paste(render(choice['value'],digital,theme,kind,value,available,light),(col*220,y+20))
+                rd.text((col*220+6,y),f'{name} / {"A" if digital==0 else "D"}',font=small,fill='#aab0b1')
     review.save(OUTPUT/'native-size-review.png')
+    levels=(('100%',1,0),('60%',0.6,0),('22% / AMBER',0.22,0),
+        ('12% / RED',0.12,0),('12% / BLINK',0.12,0.3),('8% / CRITICAL',0.08,0),('EMPTY',0,0))
+    fuel_ids=('mini_f1c3','mini_f1c4','mini_f2c1','mini_f2c3',
+        'mini_f2c4','mini_f3c4','mini_f4c2','mini_f4c4')
+    consumption=Image.new('RGB',(len(levels)*220,80+len(fuel_ids)*205),'#121416')
+    cd=ImageDraw.Draw(consumption)
+    cd.text((12,10),'FUEL / ANALOG FILL, WARNING INK AND OFF STATES / LUA RENDERS',font=face,fill='#efe5ce')
+    for col,(label,_,_) in enumerate(levels):
+        cd.text((col*220+12,44),label,font=small,fill='#aab0b1')
+    for row,id in enumerate(fuel_ids):
+        y=80+row*205
+        cd.text((12,y),id.replace('mini_','').upper(),font=face,fill='#efe5ce')
+        for col,(_,value,clock) in enumerate(levels):
+            consumption.paste(render(id,0,value=value,clock=clock),(col*220,y+26))
+    consumption.save(OUTPUT/'fuel-consumption-review.png')
     # Integration fixtures are actual complete HUD renders, not recompositions.
     state=harness['state']
     for key,value in dict(available=True,fuel=30,maxFuel=50,fuelNormalized=0.6,
@@ -124,7 +143,7 @@ def main():
         state[key]=value
     for mode,main in (('analog','original'),('digital','orbit')):
         state['gt7Instruments']=None
-        options=lua.table_from(dict(theme='dark',gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+        options=lua.table_from(dict(theme='dark',gt7SimulateVacuum=True,gt7VacuumMinimum=-0.5,gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
             gt7SpeedDialStyle=main,gt7RpmDialStyle=main,gt7SpeedAuxiliaryStyle='mini_f1c2',
             gt7RpmAuxiliaryStyle='mini_f4c3'))
         calls=harness['draw']('classic',options,state)
@@ -134,22 +153,24 @@ def main():
         state['hybrid']=None
     # These crops come from the composed HUD, so primary face layers and the
     # main hand are present when checking whether E/F remain visible.
-    legibility=Image.new('RGB',(4*340,8*168+44),'#121416')
+    legibility=Image.new('RGB',(4*600,8*208+44),'#121416')
     ld=ImageDraw.Draw(legibility)
-    ld.text((12,10),'E/F / COMPOSED GT7 HUD / ANALOG + DIGITAL',font=face,fill='#efe5ce')
+    ld.text((12,10),'FUEL + BOOST / COMPOSED GT7 HUD / ANALOG + DIGITAL',font=face,fill='#efe5ce')
     for index,choice in enumerate(profiles):
         row,col=divmod(index,4)
         for digital,mode in enumerate(('analog','digital')):
-            x,y=col*340,row*336+44+digital*168
+            x,y=col*600,row*416+44+digital*208
             if digital and lua.globals().miniProfiles.get(choice['value'])['digital']==False:
                 picture=render(choice['value'],1)
             else:
-                options=lua.table_from(dict(theme='dark',gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
+                options=lua.table_from(dict(theme='dark',gt7SimulateVacuum=True,gt7VacuumMinimum=-0.5,gt7SpeedNeedleMode=mode,gt7RpmNeedleMode=mode,
                     gt7SpeedDialStyle='original',gt7RpmDialStyle='original',
                     gt7SpeedAuxiliaryStyle=choice['value'],gt7RpmAuxiliaryStyle=choice['value']))
                 state['gt7Instruments']=None
-                picture=preview.raster(harness['draw']('classic',options,state)).crop((90,290,260,426))
-            legibility.paste(picture,(x+164,y+24))
+                composed=preview.raster(harness['draw']('classic',options,state))
+                picture=composed.crop((65,248,285,430))
+                legibility.paste(composed.crop((1155,248,1375,430)),(x+360,y+24))
+            legibility.paste(picture,(x+140,y+24))
             ld.text((x+8,y+40),choice['label'].split(' - ')[0],font=face,fill='#efe5ce')
             ld.text((x+8,y+66),mode.upper(),font=small,fill='#969c9e')
     legibility.save(OUTPUT/'hud-label-review.png')

@@ -30,6 +30,7 @@ function M.normalizeAuxiliary(value,mode)
 end
 
 function M.auxiliaryStyle(settings,rpm)
+  if not M.canCustomizeAuxiliary(settings,rpm) then return 'original' end
   local selected=M.normalizeAuxiliary(settings[rpm and 'gt7RpmAuxiliaryStyle' or 'gt7SpeedAuxiliaryStyle'],
     settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode'])
   if selected~='match' then return selected end
@@ -38,6 +39,13 @@ function M.auxiliaryStyle(settings,rpm)
     if main==motif..'_analog' or main==motif..'_digital' then return motif end
   end
   return 'original'
+end
+
+function M.canCustomizeAuxiliary(settings,rpm)
+  local role=rpm and 'rpm' or 'speed'
+  local face=M.get(settings[rpm and 'gt7RpmDialStyle' or 'gt7SpeedDialStyle'],
+    settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode'],role)
+  return face.lowerArc~=true and face.lowerArc~=role
 end
 
 M.analog = {

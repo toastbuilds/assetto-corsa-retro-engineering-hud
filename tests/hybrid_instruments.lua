@@ -95,7 +95,7 @@ for _,turbo in ipairs({false,true}) do
             assert(labels['CHG'] and labels['PWR'] and labels['120 kW'] and labels['84%']
               and not labels['BOOST'] and not labels['NAT ASP'],
               'all GT7 modes and compositions must use the electric RPM subinstrument')
-            assert(labels['FUEL'],'GT7 electric mode must preserve the speed dial fuel gauge')
+            assert(labels['E'] and labels['F'],'GT7 electric mode must preserve the speed dial fuel gauge')
           end
         end
       end

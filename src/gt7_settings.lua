@@ -215,8 +215,15 @@ function M.draw()
       ui.textWrapped('The theme-colored background grows with relative slipstream strength. It uses air-density physics after learning a clean-air reference, or estimates the wake from traffic position when physics is unavailable, including replays and remote cars. It is not a power-gain percentage.')
       choice('rpmDialStyle', 'RPM dial style',
         DialStyles.choices(M.values.gt7RpmNeedleMode, 'rpm'))
-      choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliaryChoices(M.values.gt7SpeedNeedleMode))
-      choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliaryChoices(M.values.gt7RpmNeedleMode))
+      local fuelCustom=DialStyles.canCustomizeAuxiliary(M.values,false)
+      local rpmCustom=DialStyles.canCustomizeAuxiliary(M.values,true)
+      if fuelCustom then
+        choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliaryChoices(M.values.gt7SpeedNeedleMode))
+      end
+      if rpmCustom then
+        choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliaryChoices(M.values.gt7RpmNeedleMode))
+      end
+      if not fuelCustom or not rpmCustom then ui.textWrapped('Expanded lower gauges use a fixed design.') end
       if M.values.gt7SpeedNeedleMode == 'analog' then
         SettingsUI.needle('gt7', 'speedNeedleStyle', 'Speed needle', M.values.gt7SpeedNeedleStyle,
           InstrumentConfig, function(value) M.values.gt7SpeedNeedleStyle = value end)

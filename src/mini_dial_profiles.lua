@@ -1,6 +1,6 @@
 -- Reference sheet coordinates are stable IDs, shared by settings and previews.
--- Full faces use 15% more space, including their scales, hands and labels.
--- Presented bounds remain x +/-70; full-face footers extend to y=56.
+-- All concept faces use another 10% of space; side labels free the lower edge.
+-- Presented bounds remain x +/-107; full-face footers stay inside the face.
 local M = { choices = {} }
 local rows = {
   {'Twin Rim', 'Spoke Wheel', 'Crown Blocks', 'Offset Blocks'},
@@ -9,7 +9,7 @@ local rows = {
   {'Open Ticks', 'Sweep Band', 'Lattice Arch', 'Segment Arch'}
 }
 local specifications = {
-  {rim=2, ticks=12, needle='spear',segmentCount=24},
+  {rim=2,ticks=12,needle='spear',segmentCount=24},
   {rim=1, wheel=true, ticks=0, needle='line', hub='solid', first=150,last=390,
     segmentCount=8,segmentRadius=29.5,segmentWidth=8},
   {rim=1, blocks=5, first=180, last=360, needle='spear', broad=true},
@@ -45,8 +45,8 @@ for index, profile in ipairs(specifications) do
   profile.radius = profile.half and 63 or 44
   profile.ticks = profile.ticks or 0
   profile.y = profile.half and 0 or -20
-  profile.sizeScale=profile.half and 1 or 1.15
-  profile.offsetY=profile.half and 0 or 9.5
+  profile.sizeScale=(profile.half and 1.05 or 1.32)*1.10
+  profile.offsetY=profile.half and 5 or 13.5
   profile.first = math.rad(profile.first or (profile.half and 180 or 140))
   profile.last = math.rad(profile.last or (profile.half and 360 or 400))
   profile.segmentRadius=profile.segmentRadius or (profile.half and 54 or 35)

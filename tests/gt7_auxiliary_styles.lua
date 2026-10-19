@@ -67,7 +67,8 @@ for _,mode in ipairs({'analog','digital'}) do
         for _,style in ipairs({'halo','jewel','spectrum'}) do
           options[rpm and 'gt7RpmAuxiliaryStyle' or 'gt7SpeedAuxiliaryStyle']=style
           local calls=harness.draw('classic',options,state)
-          assert(signature(calls,cx)~=baseline,'the auxiliary style must change its visible drawing')
+          assert((signature(calls,cx)~=baseline)==not rim,
+            'only compact gauges allow auxiliary customization')
           local text=labels(calls)
           assert(text['139'],'the primary speed must remain available')
           if channel=='hybrid' then
@@ -131,7 +132,7 @@ local function fuelDotAlpha(style,clock,animate,rim)
   error('the low fuel indicator must remain visible')
 end
 for _,style in ipairs({'halo','jewel','spectrum'}) do
-  for _,rim in ipairs({false,true}) do
+  for _,rim in ipairs({false}) do
     assert(fuelDotAlpha(style,0,true,rim)>fuelDotAlpha(style,0.3,true,rim),
       'fuel below 10% must blink: '..style)
     assert(fuelDotAlpha(style,0.3,false,rim)>0.8,'disabled indicator animation must retain the steady warning')
@@ -176,7 +177,7 @@ local function spectrumLength(mode,rim,hybrid,value)
   end
   return length
 end
-for _,rim in ipairs({false,true}) do
+for _,rim in ipairs({false}) do
   for _,hybrid in ipairs({false,true}) do
     local low=spectrumLength('analog',rim,hybrid,0.2)
     local high=spectrumLength('analog',rim,hybrid,0.8)
