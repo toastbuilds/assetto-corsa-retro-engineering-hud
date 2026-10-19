@@ -129,7 +129,7 @@ def main():
         cd.text((col*220+12,44),label,font=small,fill='#aab0b1')
     for row,id in enumerate(fuel_ids):
         y=80+row*205
-        cd.text((12,y),id.replace('mini_','').upper(),font=face,fill='#efe5ce')
+        cd.text((12,y),lua.globals().miniProfiles.get(id)['name'],font=face,fill='#efe5ce')
         for col,(_,value,clock) in enumerate(levels):
             consumption.paste(render(id,0,value=value,clock=clock),(col*220,y+26))
     consumption.save(OUTPUT/'fuel-consumption-review.png')

@@ -218,10 +218,12 @@ function M.draw()
       local fuelCustom=DialStyles.canCustomizeAuxiliary(M.values,false)
       local rpmCustom=DialStyles.canCustomizeAuxiliary(M.values,true)
       if fuelCustom then
-        choice('speedAuxiliaryStyle', 'Fuel gauge style', DialStyles.auxiliaryChoices(M.values.gt7SpeedNeedleMode))
+        SettingsUI.choiceSlider('gt7','speedAuxiliaryStyle','Fuel gauge style',M.values.gt7SpeedAuxiliaryStyle,
+          DialStyles.auxiliaryChoices(M.values.gt7SpeedNeedleMode),function(value) M.values.gt7SpeedAuxiliaryStyle=value end)
       end
       if rpmCustom then
-        choice('rpmAuxiliaryStyle', 'Turbo / AERO / battery gauge style', DialStyles.auxiliaryChoices(M.values.gt7RpmNeedleMode))
+        SettingsUI.choiceSlider('gt7','rpmAuxiliaryStyle','Turbo / AERO / battery gauge style',M.values.gt7RpmAuxiliaryStyle,
+          DialStyles.auxiliaryChoices(M.values.gt7RpmNeedleMode),function(value) M.values.gt7RpmAuxiliaryStyle=value end)
       end
       if not fuelCustom or not rpmCustom then ui.textWrapped('Expanded lower gauges use a fixed design.') end
       if M.values.gt7SpeedNeedleMode == 'analog' then

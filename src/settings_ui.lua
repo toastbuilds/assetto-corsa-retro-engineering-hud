@@ -49,6 +49,18 @@ function M.needle(page, key, label, current, config, set)
   end
 end
 
+function M.choiceSlider(page, key, label, current, choices, set)
+  local index=1
+  for i,choice in ipairs(choices) do if choice.value==current then index=i; break end end
+  ui.textWrapped(label .. ': ' .. choices[index].label)
+  local selected,changed=ui.slider('##' .. page .. '.' .. key,index,1,#choices,
+    '%.0f / ' .. #choices,1)
+  if changed then
+    selected=math.max(1,math.min(#choices,math.floor(selected+0.5)))
+    set(choices[selected].value)
+  end
+end
+
 function M.resetAppearance(page, reset)
   if ui.button('Reset appearance##' .. page) then
     reset()

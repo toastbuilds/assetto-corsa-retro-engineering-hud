@@ -15,6 +15,10 @@ local function miniChoices(mode)
   return list
 end
 assert(#Profiles.choices==16 and #Styles.auxiliary==21)
+for _,choice in ipairs(Profiles.choices) do
+  assert(choice.label==Profiles.get(choice.value).name and not choice.label:match('F%dC%d'),
+    'style names must be descriptive without reference coordinates')
+end
 assert(#Styles.auxiliaryChoices('digital')==20)
 assert(Styles.normalizeAuxiliary('mini_f4c2','analog')=='mini_f4c2')
 assert(Styles.normalizeAuxiliary('mini_f4c2','digital')=='original')
@@ -235,15 +239,24 @@ end
 Settings.values.gt7SpeedNeedleMode,Settings.values.gt7RpmNeedleMode='analog','digital'
 Settings.values.gt7SpeedDialStyle,Settings.values.gt7RpmDialStyle='fan','bridge'
 Settings.values.gt7SpeedAuxiliaryStyle,Settings.values.gt7RpmAuxiliaryStyle='mini_f1c1','mini_f2c1'
-harness.pendingCombos['##gt7.speedAuxiliaryStyle']=2
-harness.pendingCombos['##gt7.rpmAuxiliaryStyle']=2
+harness.pendingSliders['##gt7.speedAuxiliaryStyle']=3
+harness.pendingSliders['##gt7.rpmAuxiliaryStyle']=3
 Settings.draw()
-assert(harness.pendingCombos['##gt7.speedAuxiliaryStyle']==2 and harness.pendingCombos['##gt7.rpmAuxiliaryStyle']==2)
+assert(harness.pendingSliders['##gt7.speedAuxiliaryStyle']==3 and harness.pendingSliders['##gt7.rpmAuxiliaryStyle']==3)
 assert(Settings.current().gt7SpeedAuxiliaryStyle=='mini_f1c1' and Settings.current().gt7RpmAuxiliaryStyle=='mini_f2c1')
 Settings.values.gt7SpeedDialStyle,Settings.values.gt7RpmDialStyle='original','original'
 Settings.draw()
-assert(harness.pendingCombos['##gt7.speedAuxiliaryStyle']==nil and harness.pendingCombos['##gt7.rpmAuxiliaryStyle']==nil)
+assert(harness.pendingSliders['##gt7.speedAuxiliaryStyle']==nil and harness.pendingSliders['##gt7.rpmAuxiliaryStyle']==nil)
 assert(Settings.current().gt7SpeedAuxiliaryStyle=='halo' and Settings.current().gt7RpmAuxiliaryStyle=='halo')
+harness.pendingSliders['##gt7.speedAuxiliaryStyle']=19
+harness.pendingSliders['##gt7.rpmAuxiliaryStyle']=20
+Settings.draw()
+assert(Settings.current().gt7SpeedAuxiliaryStyle=='mini_f4c2','analog slider can select Sweep Band')
+assert(Settings.current().gt7RpmAuxiliaryStyle=='mini_f4c4','digital slider reaches the last allowed style')
+harness.pendingSliders['##gt7.speedAuxiliaryStyle']=6
+Settings.draw()
+assert(Settings.current().gt7SpeedAuxiliaryStyle=='mini_f1c1' and
+  Settings.current().gt7RpmAuxiliaryStyle=='mini_f4c4','sliders preserve independent selections')
 for _,frame in ipairs({'classic','modern','outer_pedals','steering_dial'}) do
   for _,mode in ipairs({'analog','digital'}) do
     for _,choice in ipairs(miniChoices(mode)) do

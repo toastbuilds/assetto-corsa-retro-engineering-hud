@@ -60,7 +60,7 @@ for index, profile in ipairs(specifications) do
       or profile.first+(profile.last-profile.first)*i/profile.segmentCount
   end
   M.profiles[id] = profile
-  M.choices[#M.choices+1] = {value=id, label=profile.reference .. ' - ' .. profile.name}
+  M.choices[#M.choices+1] = {value=id, label=profile.name}
 end
 function M.get(id) return M.profiles[id] end
 
