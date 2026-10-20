@@ -125,6 +125,13 @@ local Classic = {
   redlineBlinkPeriod = 0.12
 }
 
+function Classic.fuelWarningAlpha(clock)
+  local period=2*Classic.flagBlinkPeriod
+  local phase=((clock or 0)%period)/period
+  local eased=0.5+0.5*math.cos(2*math.pi*phase)
+  return 0.48+0.52*eased
+end
+
 local function copy(source)
   local result = {}
   for key, value in pairs(source) do result[key] = value end

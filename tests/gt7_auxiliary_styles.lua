@@ -115,7 +115,8 @@ local function fuelDotAlpha(style,clock,animate,rim)
   state.fuel,state.fuelNormalized,state.clock=4,0.08,clock
   local calls=harness.draw('classic',{gt7SpeedNeedleMode='digital',gt7RpmNeedleMode='digital',
     gt7SpeedDialStyle=rim and 'orbit' or 'original',gt7RpmDialStyle='original',gt7SpeedAuxiliaryStyle=style,
-    gt7RpmAuxiliaryStyle='original',animateIndicators=animate},state)
+    gt7RpmAuxiliaryStyle='original',animateIndicators=animate,
+    animateRedlineAlert=animate},state)
   for _,call in ipairs(calls) do
     local a=call.a
     if a and a.x<350 then
@@ -133,8 +134,11 @@ local function fuelDotAlpha(style,clock,animate,rim)
 end
 for _,style in ipairs({'halo','jewel','spectrum'}) do
   for _,rim in ipairs({false}) do
-    assert(fuelDotAlpha(style,0,true,rim)>fuelDotAlpha(style,0.3,true,rim),
-      'fuel below 10% must blink: '..style)
+    local on,fade,dim,loop=fuelDotAlpha(style,0,true,rim),fuelDotAlpha(style,0.21,true,rim),
+      fuelDotAlpha(style,0.42,true,rim),fuelDotAlpha(style,0.84,true,rim)
+    assert(math.abs(on-1)<0.001 and fade<on and dim>0.4 and dim<fade
+        and math.abs(loop-on)<0.001,
+      'fuel warning pulse must sync with the lower pod and stay visible: '..style)
     assert(fuelDotAlpha(style,0.3,false,rim)>0.8,'disabled indicator animation must retain the steady warning')
   end
 end

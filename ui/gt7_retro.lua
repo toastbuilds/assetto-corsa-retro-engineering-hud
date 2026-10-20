@@ -100,9 +100,9 @@ local function indicatorLit(state, settings)
   return math.floor(state.clock / Layout.indicatorPeriod) % 2 == 0
 end
 
-local function warningBlink(state, settings)
-  if settings.animateRedlineAlert == false then return true end
-  return math.floor(state.clock / Layout.flagBlinkPeriod) % 2 == 0
+local function fuelWarningAlpha(state,settings)
+  if settings.animateRedlineAlert==false then return 1 end
+  return Layout.fuelWarningAlpha(state.clock)
 end
 
 local function flagColor(state)
@@ -710,29 +710,30 @@ local drawBrakeIcon = Icons.brakeIcon
 local drawLightIcon = Icons.lightIcon
 local drawEngineIcon = Icons.engineIcon
 
-local function drawStatusPod(origin, scale, x, label, available, active, color, icon, backdropOpacity)
+local function drawStatusPod(origin, scale, x, label, available, active, color, icon, backdropOpacity, alertAlpha)
   local factor = Layout.indicatorScale or 1
   local anchor = x < Layout.width / 2 and Layout.leftCenterX or Layout.rightCenterX
   x = anchor + (x - anchor) * factor
   local center = point(origin, scale, x, Layout.statusY or 443)
   scale = scale * factor
   local panelFill = withAlpha(C.panelRaised, math.max(0.82, math.min(0.98, backdropOpacity + 0.18)))
-  local fill = active and withAlpha(color, 0.26) or panelFill
-  local stroke = active and color or (available and C.outlineSoft or C.outlineDim)
+  local strength=active and U.clamp(alertAlpha or 1,0,1) or 1
+  local fill = active and withAlpha(color, 0.26*strength) or panelFill
+  local stroke = active and withAlpha(color,strength) or (available and C.outlineSoft or C.outlineDim)
   ui.drawCircleFilled(center, 23 * scale, fill, 28)
   ui.drawCircle(center, 23 * scale, stroke, 28, (active and 2.2 or 1.2) * scale)
   if active then
-    ui.drawCircleFilled(center, 17 * scale, withAlpha(color, 0.12), 28)
+    ui.drawCircleFilled(center, 17 * scale, withAlpha(color, 0.12*strength), 28)
   end
-  local iconColor = not available and C.outlineDim or (active and color or C.secondary)
+  local iconColor = not available and C.outlineDim or (active and withAlpha(color,strength) or C.secondary)
   if icon then icon(center, scale, iconColor) else centeredText(label, 11 * scale, center, iconColor) end
 end
 
 local function drawStatusStrips(origin, scale, state, settings, backdropOpacity)
   local fuelLow = state.fuel ~= nil and (state.fuelNormalized or 0) < InstrumentConfig.fuelWarning
-  local fuelActive = fuelLow and warningBlink(state, settings)
+  local fuelAlpha=fuelLow and fuelWarningAlpha(state,settings) or 1
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftFuelStatusOffset,
-    'FUEL', state.fuel ~= nil, fuelActive, C.red, Instruments.fuelIcon, backdropOpacity)
+    'FUEL', state.fuel ~= nil, fuelLow, C.red, Instruments.fuelIcon, backdropOpacity,fuelAlpha)
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftTcStatusOffset,
     'TC', state.tcSupported, state.tcActive == true,
     C.amber, nil, backdropOpacity)

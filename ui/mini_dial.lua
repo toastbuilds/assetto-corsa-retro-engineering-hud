@@ -86,13 +86,26 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     end
     ui.popStyleVar(1)
   end
-  local function analogCells(radius,width,persistent)
-    printedCells(radius,width,available and C.inactive or C.outlineDim,persistent)
+  local function analogCells(radius,width,persistent,fuelBackground)
+    printedCells(radius,width,available and C.inactive or C.outlineDim,persistent,fuelBackground)
     if digital>=1 then return end
     ui.pushStyleVarAlpha(1-digital)
     for i=1,f.segmentCount do
       local a,b=cellAngles(i)
       analogFill(radius,a,b,width,(i-0.5)/f.segmentCount)
+    end
+    ui.popStyleVar(1)
+  end
+  local function indicatorCells(radius,width)
+    -- Radial Cells marks the single division under the needle. The shared
+    -- digital track occupies this same radius, so this artwork is analog-only.
+    printedCells(radius,width,available and C.inactive or C.outlineDim,false)
+    if digital>=1 then return end
+    ui.pushStyleVarAlpha(1-digital)
+    if available then
+      local index=math.min(f.segmentCount,math.floor(needleValue*f.segmentCount)+1)
+      local a,b=cellAngles(index)
+      arc(radius,a,b,width,analogInk(needleValue),L.subSegment)
     end
     ui.popStyleVar(1)
   end
@@ -115,7 +128,7 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
     end
   end
   if f.cells then
-    if fuel then printedCells(r-10.5,4.8,available and C.inactive or C.outlineDim,false,'cell') end
+    indicatorCells(r-10.5,4.8)
     arc(r-7,f.first,f.last,1,C.primary); arc(r-14,f.first,f.last,1.4,C.primary)
     for _,a in ipairs(f.edges) do
       line(polar(r-14,a),polar(r-7,a),C.primary,1.5)
@@ -124,7 +137,7 @@ function M.draw(id, center, scale, digital, channel, C, L, content)
   if f.inward then analogCells(r-9,10,false) end
   if f.sun then circle(r-17,1.4,C.primary) end
   if f.dashed then
-    printedCells(r-8,3,C.primary,false,'terminal')
+    analogCells(r-8,3,false)
   end
   if f.arch or f.lattice then
     arc(r-6,math.pi,math.pi*2,1.8,C.primary)

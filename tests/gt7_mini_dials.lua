@@ -317,17 +317,44 @@ for _,theme in ipairs({'dark','light'}) do
     end
   end
   assert(wideFill,'the wide F1C4 cell must actively indicate fuel')
-  for _,id in ipairs({'mini_f3c4','mini_f2c4'}) do
-    local profile=Profiles.get(id)
-    local start=id=='mini_f3c4' and profile.edges[profile.segmentCount] or Profiles.angle(profile,0.85)
-    local found=false
-    for _,call in ipairs(fuelCalls(id,0.6,0.6)) do
-      if call.kind=='arc' and call.color==C.redDim then
-        assert(call.startAngle>=start and call.endAngle<=profile.last,'red background stays in its requested cells')
-        found=true
-      end
+  local dashed=Profiles.get('mini_f2c4')
+  local dashedRadius=(dashed.radius-8)*dashed.sizeScale
+  local dashedWidth=dashed.segmentWidth*dashed.sizeScale
+  local dashedCalls=fuelCalls(dashed.id,0.6,0.6)
+  local dashedLast
+  for _,call in ipairs(dashedCalls) do
+    if call.kind=='arc' and math.abs(call.radius-dashedRadius)<0.001
+        and math.abs(call.thickness-dashedWidth)<0.001 and call.color==C.primary then
+      dashedLast=math.max(dashedLast or -math.huge,call.endAngle)
     end
-    assert(found,'the fuel background must show its warning color')
+  end
+  assert(dashedLast and math.abs(dashedLast-Profiles.angle(dashed,0.6))<0.00001,
+    'Dashed Ring steps must follow the analog needle')
+  local radial=Profiles.get('mini_f3c4')
+  local radialRadius=(radial.radius-10.5)*radial.sizeScale
+  local radialWidth=4.8*radial.sizeScale
+  local radialCalls=fuelCalls(radial.id,0.6,0.6)
+  local radialLast
+  for _,call in ipairs(radialCalls) do
+    if call.kind=='arc' and math.abs(call.radius-radialRadius)<0.001
+        and math.abs(call.thickness-radialWidth)<0.001 and call.color==C.primary then
+      radialLast=math.max(radialLast or -math.huge,call.endAngle)
+    end
+  end
+  local radialFirst,radialLastEdge=radial.edges[3],radial.edges[4]
+  local radialGap=math.min(math.rad(2),(radialLastEdge-radialFirst)*0.12)
+  assert(radialLast and math.abs(radialLast-(radialLastEdge-radialGap))<0.00001,
+    'Radial Cells lights the complete cell under the needle')
+  assert(span(fuelCalls(radial.id,0.08,0.08),radialRadius,radialWidth,C.red)
+    >=radialLastEdge-radialFirst-2*radialGap-0.00001,
+    'the complete radial cell at low fuel uses the warning color')
+  for _,entry in ipairs({{dashed,dashedRadius,dashedWidth},
+      {radial,radialRadius,radialWidth}}) do
+    for _,call in ipairs(fuelCalls(entry[1].id,0.6,0.6)) do
+      assert(not (call.kind=='arc' and math.abs(call.radius-entry[2])<0.001
+          and math.abs(call.thickness-entry[3])<0.001 and call.color==C.redDim),
+        'analog warning red follows the needle and leaves the far side unpainted')
+    end
   end
   local function tickCount(value,needle,digital)
     local count=0
@@ -343,14 +370,34 @@ local function accentAlpha(clock,animate)
   state.fuel,state.fuelNormalized,state.fuelNeedleNormalized,state.clock=6,0.12,0.12,clock
   local f=Profiles.get('mini_f2c1')
   for _,call in ipairs(harness.draw('classic',{theme='dark',animateIndicators=animate,
-      gt7SpeedNeedleMode='analog',gt7SpeedAuxiliaryStyle=f.id},state)) do
+      animateRedlineAlert=animate,gt7SpeedNeedleMode='analog',
+      gt7SpeedAuxiliaryStyle=f.id},state)) do
     if call.kind=='arc' and math.abs(call.a.x-175)<0.01 and
         math.abs(call.radius-(f.radius-6)*f.sizeScale)<0.001 and
         math.abs(call.startAngle-math.rad(300))<0.00001 then return call.color.mult end
   end
   error('F2C1 warning accent must remain visible')
 end
-assert(accentAlpha(0,true)>accentAlpha(0.3,true),'F2C1 accent must flash red throughout low fuel')
+local accentOn,accentFade,accentDim,accentLoop=accentAlpha(0,true),accentAlpha(0.21,true),
+  accentAlpha(0.42,true),accentAlpha(0.84,true)
+assert(math.abs(accentOn-1)<0.001 and accentFade<accentOn and accentDim>0.4
+    and accentDim<accentFade and math.abs(accentLoop-accentOn)<0.001,
+  'F2C1 warning pulse must fade in phase with the lower fuel pod and never disappear')
 assert(accentAlpha(0.3,false)>0.8,'disabled animations keep the F2C1 accent steadily red')
+local function fuelPodAlpha(clock,animate)
+  state.fuel,state.fuelNormalized,state.clock=4,0.08,clock
+  for _,call in ipairs(harness.draw('classic',{theme='dark',animateRedlineAlert=animate},state)) do
+    if call.kind=='circle' and math.abs(call.a.x-43)<0.001
+        and math.abs(call.a.y-443)<0.001 and math.abs(call.radius-23)<0.001
+        and call.color.r>0.7 and call.color.g<0.4 then return call.color.mult end
+  end
+  error('lower fuel status pod must stay visible')
+end
+local podOn,podFade,podDim,podLoop=fuelPodAlpha(0,true),fuelPodAlpha(0.21,true),
+  fuelPodAlpha(0.42,true),fuelPodAlpha(0.84,true)
+assert(math.abs(podOn-accentOn)<0.001 and math.abs(podFade-accentFade)<0.001
+    and math.abs(podDim-accentDim)<0.001 and math.abs(podLoop-podOn)<0.001,
+  'lower fuel status pod and mini warning must share the same fade')
+assert(fuelPodAlpha(0.21,false)>0.99,'disabled animation leaves the lower fuel pod steadily lit')
 state.fuel,state.fuelNormalized,state.fuelNeedleNormalized,state.clock=30,0.6,0.6,0
 print('GT7 mini dials: 16 families, persistence, independent selection, distinct geometry, bounds, transitions, missing data and '..drawings..' drawings passed')

@@ -16,6 +16,15 @@ local MiniDial = require('ui/mini_dial')
 local SlipstreamBackground = require('ui/slipstream_background')
 local M = {}
 local D, S = Config.dial, Config.sub
+local function fuelAlertEnabled(settings)
+  if settings.animateRedlineAlert~=nil then return settings.animateRedlineAlert~=false end
+  return settings.animateIndicators~=false
+end
+
+local function fuelAlertAlpha(state,settings)
+  if not fuelAlertEnabled(settings) then return 1 end
+  return Layout.fuelWarningAlpha(state.clock)
+end
 
 local function arc(center, radius, first, last, color, width, steps)
   ui.pathClear()
@@ -137,9 +146,9 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     or U.clamp(state.fuelNormalized or 0, 0, 1))
   local zero = rpm and not aero and -minimum / (maximum - minimum) or 0
   local low = not rpm and available and fraction < Config.fuelWarning
-  local flashPhase = settings.animateIndicators ~= false and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
-  local blink = low and fraction < 0.10 and flashPhase
-  local lowInk = blink and Theme.withAlpha(C.red, 0.18) or C.red
+  local pulseAlpha=fuelAlertAlpha(state,settings)
+  local critical=low and fraction<0.10 and fuelAlertEnabled(settings)
+  local lowInk=critical and Theme.withAlpha(C.red,pulseAlpha) or C.red
   if MiniProfiles.get(style) then
     local needleValue = fraction
     if not rpm then needleValue=U.clamp(state.fuelNeedleNormalized or fraction,0,1)
@@ -153,7 +162,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     MiniDial.draw(style,miniCenter,scale,digital,AuxiliaryStyles.channel({
       kind=not rpm and 'fuel' or aero and 'aero' or 'boost', available=available,
       value=fraction,needleValue=needleValue,zero=zero,warning=warning,lowInk=low and lowInk or nil,
-      alertInk=low and (flashPhase and Theme.withAlpha(C.red,0.18) or C.red) or nil
+      alertInk=low and Theme.withAlpha(C.red,pulseAlpha) or nil
     },C,L),C,L,{
       left=aero and '0' or rpm and string.format('%.1f',minimum) or 'E',
       right=aero and '100' or rpm and string.format('%.1f',maximum) or 'F',
@@ -293,9 +302,9 @@ local function lowerArcGauge(center, scale, state, settings, C, light, rpm, L)
       or U.clamp(state.fuelNormalized or 0, 0, 1))
   local zero = rpm and not aero and -minimum / (maximum - minimum) or 0
   local low = not rpm and available and fraction < Config.fuelWarning
-  local blink = low and fraction < 0.10 and settings.animateIndicators ~= false
-    and math.floor((state.clock or 0) / 0.25) % 2 ~= 0
-  local lowInk = blink and Theme.withAlpha(C.red, 0.18) or C.red
+  local pulseAlpha=fuelAlertAlpha(state,settings)
+  local critical=low and fraction<0.10 and fuelAlertEnabled(settings)
+  local lowInk=critical and Theme.withAlpha(C.red,pulseAlpha) or C.red
   for i, block in ipairs(lowerSubGeometry) do
     local f = (i - 0.5) / 32
     local active = available and (rpm and f >= math.min(zero, fraction) and f <= math.max(zero, fraction)
