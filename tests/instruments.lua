@@ -200,7 +200,8 @@ for _, x in ipairs({175,1265}) do
 end
 state.fuel, state.maxFuel = nil, nil
 assert(contains(harness.draw('classic'), 'N/A'), 'missing fuel must be distinct from an empty tank')
-state.turboAvailable = false
+state.available, state.rpm, state.turboAvailable = true, 5200, false
+state.aeroLoadNormalized = 0.5
 assert(contains(harness.draw('classic'), 'AERO'))
 state.fuel, state.maxFuel, state.fuelNormalized = 5, 50, 0.1
 state.turboAvailable = true
@@ -387,6 +388,26 @@ Settings.values.gt7DialScale, Settings.values.gt7DialSpacing, Settings.values.gt
 package.loaded['src/gt7_settings'] = nil
 Settings = require('src/gt7_settings')
 assert(Settings.current().gt7DialScale == 1.2 and Settings.current().gt7DialSpacing == 80 and Settings.current().gt7IndicatorScale == 1.5)
+
+-- AERO hand inertia scales with the size of the telemetry change.
+state.available, state.turboAvailable, state.aeroLoadNormalized = true, false, 0
+state.gt7Instruments = nil
+Presentation.update(state, settings, 1 / 60)
+assert(state.gt7Instruments.aeroNeedleValue == 0, 'AERO hand must initialize at its current value')
+state.aeroLoadNormalized = 0.1
+Presentation.update(state, settings, 1 / 60)
+local smallJump = state.gt7Instruments.aeroNeedleValue
+state.gt7Instruments.aeroNeedleValue = 0
+state.aeroLoadNormalized = 0.8
+Presentation.update(state, settings, 1 / 60)
+local largeJump = state.gt7Instruments.aeroNeedleValue
+assert(smallJump / 0.1 > largeJump / 0.8 and largeJump > 0,
+  'larger AERO changes must move the hand more gradually')
+for _ = 1, 240 do Presentation.update(state, settings, 1 / 60) end
+assert(near(state.gt7Instruments.aeroNeedleValue, 0.8), 'AERO hand must settle at the live telemetry value')
+state.turboAvailable = true
+Presentation.update(state, settings, 1 / 60)
+assert(state.gt7Instruments.aeroNeedleValue == nil, 'AERO hand state must clear when the channel is unavailable')
 
 print('Instruments: 24 geometries, real holes, migrations, independent sliders, persistence, resets; '
   .. cases .. ' GT7 and ' .. standaloneCases .. ' standalone drawing cases passed')

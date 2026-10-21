@@ -152,6 +152,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   if MiniProfiles.get(style) then
     local needleValue = fraction
     if not rpm then needleValue=U.clamp(state.fuelNeedleNormalized or fraction,0,1)
+    elseif aero then needleValue=visual and visual.aeroNeedleValue or fraction
     elseif not aero then
       local smoothed=visual and visual.boostNeedleValue or (state.boostNeedleNormalized or 0)*maximum
       needleValue=U.clamp((smoothed-minimum)/(maximum-minimum),0,1)

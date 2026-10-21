@@ -80,6 +80,24 @@ function M.update(state, settings, dt)
     visual.vacuum, visual.vacuumVelocity = position, velocity
   end
   visual.boostNeedleValue = (state.boostNeedleNormalized or 0) * maximum - (visual.vacuum or 0)
+
+  -- AERO telemetry can jump sharply as load changes. Smooth only the hand:
+  -- larger target changes use a longer response time, while small corrections
+  -- remain quick. The digital cells continue to reflect live telemetry.
+  if state.available ~= false and state.turboAvailable ~= true and state.aeroLoadNormalized ~= nil then
+    local aeroTarget = U.clamp(state.aeroLoadNormalized, 0, 1)
+    local aeroValue = visual.aeroNeedleValue
+    if aeroValue == nil then
+      visual.aeroNeedleValue = aeroTarget
+    else
+      local delta = aeroTarget - aeroValue
+      local response = 0.08 + 0.42 * U.clamp(math.abs(delta) / 0.5, 0, 1)
+      local alpha = 1 - math.exp(-step / response)
+      visual.aeroNeedleValue = U.clamp(aeroValue + delta * alpha, 0, 1)
+    end
+  else
+    visual.aeroNeedleValue = nil
+  end
 end
 
 return M
