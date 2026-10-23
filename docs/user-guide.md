@@ -37,7 +37,7 @@ No purchase or activation key is needed. There is one complete package.
 
 ## Open and arrange windows
 
-The suite provides Dial, GT7, Car Condition, Multiclass Relative, Delta Bar, Timer, Laps, Leaderboard, Telemetry, Map, Race Notices, plus Settings.
+The suite provides Dial, GT7, Car Condition, Multiclass Relative, Delta Bar, Timer, Laps, Leaderboard, Telemetry, Dash, Map, Race Notices, plus Settings.
 
 - Open or close instruments independently through the CSP app sidebar.
 - Resize a window to adjust its displayed size; keep its own scale setting at a comfortable value.

@@ -16,15 +16,16 @@ Retro instruments for **Assetto Corsa + Custom Shaders Patch**. Eleven independe
 | GT7 | Configurable central display and side dials; Classic, Modern, Outer Pedals and Steering Dial presets |
 | Car Condition | Tyre life, pressures, temperatures, grip references, stint and vehicle condition |
 | Multiclass Relative | Nearby cars on track, classes, relative gaps, sectors and personal records |
-| Leaderboard | Session classification, practice/qualifying sectors, race intervals, position changes and fuel summary |
+| Leaderboard | Session classification, connection quality, sectors, race intervals, position changes and fuel summary |
 | Delta Bar | Live lap comparison, sector references and local records |
 | Timer | Lap timing, completed-lap results, final-lap indication and optional audio |
 | Laps | Current progress and completed-lap history with optional transitions |
 | Telemetry | Input traces, FFB and driving telemetry |
+| Dash | Horizontal telemetry dashboard with two configurable layouts |
 | Map | Full circuit or car-centred mini map, numbered markers and flag alerts |
-| Race Notices | Blue flags with approaching class, repair warnings and automatic fuel-autonomy pit reminders with estimated repair time and class battle alerts: rear threats and attack opportunities within four laps |
+| Race Notices | Blue flags, repair and pit reminders, class battle alerts, overtake summaries and optional four-lap gap graphs |
 
-Open only the windows you need. Each window can be resized and anchored independently. Light/dark themes, units and opacity are shared through **Retro UI Settings**.
+Open only the windows you need. Each window can be resized and anchored independently. Units and opacity are managed through **Retro UI Settings**; each app can follow the shared theme and palette or use its own.
 
 ## Install
 
@@ -91,7 +92,7 @@ python -m pip install -r requirements-dev.txt
 npm run check:lua
 python tools/test-lua.py
 powershell -ExecutionPolicy Bypass -File tools/build-package.ps1
-python tools/check-package.py dist/RetroUI-v2.7.0.zip
+python tools/check-package.py dist/RetroUI-v2.8.0.zip
 ```
 
 ## License
