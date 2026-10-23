@@ -78,7 +78,7 @@ local profiles = {
   analog = {
     original = {first=140, last=400},
     shelf = {first=180, last=360},
-    fan = {first=190, last=350, fan=true, lowerArc='speed'},
+    fan = {first=190, last=350, fan=true, lowerArc=true},
     concentric = {first=140, last=400},
     spoke = {first=180, last=360},
     track_analog = {first=190, last=350, lowerArc=true},
@@ -89,7 +89,7 @@ local profiles = {
   },
   digital = {
     original = {first=140, last=400},
-    bridge = {first=190, last=350, bridge=true, lowerArc='rpm'},
+    bridge = {first=190, last=350, bridge=true, lowerArc=true},
     column = {first=140, last=400, columns=true},
     radial = {first=190, last=350, lowerArc=true},
     offset = {first=180, last=360},

@@ -84,7 +84,7 @@ for id, f in pairs(faces) do
 		local b = f.first + (f.last - f.first) * (i - 0.12) / 40
 		local depth = f.analog and 14 or (f == faces.radial and 22 or 17)
 		f.blocks[i] = { { f.r * math.cos(a), f.r * math.sin(a) },
-			{ f.r * math.cos(b),       f.r * math.sin(b) },
+			{ f.r * math.cos(b),           f.r * math.sin(b) },
 			{ (f.r - depth) * math.cos(b), (f.r - depth) * math.sin(b) },
 			{ (f.r - depth) * math.cos(a), (f.r - depth) * math.sin(a) } }
 	end
@@ -137,18 +137,17 @@ local function drawInspired(id, f, center, scale, state, settings, C, L, digital
 	local pivot = center + vec2(f.x * scale, f.y * scale)
 	local function p(x, y) return center + vec2(x * scale, y * scale) end
 	local function line(x1, y1, x2, y2, color, width)
-		Light.line(p(x1, y1), p(x2, y2), color, width * scale, L.inner, scale)
+		Light.line(p(x1, y1), p(x2, y2), color, width * scale, L.medium, scale)
 	end
 	local function arc(radius, first, last, color, width, steps)
-		ui.pathClear()
-		ui.pathArcTo(pivot, radius * scale, math.min(first, last), math.max(first, last), steps or 48)
-		ui.pathStroke(color, false, width * scale)
+		Light.arc(pivot, radius * scale, math.min(first, last), math.max(first, last), color, width * scale, steps or 48,
+			L.medium, scale)
 	end
 	local function label(value, size, x, y, color, style, maxWidth)
 		Light.text(value, size * scale, p(x, y), color, maxWidth and maxWidth * scale, style or L.label, scale)
 	end
 	local function filledCircle(x, y, r, color, style)
-		ui.drawCircleFilled(p(x, y), r * scale, Light.color(color, style or L.segment), 32)
+		Light.filledCircle(p(x, y), r * scale, color, 32, style or L.segment, scale)
 	end
 	local maximum = rpm and math.max((state.rpmGaugeLimiter or 8000) / 1000, 1)
 			or (state.speedGaugeMaximum or 320)
@@ -431,8 +430,8 @@ drawSnapSelector = function(center, scale, state, settings, C, L, aboveRing)
 	local base = center + radial * (45 * scale)
 	local cueFill = cue and (cue.direction == 'up' and C.coreRed or C.shiftBlueDim) or C.panel
 	local cueInk = cue and (cue.direction == 'up' and C.red or C.shiftBlue) or C.amber
-	ui.drawCircleFilled(center, 45 * scale, cueFill, 48)
-	ui.drawCircle(center, 45 * scale, Light.color(cueInk, L.major), 48, 1.5 * scale)
+	Light.filledCircle(center, 45 * scale, cueFill, 48, Light.styleFor(C, cueFill, L), scale)
+	Light.circle(center, 45 * scale, cueInk, 48, 1.5 * scale, L.major, scale)
 	local points = { tip, base + tangent * (4.5 * scale), base - tangent * (4.5 * scale) }
 	local area = (points[1].x * points[2].y - points[2].x * points[1].y)
 			+ (points[2].x * points[3].y - points[3].x * points[2].y)
@@ -459,17 +458,16 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
 	local function p(x, y) return center + vec2(x * scale, y * scale) end
 	local pivot = p(f.x, f.y)
 	local function line(x1, y1, x2, y2, color, width)
-		Light.line(p(x1, y1), p(x2, y2), color, width * scale, L.inner, scale)
+		Light.line(p(x1, y1), p(x2, y2), color, width * scale, L.medium, scale)
 	end
 	local function arc(radius, first, last, color, width)
-		ui.pathClear(); ui.pathArcTo(pivot, radius * scale, first, last, 48)
-		ui.pathStroke(color, false, width * scale)
+		Light.arc(pivot, radius * scale, first, last, color, width * scale, 48, L.medium, scale)
 	end
 	local function label(value, size, x, y, color, style, maxWidth)
 		Light.text(value, size * scale, p(x, y), color, maxWidth and maxWidth * scale, style or L.label, scale)
 	end
 	local function circle(x, y, r, color, width)
-		ui.drawCircle(p(x, y), r * scale, Light.color(color, L.inner), 64, width * scale)
+		Light.circle(p(x, y), r * scale, color, 64, width * scale, L.medium, scale)
 	end
 	local maximum = rpm and math.max((state.rpmGaugeLimiter or 8000) / 1000, 1) or (state.speedGaugeMaximum or 320)
 	local step = rpm and (maximum <= 9 and 1 or (maximum <= 18 and 2 or math.ceil(maximum / 8)))
@@ -491,7 +489,16 @@ function M.draw(id, center, scale, state, settings, C, L, digital, light, rpm, r
 		ui.pathFillConvex(C.panelRaised)
 		ui.pathClear()
 		for _, v in ipairs({ { -143, 46 }, { 143, 46 }, { 108, 135 }, { -108, 135 } }) do ui.pathLineTo(p(v[1], v[2])) end
-		ui.pathStroke(C.metalDim, true, 1.5 * scale)
+		local rimStyle = Light.styleFor(C, C.metalDim, L)
+		local rimHalo = Light.halo(C.metalDim, rimStyle)
+		if rimHalo then
+			ui.pathClear()
+			for _, v in ipairs({ { -143, 46 }, { 143, 46 }, { 108, 135 }, { -108, 135 } }) do ui.pathLineTo(p(v[1], v[2])) end
+			ui.pathStroke(rimHalo, true, (1.5 + 2 * rimStyle.radius) * scale)
+		end
+		ui.pathClear()
+		for _, v in ipairs({ { -143, 46 }, { 143, 46 }, { 108, 135 }, { -108, 135 } }) do ui.pathLineTo(p(v[1], v[2])) end
+		ui.pathStroke(Light.color(C.metalDim, rimStyle), true, 1.5 * scale)
 		line(5, 59, 5, 138, C.metalDim, 1.5)
 	elseif id == 'spoke' then
 		for _, endpoint in ipairs({ { -147, 58 }, { 147, 58 }, { 0, 157 } }) do

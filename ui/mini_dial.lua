@@ -1,6 +1,7 @@
 -- Complete auxiliary faces. Owners supply semantic channels, text and icons;
 -- profiles only select geometry. Shared by GT7 fuel, boost, aero and hybrid.
 local Profiles = require('src/mini_dial_profiles')
+local Config = require('src/instrument_config')
 local Light = require('ui/instrument_illumination')
 local U = require('src/utils')
 local M = {}
@@ -8,6 +9,8 @@ local M = {}
 function M.draw(id, center, scale, digital, channel, C, L, content)
   local f = Profiles.get(id)
   if not f then return end
+  -- Move every new compact mini face down by 10% of the standard subdial offset.
+  center=center+vec2(0,Config.sub.offsetY*0.10*scale)
   center=center+vec2(0,f.offsetY*scale)
   scale=scale*f.sizeScale
   if f.digital==false then digital=0 end

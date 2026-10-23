@@ -245,7 +245,7 @@ for _, case in ipairs({
 	{ 'analog', 'rpm',   'track_analog', true }, { 'analog', 'rpm', 'snap_analog', true },
 	{ 'analog', 'speed', 'track_analog', true }, { 'analog', 'speed', 'fan', true },
 	{ 'digital', 'rpm', 'snap_digital', true }, { 'digital', 'rpm', 'bridge', true },
-	{ 'analog',  'rpm', 'fan',          false }, { 'digital', 'speed', 'bridge', false }
+	{ 'analog',  'rpm', 'fan',          true }, { 'digital', 'speed', 'bridge', true }
 }) do
 	local mode, role, style, wantArc = case[1], case[2], case[3], case[4]
 	local options = {

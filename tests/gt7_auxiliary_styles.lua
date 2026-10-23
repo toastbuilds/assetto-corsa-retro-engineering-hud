@@ -2,6 +2,7 @@ local harness=dofile('tests/gt7_layouts.lua')
 local Settings=require('src/gt7_settings')
 local Styles=require('src/gt7_dial_styles')
 local Paint=require('ui/auxiliary_dial_styles')
+local Config=require('src/instrument_config')
 local Theme=require('src/theme')
 local Light=require('ui/instrument_illumination')
 local state=harness.state
@@ -117,11 +118,22 @@ local function fuelDotAlpha(style,clock,animate,rim)
     gt7SpeedDialStyle=rim and 'orbit' or 'original',gt7RpmDialStyle='original',gt7SpeedAuxiliaryStyle=style,
     gt7RpmAuxiliaryStyle='original',animateIndicators=animate,
     animateRedlineAlert=animate},state)
+  local center={x=175,y=258}
+  if not rim then
+    center=nil
+    for _,call in ipairs(calls) do
+      if call.kind=='arc' and math.abs(call.a.x-175)<0.1
+          and math.abs(call.radius-Config.sub.housingRadius)<0.1 then
+        center=call.a; break
+      end
+    end
+    assert(center,'the compact fuel housing must remain visible')
+  end
   for _,call in ipairs(calls) do
     local a=call.a
     if a and a.x<350 then
-      local radius,cy=rim and 143 or 59,rim and 258 or 364
-      local distance=math.sqrt((a.x-175)^2+(a.y-cy)^2)
+      local radius=rim and 143 or 59
+      local distance=math.sqrt((a.x-center.x)^2+(a.y-center.y)^2)
       if (style=='spectrum' and call.kind=='arc' and math.abs(call.radius-radius)<0.1
             and call.thickness==(rim and 10 or 8))
           or (style~='spectrum' and call.kind=='circle_fill' and math.abs(distance-radius)<0.1
@@ -151,8 +163,10 @@ for _,mode in ipairs({'analog','digital'}) do
       gt7SpeedAuxiliaryStyle=style,gt7RpmAuxiliaryStyle=style}
     local housings=0
     for _,call in ipairs(harness.draw('classic',options,state)) do
-      if call.kind=='arc' and math.abs(call.a.y-364)<0.01
-          and (math.abs(call.radius-70)<0.01 or math.abs(call.radius-67)<0.01) then
+      if call.kind=='arc' and call.a.y>258
+          and (math.abs(call.a.x-175)<0.01 or math.abs(call.a.x-1265)<0.01)
+          and (math.abs(call.radius-Config.sub.housingRadius)<0.01
+            or math.abs(call.radius-(Config.sub.housingRadius-3))<0.01) then
         housings=housings+1
       end
     end
@@ -170,10 +184,11 @@ local function spectrumLength(mode,rim,hybrid,value)
     gt7SpeedAuxiliaryStyle='spectrum',gt7RpmAuxiliaryStyle='spectrum'}
   local radius=rim and (hybrid and 151 or 143) or (hybrid and 68 or mode=='analog' and 65 or 59)
   local width=rim and (hybrid and 5 or 10) or (hybrid and 4 or 8)
-  local cx,cy=hybrid and 1265 or 175,rim and 258 or 364
+  local cx=hybrid and 1265 or 175
   local length=0
   for _,call in ipairs(harness.draw('classic',options,state)) do
-    if call.kind=='arc' and math.abs(call.a.x-cx)<0.01 and math.abs(call.a.y-cy)<0.01
+    if call.kind=='arc' and math.abs(call.a.x-cx)<0.01
+        and (rim and math.abs(call.a.y-258)<0.01 or not rim and call.a.y>258)
         and math.abs(call.radius-radius)<0.01 and call.thickness==width
         and math.max(call.color.r,call.color.g,call.color.b)>0.4 then
       length=length+call.endAngle-call.startAngle

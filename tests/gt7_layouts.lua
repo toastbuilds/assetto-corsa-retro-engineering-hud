@@ -110,6 +110,7 @@ ui = {
 
 local Layouts = require('src/gt7_retro_layout')
 local Theme = require('src/theme')
+local Light = require('ui/instrument_illumination')
 local Telemetry = require('src/telemetry')
 local PedalHistory = require('src/pedal_history')
 local Renderer = require('ui/gt7_retro')
@@ -807,5 +808,49 @@ local function drawRenderer(renderer, drawState, options, window)
   assert(fonts==0 and alphaDepth==0,'drawing must balance fonts and styles')
   return calls
 end
+-- GT7's central labels, steering readout and dial bezels must share the same
+-- selected-palette illumination path as the side instrument faces.
+local appearance = GeneralSettings.appearance('gt7')
+appearance.theme, appearance.darkPalette = 'dark', '07'
+GeneralSettings.values.theme = 'dark'
+local glowPalette = Theme.get('dark', 'gt7')
+local glowStyles = Light.resolve(glowPalette, 'dark', 1)
+for _, role in ipairs({ 'primary', 'secondary', 'amber', 'amberDim', 'cyan', 'cyanDim',
+	'shiftBlue', 'green', 'red', 'redDim', 'metal', 'metalDim', 'outline', 'outlineDim',
+	'coreAmber', 'coreRed', 'flagYellow', 'flagPurple' }) do
+	local style = Light.styleFor(glowPalette, glowPalette[role], glowStyles)
+	assert(
+		style and not equalColor(Light.color(glowPalette[role], style), glowPalette[role]),
+		'selected palette role must respond to backlight: ' .. role)
+end
+state.lightsAvailable, state.headlights, state.gt7Instruments = true, false, nil
+local lightsOff = draw('classic', { theme = 'dark' }, state)
+state.headlights = true
+local lightsOn = draw('classic', { theme = 'dark' }, state)
+state.headlights = false
+local function textColor(list, value)
+	for i = #list, 1, -1 do
+		if list[i].kind == 'text' and list[i].text == value then return list[i].color end
+	end
+end
+for _, value in ipairs({ 'km/h', 'GEAR', 'STEER' }) do
+	assert(not equalColor(textColor(lightsOff, value), textColor(lightsOn, value)),
+		value .. ' in the central GT7 HUD must illuminate with its selected palette')
+end
+local classicLayout = Layouts.get('classic')
+local function bezelCount(list, centerX)
+	local count = 0
+	for _, call in ipairs(list) do
+		if call.kind == 'circle' and near(call.a.x, centerX) and near(call.a.y, classicLayout.dialCenterY)
+				and near(call.radius, classicLayout.dialRadius) then
+			count = count + 1
+		end
+	end
+	return count
+end
+assert(bezelCount(lightsOff, classicLayout.leftCenterX) == 1
+	and bezelCount(lightsOn, classicLayout.leftCenterX) == 2,
+	'the GT7 dial bezel must gain a visible palette-colored halo under backlight')
+
 return { draw=draw, drawDial=drawDial, drawNeedle=drawNeedle, drawRenderer=drawRenderer, state=state,
   pendingCombos=pendingCombos, pendingButtons=pendingButtons, pendingSliders=pendingSliders }

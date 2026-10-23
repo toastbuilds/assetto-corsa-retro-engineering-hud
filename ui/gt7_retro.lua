@@ -11,8 +11,16 @@ local InstrumentConfig = require('src/instrument_config')
 local InstrumentLayout = require('src/instrument_layout')
 local CornerGearHint = require('ui/corner_gear_hint')
 
+local Light = require('ui/instrument_illumination')
+
 local M = {}
 local C = Theme.colors
+
+local L, illuminationScale = {}, 1
+
+local function styleFor(color)
+	return Light.styleFor(C, color, L)
+end
 
 local function point(origin, scale, x, y)
   return origin + vec2(x * scale, y * scale)
@@ -23,18 +31,16 @@ local function withAlpha(color, alpha)
 end
 
 local function centeredText(text, size, center, color)
-  local measured = ui.measureDWriteText(text, size)
-  ui.dwriteDrawText(text, size, center - measured / 2, color)
+	Light.text(text, size, center, color, nil, styleFor(color), illuminationScale)
 end
 
 local function drawLine(p1, p2, color, width)
-  ui.drawLine(p1, p2, color, width)
+	Light.line(p1, p2, color, width, styleFor(color), illuminationScale)
 end
 
 local function drawArc(center, radius, startAngle, endAngle, color, width, segments)
-  ui.pathClear()
-  ui.pathArcTo(center, radius, startAngle, endAngle, segments or 32)
-  ui.pathStroke(color, false, width)
+	Light.arc(center, radius, startAngle, endAngle, color, width, segments,
+		styleFor(color), illuminationScale)
 end
 
 local function ellipsePoint(center, radiusX, radiusY, angle)
@@ -71,16 +77,22 @@ end
 local function drawPolygon(origin, scale, coordinates, fill, stroke, strokeWidth)
   buildPolygon(origin, scale, coordinates)
   ui.pathFillConvex(fill)
+	local style = styleFor(stroke)
+	local halo = Light.halo(stroke, style)
+	if halo then
   buildPolygon(origin, scale, coordinates)
-  ui.pathStroke(stroke, true, strokeWidth * scale)
+		ui.pathStroke(halo, true, (strokeWidth + 2 * style.radius) * scale)
+	end
+	buildPolygon(origin, scale, coordinates)
+	ui.pathStroke(Light.color(stroke, style), true, strokeWidth * scale)
 end
 
 local function drawChamferedPanel(origin, scale, left, top, right, bottom, chamfer, fill, stroke, width)
   drawPolygon(origin, scale, {
     { left + chamfer, top }, { right - chamfer, top },
-    { right, top + chamfer }, { right, bottom - chamfer },
+		{ right,          top + chamfer }, { right, bottom - chamfer },
     { right - chamfer, bottom }, { left + chamfer, bottom },
-    { left, bottom - chamfer }, { left, top + chamfer }
+		{ left,            bottom - chamfer }, { left, top + chamfer }
   }, fill, stroke, width)
 end
 
@@ -100,8 +112,8 @@ local function indicatorLit(state, settings)
   return math.floor(state.clock / Layout.indicatorPeriod) % 2 == 0
 end
 
-local function fuelWarningAlpha(state,settings)
-  if settings.animateRedlineAlert==false then return 1 end
+local function fuelWarningAlpha(state, settings)
+	if settings.animateRedlineAlert == false then return 1 end
   return Layout.fuelWarningAlpha(state.clock)
 end
 
@@ -129,13 +141,14 @@ local function drawDialBezel(center, radius, scale, state, settings)
   local lit = color ~= nil and flagBlinkOn(state, settings)
 
   if lit then
-    ui.drawCircle(center, radius, withAlpha(color, 0.16), 72, 11 * scale)
+		Light.circle(center, radius, color, 72, 5 * scale, styleFor(color), scale)
   end
-  ui.drawCircle(center, radius, lit and color or C.metal, 72, (lit and 5 or 4) * scale)
-  ui.drawCircle(center, radius - 8 * scale,
-    lit and withAlpha(color, 0.78) or C.outline, 72, 2 * scale)
-  ui.drawCircle(center, radius - 16 * scale,
-    lit and withAlpha(color, 0.34) or C.outlineDim, 72, 2 * scale)
+	local outer = lit and color or C.metal
+	local middle = lit and withAlpha(color, 0.78) or C.outline
+	local inner = lit and withAlpha(color, 0.34) or C.outlineDim
+	Light.circle(center, radius, outer, 72, (lit and 5 or 4) * scale, styleFor(outer), scale)
+	Light.circle(center, radius - 8 * scale, middle, 72, 2 * scale, styleFor(middle), scale)
+	Light.circle(center, radius - 16 * scale, inner, 72, 2 * scale, styleFor(inner), scale)
 end
 
 local function rpmColor(fraction, active, state, settings)
@@ -234,14 +247,14 @@ local function drawCenterBackdrop(origin, scale, backdropOpacity, state)
   local bottomLeft = Layout.centerLeft + Layout.centerBackdropBottomInset
   local bottomRight = Layout.centerRight - Layout.centerBackdropBottomInset
   drawPolygon(origin, scale, {
-    { Layout.centerLeft + chamfer, Layout.centerTop },
+			{ Layout.centerLeft + chamfer,  Layout.centerTop },
     { Layout.centerRight - chamfer, Layout.centerTop },
-    { Layout.centerRight, Layout.centerTop + chamfer },
-    { Layout.centerRight, Layout.centerBottom - chamfer },
-    { bottomRight - chamfer, Layout.centerBottom },
-    { bottomLeft + chamfer, Layout.centerBottom },
-    { Layout.centerLeft, Layout.centerBottom - chamfer },
-    { Layout.centerLeft, Layout.centerTop + chamfer }
+			{ Layout.centerRight,           Layout.centerTop + chamfer },
+			{ Layout.centerRight,           Layout.centerBottom - chamfer },
+			{ bottomRight - chamfer,        Layout.centerBottom },
+			{ bottomLeft + chamfer,         Layout.centerBottom },
+			{ Layout.centerLeft,            Layout.centerBottom - chamfer },
+			{ Layout.centerLeft,            Layout.centerTop + chamfer }
   }, withAlpha(C.panel, math.min(0.92, math.max(0.58, backdropOpacity + 0.12))),
     Layout.centerStyle == 'classic' and C.outlineDim or C.outlineSoft, 1.2)
 
@@ -281,9 +294,9 @@ local function drawGearPod(origin, scale, state, settings, backdropOpacity)
 
   drawPolygon(origin, scale, {
     { left + chamfer, top }, { right - chamfer, top },
-    { right, top + chamfer }, { right, bottom - chamfer },
+		{ right,          top + chamfer }, { right, bottom - chamfer },
     { right - chamfer, bottom }, { left + chamfer, bottom },
-    { left, bottom - chamfer }, { left, top + chamfer }
+		{ left,            bottom - chamfer }, { left, top + chamfer }
   }, fill, stroke, alert and 2.4 or 1.4)
   return halfWidth
 end
@@ -310,10 +323,10 @@ local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
     or (state.rpmWarning and C.amber or C.primary)
   local gearPodHalfWidth = drawGearPod(origin, scale, state, settings, backdropOpacity)
   local baseGearSize = 100
-  local presentation,current,recommendation
-  if CornerGearHint.visual(state,settings) then
-    presentation,current,recommendation=CornerGearHint.placements('gt7',nil,
-      Layout.gearPodCenterX,Layout.gearCenterY,baseGearSize)
+	local presentation, current, recommendation
+	if CornerGearHint.visual(state, settings) then
+		presentation, current, recommendation = CornerGearHint.placements('gt7', nil,
+			Layout.gearPodCenterX, Layout.gearCenterY, baseGearSize)
   end
   local gearSize = (presentation and current.size or baseGearSize) * scale
   local measuredGearWidth = ui.measureDWriteText(state.gearText, gearSize).x
@@ -328,7 +341,7 @@ local function drawGearReadout(origin, scale, state, settings, backdropOpacity)
     state.rpmRedline and C.red or (state.rpmWarning and C.amber or C.secondary))
   if presentation then
     CornerGearHint.draw(state, settings, recommendation.x, recommendation.y, recommendation.size,
-      {primary = C.primary, red = C.red},
+			{ primary = C.primary, red = C.red },
       function(x1, y1, x2, y2, color, width)
         drawLine(point(origin, scale, x1, y1), point(origin, scale, x2, y2), color, width * scale)
       end,
@@ -349,8 +362,8 @@ local function drawSteering(origin, scale, state, settings)
       drawLine(point(origin, scale, x, y - 16), point(origin, scale, x, y + 26), C.outlineSoft, 2 * scale)
       local tip = U.polar(center, Layout.steeringRadius * scale, -math.pi / 2 + steering * math.pi / 2)
       drawLine(center, tip, C.cyan, 4 * scale)
-      ui.drawCircleFilled(center, 6 * scale, C.cyan, 20)
-      ui.drawCircleFilled(center, 3 * scale, C.primary, 16)
+			Light.filledCircle(center, 6 * scale, C.cyan, 20, L.icon, scale)
+			Light.filledCircle(center, 3 * scale, C.primary, 16, L.value, scale)
     else
       local half = Layout.steeringHalfWidth
       drawLine(point(origin, scale, x - half, y), point(origin, scale, x + half, y), C.outlineDim, 3 * scale)
@@ -362,10 +375,16 @@ local function drawSteering(origin, scale, state, settings)
           drawLine(point(origin, scale, tickX, y - 3), point(origin, scale, tickX, y + 3),
             C.outlineSoft, 1 * scale)
         end
-        ui.drawRectFilled(point(origin, scale, markerX - 3, y - 10),
-          point(origin, scale, markerX + 3, y + 10), C.cyan)
+				local markerMin = point(origin, scale, markerX - 3, y - 10)
+				local markerMax = point(origin, scale, markerX + 3, y + 10)
+				local markerHalo = Light.halo(C.cyan, L.icon)
+				if markerHalo then
+					local spread = L.icon.radius * scale
+					ui.drawRectFilled(markerMin - vec2(spread, spread), markerMax + vec2(spread, spread), markerHalo)
+				end
+				ui.drawRectFilled(markerMin, markerMax, Light.color(C.cyan, L.icon))
       else
-        ui.drawCircleFilled(point(origin, scale, markerX, y), 5 * scale, C.cyan, 16)
+				Light.filledCircle(point(origin, scale, markerX, y), 5 * scale, C.cyan, 16, L.icon, scale)
       end
     end
     centeredText('STEER', 11 * scale,
@@ -717,23 +736,23 @@ local function drawStatusPod(origin, scale, x, label, available, active, color, 
   local center = point(origin, scale, x, Layout.statusY or 443)
   scale = scale * factor
   local panelFill = withAlpha(C.panelRaised, math.max(0.82, math.min(0.98, backdropOpacity + 0.18)))
-  local strength=active and U.clamp(alertAlpha or 1,0,1) or 1
-  local fill = active and withAlpha(color, 0.26*strength) or panelFill
-  local stroke = active and withAlpha(color,strength) or (available and C.outlineSoft or C.outlineDim)
+	local strength = active and U.clamp(alertAlpha or 1, 0, 1) or 1
+	local fill = active and withAlpha(color, 0.26 * strength) or panelFill
+	local stroke = active and withAlpha(color, strength) or (available and C.outlineSoft or C.outlineDim)
   ui.drawCircleFilled(center, 23 * scale, fill, 28)
   ui.drawCircle(center, 23 * scale, stroke, 28, (active and 2.2 or 1.2) * scale)
   if active then
-    ui.drawCircleFilled(center, 17 * scale, withAlpha(color, 0.12*strength), 28)
+		ui.drawCircleFilled(center, 17 * scale, withAlpha(color, 0.12 * strength), 28)
   end
-  local iconColor = not available and C.outlineDim or (active and withAlpha(color,strength) or C.secondary)
+	local iconColor = not available and C.outlineDim or (active and withAlpha(color, strength) or C.secondary)
   if icon then icon(center, scale, iconColor) else centeredText(label, 11 * scale, center, iconColor) end
 end
 
 local function drawStatusStrips(origin, scale, state, settings, backdropOpacity)
   local fuelLow = state.fuel ~= nil and (state.fuelNormalized or 0) < InstrumentConfig.fuelWarning
-  local fuelAlpha=fuelLow and fuelWarningAlpha(state,settings) or 1
+	local fuelAlpha = fuelLow and fuelWarningAlpha(state, settings) or 1
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftFuelStatusOffset,
-    'FUEL', state.fuel ~= nil, fuelLow, C.red, Instruments.fuelIcon, backdropOpacity,fuelAlpha)
+		'FUEL', state.fuel ~= nil, fuelLow, C.red, Instruments.fuelIcon, backdropOpacity, fuelAlpha)
   drawStatusPod(origin, scale, Layout.leftCenterX + Layout.leftTcStatusOffset,
     'TC', state.tcSupported, state.tcActive == true,
     C.amber, nil, backdropOpacity)
@@ -792,7 +811,7 @@ end
 
 function M.draw(state, settings)
   Layout = InstrumentLayout.resolve(Layouts.resolve(settings), settings)
-  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
+	C = GeneralSettings.palette(Theme.get(settings.theme, 'gt7'), settings.backgroundOpacity)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
   local fitWidth, fitHeight = Layout.fitRight - Layout.fitLeft, Layout.fitBottom - Layout.fitTop
@@ -802,6 +821,10 @@ function M.draw(state, settings)
   -- fine adjustment around the mouse-controlled fitted size.
   local sliderScale = 1 + ((settings.hudScale or 0.72) - 0.72) * 0.6
   local scale = fittedScale * U.clamp(sliderScale, 0.82, 1.28)
+	illuminationScale = scale
+	local light = state.gt7Instruments and state.gt7Instruments.light
+	if light == nil then light = state.lightsAvailable and state.headlights == true and 1 or 0 end
+	L = Light.resolve(C, settings.theme, light)
   local origin = vec2((width - fitWidth * scale) / 2 - Layout.fitLeft * scale,
     (height - fitHeight * scale) / 2 - Layout.fitTop * scale)
   local backdropOpacity = 0.72 -- Authored reference; palette applies global background opacity.

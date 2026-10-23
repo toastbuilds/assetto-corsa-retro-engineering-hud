@@ -1,5 +1,6 @@
 local harness=dofile('tests/gt7_layouts.lua')
 local Profiles=require('src/mini_dial_profiles')
+local Config=require('src/instrument_config')
 local Styles=require('src/gt7_dial_styles')
 local Settings=require('src/gt7_settings')
 local Theme=require('src/theme')
@@ -49,7 +50,7 @@ local function assertBounds(calls)
   local function point(p,pad)
     assert(p.x==p.x and p.y==p.y,'finite coordinates')
     assert(p.x-pad>=3 and p.x+pad<=217,'mini must fit the slot with side labels')
-    assert(p.y-pad>=12 and p.y+pad<=155,'mini must clear the lower bezel')
+    assert(p.y-pad>=12 and p.y+pad<=166,'mini must clear the lower bezel')
   end
   for _,call in ipairs(calls) do
     if call.kind~='text' then
@@ -136,7 +137,7 @@ for _,choice in ipairs(Profiles.choices) do
               if not Profiles.get(id).half then
                 local size=ui.measureDWriteText(call.text,call.size)
                 local dx=math.max(call.a.x-110,110-call.a.x-size.x,0)
-                local centerY=100+profile.offsetY+profile.y*sizeScale
+                local centerY=100+Config.sub.offsetY*0.10+profile.offsetY+profile.y*sizeScale
                 local dy=math.max(call.a.y-centerY,centerY-call.a.y-size.y,0)
                 assert(math.sqrt(dx*dx+dy*dy)>(profile.radius+1.3)*sizeScale,
                   'E/F glyphs must be outside the full dial face and bezel')

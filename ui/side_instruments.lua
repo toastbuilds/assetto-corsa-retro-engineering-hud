@@ -26,10 +26,23 @@ local function fuelAlertAlpha(state,settings)
   return Layout.fuelWarningAlpha(state.clock)
 end
 
-local function arc(center, radius, first, last, color, width, steps)
-  ui.pathClear()
-  ui.pathArcTo(center, radius, first, last, steps or 32)
-  ui.pathStroke(color, false, width)
+local function subdialAdjustment(settings,rpm,mini)
+  local mode=settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode']=='analog'
+    and 'analog' or 'digital'
+  local style=DialStyles.normalize(settings[rpm and 'gt7RpmDialStyle' or 'gt7SpeedDialStyle'],
+    mode,rpm and 'rpm' or 'speed')
+  -- Placement belongs to the design; the telemetry channel only supplies data.
+  if style=='original' then return mini and 0.05 or -0.05,1 end
+  if mode=='analog' and style=='shelf' then
+    return mini and 0 or -0.15,1
+  end
+  local haloOrJewel=style=='halo_'..mode or style=='jewel_'..mode
+  if not haloOrJewel then return 0,1 end
+  return mini and -0.02 or -0.10,mode=='digital' and 0.95 or 1
+end
+
+local function arc(center, radius, first, last, color, width, steps, style, scale)
+  Light.arc(center, radius, first, last, color, width, steps, style, scale)
 end
 
 local function text(value, size, center, color, maxWidth, style, scale)
@@ -121,7 +134,18 @@ end
 local function subGauge(center, scale, state, settings, C, digital, light, rpm, L)
   local subCenter = center + vec2(0, S.offsetY * scale)
   local style = DialStyles.auxiliaryStyle(settings, rpm)
+  local mini = MiniProfiles.get(style)
+  local role = rpm and 'rpm' or 'speed'
+  local mode = settings[rpm and 'gt7RpmNeedleMode' or 'gt7SpeedNeedleMode'] == 'analog'
+    and 'analog' or 'digital'
+  local mainStyle = DialStyles.normalize(settings[rpm and 'gt7RpmDialStyle' or 'gt7SpeedDialStyle'],
+    mode, role)
   local hybrid = rpm and Hybrid.forGauge(state)
+  local hideUnitEndpoints = mainStyle == 'spoke' or (rpm and not hybrid)
+  local offset, radiusScale=subdialAdjustment(settings,rpm,mini~=nil)
+  subCenter=subCenter+vec2(0,S.offsetY*offset*scale)
+  scale=scale*radiusScale
+  if mini then subCenter=subCenter-vec2(0,18*scale) end
   if hybrid then
     HybridGauge.draw(subCenter, scale, hybrid, C, settings.theme, light, 'gt7', style, digital<0.5, digital)
     return
@@ -129,9 +153,9 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   Light.ambient(subCenter, scale, L, true)
   if not MiniProfiles.get(style) and (digital>=0.5 or (style~='halo' and style~='jewel')) then
     arc(subCenter, S.housingRadius * scale,
-      math.pi, math.pi * 2, C.metalDim, 2 * scale)
+      math.pi, math.pi * 2, C.metalDim, 2 * scale, 48, L.major, scale)
     arc(subCenter, (S.housingRadius - 3) * scale,
-      math.pi, math.pi * 2, Light.color(C.outline, L.inner), 0.8 * scale)
+      math.pi, math.pi * 2, C.outline, 0.8 * scale, 48, L.medium, scale)
   end
   local visual = state.gt7Instruments
   local pressure, minimum, maximum
@@ -149,7 +173,7 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local pulseAlpha=fuelAlertAlpha(state,settings)
   local critical=low and fraction<0.10 and fuelAlertEnabled(settings)
   local lowInk=critical and Theme.withAlpha(C.red,pulseAlpha) or C.red
-  if MiniProfiles.get(style) then
+  if mini then
     local needleValue = fraction
     if not rpm then needleValue=U.clamp(state.fuelNeedleNormalized or fraction,0,1)
     elseif aero then needleValue=visual and visual.aeroNeedleValue or fraction
@@ -159,14 +183,13 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
     end
     local warning=aero and 0.82 or rpm and (Config.boostWarning*maximum-minimum)/(maximum-minimum)
       or Config.fuelWarning
-    local miniCenter=not rpm and subCenter-vec2(0,18*scale) or subCenter
-    MiniDial.draw(style,miniCenter,scale,digital,AuxiliaryStyles.channel({
+    MiniDial.draw(style,subCenter,scale,digital,AuxiliaryStyles.channel({
       kind=not rpm and 'fuel' or aero and 'aero' or 'boost', available=available,
       value=fraction,needleValue=needleValue,zero=zero,warning=warning,lowInk=low and lowInk or nil,
       alertInk=low and Theme.withAlpha(C.red,pulseAlpha) or nil
     },C,L),C,L,{
-      left=aero and '0' or rpm and string.format('%.1f',minimum) or 'E',
-      right=aero and '100' or rpm and string.format('%.1f',maximum) or 'F',
+      left=not hideUnitEndpoints and (aero and '0' or rpm and string.format('%.1f',minimum) or 'E') or nil,
+      right=not hideUnitEndpoints and (aero and '100' or rpm and string.format('%.1f',maximum) or 'F') or nil,
       label=not available and 'N/A' or aero and 'AERO' or rpm and 'BOOST' or 'FUEL',
       icon=aero and M.aeroIcon or rpm and M.boostIcon or M.fuelIcon
     })
@@ -274,10 +297,12 @@ local function subGauge(center, scale, state, settings, C, digital, light, rpm, 
   local tint = not available and C.outlineSoft or (low and lowInk or C.primary)
   icon(aero and M.aeroIcon or (rpm and M.boostIcon or M.fuelIcon),
     iconCenter, S.iconScale * scale, tint, available and L.icon or L.inner)
-  text(aero and '0' or (rpm and string.format('%.1f', minimum) or 'E'), S.endSize * scale,
-    subCenter + vec2(-74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
-  text(aero and '100' or (rpm and string.format('%.1f', maximum) or 'F'), S.endSize * scale,
-    subCenter + vec2(74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
+  if not hideUnitEndpoints then
+    text(aero and '0' or (rpm and string.format('%.1f', minimum) or 'E'), S.endSize * scale,
+      subCenter + vec2(-74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
+    text(aero and '100' or (rpm and string.format('%.1f', maximum) or 'F'), S.endSize * scale,
+      subCenter + vec2(74 * scale, 5 * scale), C.secondary, nil, L.label, scale)
+  end
   if not available then
     text('N/A', S.labelSize * scale,
       subCenter + vec2(0, 29 * scale), low and lowInk or C.secondary, nil, L.label, scale)
