@@ -653,6 +653,7 @@ local timerDrawingCases = 0
 for _, themeName in ipairs({'dark','light'}) do
 for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   windowWidth, windowHeight = 320 * scale, 94 * scale
+  local referenceClockSize = nil
   for _, finalLap in ipairs({ false, true }) do
     for _, resultActive in ipairs({ false, true }) do
       for _, inPits in ipairs({ false, true }) do
@@ -661,16 +662,28 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
         if resultActive then snapshot.result = { time = 139000, status = 'personal_best', delta = -1234 } end
         TimerDisplay.draw(snapshot, { scale = scale, backgroundOpacity = 0.7 },
           { palette = Theme.get(themeName), instrumentOpacity = 1 })
-        local panel = drawnPanels[finalLap and 2 or 1]
+        local panel = drawnPanels[1]
         local foundTime = false
         for _, text in ipairs(drawnText) do
           if text.value == '2:19.000' then
             foundTime = true
             local measured = ui.measureDWriteText(text.value, text.size)
-            assert(text.size > (resultActive and 28 or 33) * scale, 'Timer digits must grow to use available space')
+            assert(text.size >= 32 * scale, 'Timer digits must remain large with results visible')
             assert(text.position.x >= panel.minimum.x and text.position.x + measured.x <= panel.maximum.x
               and text.position.y >= panel.minimum.y and text.position.y + measured.y <= panel.maximum.y,
               'large Timer digits must fit the plate, including pits and FINAL LAP')
+            if text.color == Theme.get(themeName).primary then
+              local center = (panel.minimum + panel.maximum) / 2
+              assert(math.abs(text.position.x + measured.x / 2 - center.x) < 0.001
+                and math.abs(text.position.y + measured.y / 2 - center.y) < 0.001,
+                'clock must stay precisely centered in its plate with or without pit/results')
+            end
+            if referenceClockSize then
+              assert(math.abs(text.size - referenceClockSize) < 0.001,
+                'result/final lap/pit state must not change the clock font size')
+            else
+              referenceClockSize = text.size
+            end
           end
         end
         assert(foundTime)
@@ -680,6 +693,26 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
   end
 end
 
+end
+
+-- A short sector time and a long lap must use the same type size in the
+-- real 480x94 Timer window, without shifting the numerals across frames.
+windowWidth, windowHeight = 480, 94
+local shortLongSize = nil
+local timerColors = Theme.get('dark')
+for _, milliseconds in ipairs({ 47145, 139000, 3599000 }) do
+  drawnText, drawnPanels, drawnMarkers = {}, {}, {}
+  TimerDisplay.draw({ currentLapTime = milliseconds }, { scale = 1, backgroundOpacity = 0.7 },
+    { palette = timerColors, instrumentOpacity = 1 })
+  local label = require('modules/timing/src/ui').formatTime(milliseconds)
+  local target = nil
+  for _, entry in ipairs(drawnText) do
+    if entry.value == label and entry.color == timerColors.primary then target = entry end
+  end
+  assert(target, 'the short or long timer value must be visible')
+  if shortLongSize then assert(math.abs(target.size - shortLongSize) < 0.001,
+    'changing from 47.145 to a longer lap time must not change font size') end
+  shortLongSize = target.size
 end
 
 for _, themeName in ipairs({'dark','light'}) do
@@ -700,14 +733,12 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
           delta = outcome.delta, valid = outcome.valid }
         TimerDisplay.draw({ result = result, finalLap = finalLap },
           { scale = scale, backgroundOpacity = opacity }, { palette = colors, instrumentOpacity = 1 })
-        local mainPanelIndex = finalLap and 2 or 1
-        local mainPanel = drawnPanels[mainPanelIndex]
-        for panelIndex = mainPanelIndex + 1, #drawnPanels do
-          assert(drawnPanels[panelIndex].minimum.y == mainPanel.minimum.y
-            and drawnPanels[panelIndex].maximum.y == mainPanel.maximum.y,
-            'sector result sections must have the same height and vertical alignment as the central timer')
+        local mainPanel = drawnPanels[1]
+        for panelIndex = 2, #drawnPanels do
+          assert(drawnPanels[panelIndex].minimum.y > mainPanel.maximum.y,
+            'sector and delta panels belong in a separate row beneath the fixed clock')
         end
-        local bestCount, deltaCount = 0, 0
+        local bestCount, deltaCount, sectorCount = 0, 0, 0
         local deltaText = require('modules/timing/src/ui').formatDelta(outcome.delta)
         for _, text in ipairs(drawnText) do
           local measured = ui.measureDWriteText(text.value, text.size)
@@ -720,12 +751,16 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
               contained = true
             end
           end
-          assert(contained, 'sector result labels must fit their panels at every supported scale')
+          assert(contained, ('sector result label %q at (%.2f, %.2f) with size %.2f does not fit a panel (scale=%.2f, finalLap=%s, status=%s)')
+            :format(text.value, text.position.x, text.position.y, text.size, scale, tostring(finalLap), outcome.status))
           assert(text.value ~= 'PB' and text.value ~= 'VALID' and text.value ~= 'INVALID',
             'the left context must be reserved for a valid session record')
           if text.value == 'BEST' then
             bestCount = bestCount + 1
             assert(text.size >= 19 * scale and text.color == colors.purple)
+          elseif text.value == 'SECTOR 1' then
+            sectorCount = sectorCount + 1
+            assert(text.size >= 16 * scale, 'the sector label must remain readable')
           elseif text.value == deltaText and not ((text.color.r==0x13/255 and text.color.g==0x10/255 and text.color.b==0x0D/255)
               or (text.color.r==0xF2/255 and text.color.g==0xDB/255 and text.color.b==0xAE/255)) then
             deltaCount = deltaCount + 1
@@ -736,6 +771,7 @@ for _, scale in ipairs({ 0.65, 1, 1.5 }) do
           end
         end
         assert(bestCount == (outcome.valid and outcome.status == 'session_best' and 1 or 0))
+        assert(sectorCount == ((finalLap or (outcome.valid and outcome.status == 'session_best')) and 0 or 1))
         assert(deltaCount == 1)
         if opacity == 0 then
           for _, panel in ipairs(drawnPanels) do

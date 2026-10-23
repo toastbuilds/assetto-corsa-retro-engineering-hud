@@ -25,9 +25,7 @@ end
 local function drawOutlinedText(text, size, center, color, scale)
   text = tostring(text)
   local measured = ui.measureDWriteText(text, size)
-  -- Consolas digits occupy less than the measured line box. Centre their ink,
-  -- including the outline, instead of leaving the time visually above centre.
-  local position = center - measured / 2 + vec2(0, size * 0.15)
+  local position = center - measured / 2
   local spread = math.max(0.75, scale)
   local outline = outlineFor(color)
   for _, offset in ipairs(OUTLINE_OFFSETS) do
@@ -56,30 +54,19 @@ function Display.draw(snapshot, settings, visual)
   local backgroundOpacity = math.max(0, math.min(1, tonumber(settings.backgroundOpacity) or 0.70))
   local width, height = ui.windowWidth(), ui.windowHeight()
   local scale = math.max(0.35, math.min(settings.scale or 1, width / 320, height / 94))
-  local contentTop = 5 * scale
   local result = snapshot.result
-  local showBest = result and result.valid ~= false and result.status == 'session_best'
-  local bestWidth = showBest and 64 * scale or 0
-  local deltaWidth = result and 88 * scale or 0
-  local gap = 5 * scale
-  local timerTop = contentTop + 4 * scale
-  local resultBadgeHeight = 14 * scale
-  local timerHeight = height - timerTop - (snapshot.finalLap and resultBadgeHeight + gap or 0)
-    - (snapshot.finalLap and 0 or 2 * scale)
-  local timerTL = vec2(6 * scale + bestWidth + gap, timerTop)
-  local timerBR = vec2(width - 6 * scale - deltaWidth - gap, timerTop + timerHeight)
+  local margin, gap = 6 * scale, 4 * scale
+  -- Reserve the result row to prevent BEST, deltas and FINAL LAP from
+  -- resizing or shifting the central clock on each sector crossing.
+  local badgeHeight = 29 * scale
+  local badgeTop = height - margin - badgeHeight
+  local timerTL = vec2(margin, margin)
+  local timerBR = vec2(width - margin, badgeTop - gap)
+  local timerHeight = timerBR.y - timerTL.y
   local timerWidth = timerBR.x - timerTL.x
 
   ui.pushStyleVarAlpha(visual.instrumentOpacity or 1)
   ui.pushDWriteFont(FONT)
-
-  if snapshot.finalLap then
-    local badgeWidth = width - 12 * scale
-    local badgeTL = vec2(6 * scale, timerBR.y + gap)
-    drawBadge(badgeTL, badgeWidth, resultBadgeHeight, 'FINAL LAP',
-      withBackgroundOpacity(colors.redDim, backgroundOpacity),
-      withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale, 12, false, 2)
-  end
 
   local time = result and result.time or snapshot.currentLapTime
   local invalidLap = result and (result.valid == false or result.status == 'invalid') or snapshot.invalid == true
@@ -90,18 +77,17 @@ function Display.draw(snapshot, settings, visual)
     withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
     withBackgroundOpacity(colors.outlineSoft, backgroundOpacity), 1.1 * scale)
   local timeText = TimingUI.formatTime(time)
-  local timeSize = timerHeight
-  local pitPadding = snapshot.inPits and 18 * scale or 0
-  local measured = ui.measureDWriteText(timeText, timeSize)
+  -- Use a constant reference string, so both short and long lap/sector
+  -- values share a stable font size in the same window.
+  local timeSize = math.min(43 * scale, timerHeight - 7 * scale)
+  local measured = ui.measureDWriteText('888:88.888*', timeSize)
   local hasInvalidMarker = invalidLap and timeText:find('%d') ~= nil
-  local markerReserve = ui.measureDWriteText('*', timeSize * 0.34).x + 3 * scale
-  timeSize = timeSize * math.min(1, (timerWidth - 4 * scale - markerReserve) / math.max(1, measured.x),
-    (timerHeight - timeSize * 0.3 - scale) / math.max(1, measured.y))
+  timeSize = timeSize * math.min(1, (timerWidth - 18 * scale) / math.max(1, measured.x),
+    (timerHeight - 5 * scale) / math.max(1, measured.y))
   local textMeasured = ui.measureDWriteText(timeText, timeSize)
   local actualMarkerReserve = hasInvalidMarker
     and (ui.measureDWriteText('*', timeSize * 0.34).x + 3 * scale) or 0
-  local timeCenter = vec2((timerTL.x + timerBR.x + pitPadding) / 2 - actualMarkerReserve / 2,
-    timerTop + timerHeight / 2)
+  local timeCenter = (timerTL + timerBR) / 2 - vec2(actualMarkerReserve / 2, 0)
   local resultAge = result and math.max(0, (snapshot.clock or result.createdAt or 0) - (result.createdAt or 0)) or 0
   local flash = result and math.floor(resultAge / 0.25) % 2 ~= 0
   ui.pushStyleVarAlpha(flash and 0.25 or 1)
@@ -110,25 +96,48 @@ function Display.draw(snapshot, settings, visual)
     local markerSize = timeSize * 0.34
     local markerMeasured = ui.measureDWriteText('*', markerSize)
     local markerCenter = vec2(timeCenter.x + textMeasured.x / 2 + markerMeasured.x / 2 + 2 * scale,
-      timeCenter.y - textMeasured.y / 2 + markerMeasured.y / 2 * 0.7)
+      timeCenter.y - textMeasured.y / 2 + markerMeasured.y / 2)
     drawOutlinedText('*', markerSize, markerCenter, timeColor, scale)
   end
   ui.popStyleVar(1)
 
-  if result then
-    local badgeTop = timerTop
-    if showBest then
-      drawBadge(vec2(6 * scale, badgeTop), bestWidth, timerHeight, 'BEST',
-        withBackgroundOpacity(colors.purpleDim, backgroundOpacity),
-        withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 26)
+  if result or snapshot.finalLap then
+    local rowLeft = vec2(margin, badgeTop)
+    local rowWidth = width - 2 * margin
+    local showBest = result and result.valid ~= false and result.status == 'session_best'
+    local leftWidth = rowWidth * (snapshot.finalLap and 0.43 or 0.40)
+    if snapshot.finalLap and showBest then leftWidth = rowWidth * 0.36 end
+    local deltaLeft = rowLeft.x + leftWidth + gap
+    if snapshot.finalLap then
+      drawBadge(rowLeft, result and leftWidth or rowWidth, badgeHeight, 'FINAL LAP',
+        withBackgroundOpacity(colors.redDim, backgroundOpacity),
+        withBackgroundOpacity(colors.red, backgroundOpacity), colors.primary, scale, 21, false, 3)
+    elseif result then
+      local label = showBest and 'BEST'
+        or (result.kind == 'sector' and ('SECTOR ' .. tostring((result.index or 0) + 1))
+          or ('LAP ' .. tostring(result.index or snapshot.lapNumber or 1)))
+      local labelColor = showBest and colors.purple or colors.secondary
+      drawBadge(rowLeft, leftWidth, badgeHeight, label,
+        withBackgroundOpacity(showBest and colors.purpleDim or colors.panelRaised, backgroundOpacity),
+        withBackgroundOpacity(showBest and colors.purple or colors.outlineSoft, backgroundOpacity),
+        labelColor, scale, showBest and 23 or 18, false, 3)
     end
-    local deltaStatus = (result.valid == false or result.status == 'invalid') and 'invalid'
-      or (result.delta ~= nil and result.delta < 0 and 'session_best') or 'slower'
-    local deltaColor = deltaStatus == 'invalid' and colors.secondary
-      or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
-    drawBadge(vec2(timerBR.x + gap, badgeTop), deltaWidth, timerHeight,
-      TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
-      withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 26, true)
+    if snapshot.finalLap and showBest then
+      local bestWidth = rowWidth * 0.21
+      drawBadge(vec2(deltaLeft, badgeTop), bestWidth, badgeHeight, 'BEST',
+        withBackgroundOpacity(colors.purpleDim, backgroundOpacity),
+        withBackgroundOpacity(colors.purple, backgroundOpacity), colors.purple, scale, 22, false, 3)
+      deltaLeft = deltaLeft + bestWidth + gap
+    end
+    if result then
+      local deltaStatus = (result.valid == false or result.status == 'invalid') and 'invalid'
+        or (result.delta ~= nil and result.delta < 0 and 'session_best') or 'slower'
+      local deltaColor = deltaStatus == 'invalid' and colors.secondary
+        or (result.delta == nil and colors.secondary) or TimingUI.statusColor(colors, deltaStatus)
+      drawBadge(vec2(deltaLeft, badgeTop), width - margin - deltaLeft, badgeHeight,
+        TimingUI.formatDelta(result.delta), withBackgroundOpacity(colors.panelRaised, backgroundOpacity),
+        withBackgroundOpacity(deltaColor, backgroundOpacity), deltaColor, scale, 28, true, 3)
+    end
   end
 
   if snapshot.inPits then
