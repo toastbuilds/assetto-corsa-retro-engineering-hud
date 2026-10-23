@@ -54,7 +54,7 @@ Theme.colors = Theme.palettes.dark
 Theme.fonts = { utility = 'Consolas;Weight=Regular' }
 
 function Theme.get(name)
-  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name, 'telemetry')
 end
 
 function Theme.withAlpha(color, alpha)

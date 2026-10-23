@@ -813,7 +813,7 @@ local function drawDebug(origin, scale, state)
 end
 
 function M.draw(state, settings)
-  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
+  C = GeneralSettings.palette(Theme.get(settings.theme, 'dial'), settings.backgroundOpacity)
 
   local width = ui.windowWidth()
   local height = ui.windowHeight()

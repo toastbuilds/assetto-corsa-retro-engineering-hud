@@ -314,7 +314,7 @@ end
 
 local function drawWindow()
   local values = Settings.current()
-  local palette = Theme.get(GlobalSettings.values.theme)
+  local palette = Theme.get(GlobalSettings.themeName('map'), 'map')
   local origin = ui.getCursor()
   local size = ui.windowSize() - origin
   local side = math.min(size.x, size.y)

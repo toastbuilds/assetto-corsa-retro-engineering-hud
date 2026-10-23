@@ -609,7 +609,7 @@ local function drawGrip(origin,scale,grip)
 end
 
 function M.draw(state, settings)
-  C = GeneralSettings.palette(Theme.get(settings.theme), settings.backgroundOpacity)
+  C = GeneralSettings.palette(Theme.get(settings.theme, 'condition'), settings.backgroundOpacity)
   local width = ui.windowWidth()
   local height = ui.windowHeight()
   local scale = math.min(width / Layout.width, height / Layout.height)

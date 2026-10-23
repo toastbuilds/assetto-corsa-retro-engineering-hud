@@ -64,7 +64,8 @@ end
 function M.resetAppearance(page, reset)
   if ui.button('Reset appearance##' .. page) then
     reset()
-    notices[page] = { message = 'Appearance restored to defaults.', appearance = true,
+    require('src/general_settings').resetAppearance(page)
+		notices[page] = { message = 'Appearance restored to defaults.', appearance = true,
       expires = ui.time() + 7 }
   end
   showNotice(page, true)
@@ -75,7 +76,11 @@ function M.resetAll(page, reset, details)
   if pendingReset == page then
     ui.textWrapped(details or 'Restore all settings for this instrument?')
     if ui.button('Confirm reset##' .. page) then
-      local called, ok, err = pcall(reset)
+      local called, ok, err = pcall(function()
+				local result, message = reset()
+				if result ~= false then require('src/general_settings').resetAppearance(page) end
+				return result, message
+			end)
       local message = not called and ('Reset failed: ' .. tostring(ok))
         or ok == false and ('Reset failed: ' .. tostring(err))
         or 'All settings restored to defaults.'

@@ -9,14 +9,14 @@ local GlobalSettings = require('src/general_settings')
 local state = Telemetry.new()
 local history = History.new()
 local visual = {
-  palette = Theme.get('dark'),
+  palette = Theme.get(GlobalSettings.themeName('telemetry')),
   backdropOpacity = 0.72,
   instrumentOpacity = 1
 }
 local telemetryError
 
 local function visualStyle()
-  visual.palette = GlobalSettings.palette(Theme.get(GlobalSettings.values.theme))
+  visual.palette = GlobalSettings.palette(Theme.get(GlobalSettings.themeName('telemetry')))
   visual.backdropOpacity = 0.72
   visual.instrumentOpacity = GlobalSettings.values.opacity
   return visual

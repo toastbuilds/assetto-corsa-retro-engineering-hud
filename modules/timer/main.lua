@@ -41,7 +41,7 @@ function M.windowMain(_)
   Settings.normalize()
   local snapshot = state:snapshot()
   local visual = {
-    palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
+    palette = GeneralSettings.palette(Theme.get(GeneralSettings.themeName('timer'), 'timer')),
     instrumentOpacity = GeneralSettings.values.opacity
   }
   local ok, drawError = pcall(Display.draw, snapshot, Settings.values, visual)

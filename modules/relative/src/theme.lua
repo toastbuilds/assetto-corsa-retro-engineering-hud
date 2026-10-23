@@ -48,7 +48,7 @@ Theme.palettes = {
 }
 
 function Theme.get(name)
-  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name, 'relative')
 end
 
 function Theme.withAlpha(color, alpha)

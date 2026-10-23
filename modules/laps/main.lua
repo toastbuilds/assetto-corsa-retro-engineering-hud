@@ -28,7 +28,7 @@ end
 function M.windowMain(_)
   Settings.normalize()
   local visual = {
-    palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
+    palette = GeneralSettings.palette(Theme.get(GeneralSettings.themeName('laps'), 'laps')),
     instrumentOpacity = GeneralSettings.values.opacity,
     animateLapChanges = Settings.values.animateLapChanges,
     showEstimatedLapTime = Settings.values.showEstimatedLapTime

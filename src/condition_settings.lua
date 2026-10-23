@@ -129,7 +129,7 @@ function M.current()
     fallbackPressureFront = M.values.fallbackPressureFront, fallbackPressureRear = M.values.fallbackPressureRear,
     fallbackTemperatureMin = M.values.fallbackTemperatureMin, fallbackTemperatureMax = M.values.fallbackTemperatureMax,
     fallbackGT3Min = M.values.fallbackGT3Min, fallbackGT3Max = M.values.fallbackGT3Max
-  })
+  }, 'condition')
 end
 
 return M

@@ -28,8 +28,8 @@ Theme.fonts = Base.fonts
 Theme.withAlpha = Base.withAlpha
 Theme.blend = Base.blend
 
-function Theme.get(name)
-  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
+function Theme.get(name, appId)
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name, appId)
 end
 
 return Theme

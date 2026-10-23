@@ -189,7 +189,11 @@ function script.settingsMain(_)
     ui.sameLine()
     ui.childWindow('retro-ui-content-' .. settingsState.selectedPage, ui.availableSpace(), function()
       for _, page in ipairs(pages) do
-        if settingsState.selectedPage == page.id then page.draw(); return end
+        if settingsState.selectedPage == page.id then
+          GeneralSettings.drawAppearance(page.id)
+          page.draw()
+          return
+        end
       end
       settingsState.selectedPage = 'general'
       GeneralSettings.draw()

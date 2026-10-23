@@ -568,17 +568,17 @@ function M.draw(state,settings,origin,scale)
   local layout=Layouts.get(settings.analogVariant)
   if not layout then return false end
   local c={layout=layout,state=state,settings=settings,origin=origin,scale=scale,
-    colors=General.palette(Theme.get(settings.theme),settings.backgroundOpacity)}
+    colors=General.palette(Theme.get(settings.theme, 'dial'),settings.backgroundOpacity)}
   c.L=Light.resolve(c.colors,settings.theme,state.gt7Instruments and state.gt7Instruments.light or (state.headlights and 1 or 0))
   local images=imagesByVariant[layout.id][settings.theme=='light' and 'light' or 'dark']
-  local customPalette=General.selectedPalette(settings.theme)~='original'
+  local customPalette=General.selectedPalette(settings.theme, 'dial')~='original'
   local tint=rgbm(1,1,1,U.clamp((settings.backgroundOpacity or 0.72)/0.72,0,1))
   local finish=point(c,620,620)
   -- The structural bezel is also drawn natively: first-frame asynchronous
   -- texture loading can never leave the instrument floating without a face.
   local center=point(c,310,304)
   if layout.id=='concentric' then
-    ui.drawCircleFilled(center,176*scale,Theme.withAlpha(Theme.get(settings.theme).surface,0.10),96)
+    ui.drawCircleFilled(center,176*scale,Theme.withAlpha(Theme.get(settings.theme, 'dial').surface,0.10),96)
     arc(c,310,304,221,0,360,c.colors.surface,90)
   else
     ui.drawCircleFilled(center,266*scale,c.colors.void,96)
@@ -602,7 +602,7 @@ function M.draw(state,settings,origin,scale)
     -- Opaque center masks the hand regardless of shell opacity.
     local p=layout.core
     ui.drawCircleFilled(point(c,p[1],p[2]),p[3]*scale,
-      Theme.withAlpha(Theme.get(settings.theme).panel,1),96)
+      Theme.withAlpha(Theme.get(settings.theme, 'dial').panel,1),96)
   end
   if images.front then
     if customPalette then PaletteShell.front(c) else ui.drawImage(images.front,origin,finish,tint) end

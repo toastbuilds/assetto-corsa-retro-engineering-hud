@@ -77,7 +77,7 @@ function M.draw(notice, settings)
   if scale <= 0 then return end
   local origin = vec2((width - M.width * scale) / 2, (height - authoredHeight * scale) / 2)
   local function p(x, y) return origin + vec2(x, y) * scale end
-  local colors = Theme.get(General.values.theme)
+  local colors = Theme.get(General.themeName('notices'), 'notices')
   local opacity = General.values.opacity
   local function ink(color, alpha) return Theme.withAlpha(color, opacity * (alpha or color.mult or 1)) end
   local accent = notice.kind == 'blue' and (colors.flagBlue or colors.shiftBlue)

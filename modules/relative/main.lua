@@ -46,7 +46,7 @@ end
 
 local function visualStyle()
   return {
-    palette = GlobalSettings.palette(Theme.get(GlobalSettings.values.theme)),
+    palette = GlobalSettings.palette(Theme.get(GlobalSettings.themeName('relative'))),
     backdropOpacity = 0.72,
     instrumentOpacity = 1 -- Applied once by the window wrapper.
   }
@@ -132,7 +132,7 @@ local function drawRow(row, isPlayer, visual, x1, x2, y, fontSize, rowHeight, no
     ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, alpha * opacity))
   end
   if flagColor and not previousAlert then
-    local alpha = (GlobalSettings.values.theme == 'light' and 0.18 or 0.22) + 0.08 * flagPulse
+    local alpha = (GlobalSettings.themeName('relative') == 'light' and 0.18 or 0.22) + 0.08 * flagPulse
     ui.drawRectFilled(start, finish, Theme.withAlpha(flagColor, alpha * opacity))
   end
 

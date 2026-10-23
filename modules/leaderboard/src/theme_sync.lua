@@ -6,7 +6,7 @@ function M.init() end
 
 function M.visual()
   return {
-    palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
+    palette = GeneralSettings.palette(Theme.get(GeneralSettings.themeName('leaderboard'))),
     backdropOpacity = 0.72,
     instrumentOpacity = GeneralSettings.values.opacity,
     synced = true

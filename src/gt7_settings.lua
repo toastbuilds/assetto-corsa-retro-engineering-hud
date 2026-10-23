@@ -149,7 +149,7 @@ function M.current()
   end
   values.instrumentMode = 'gt7_retro'
   values.gt7InstrumentsEnabled = true
-  return GeneralSettings.apply(values)
+  return GeneralSettings.apply(values, 'gt7')
 end
 
 local presets = {

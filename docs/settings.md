@@ -4,7 +4,7 @@ Use **Retro UI Settings** from the CSP app sidebar. Every instrument is included
 
 ## General
 
-Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/background opacity, RPM warning/redline thresholds, fallback RPM and blinking alerts. Local scale and geometry remain independent per instrument.
+Shared light/dark themes, color palettes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/background opacity, RPM warning/redline thresholds, fallback RPM and blinking alerts. In each app's settings page, **Theme and color** can follow the shared appearance or select an independent dark/light theme and palette. Local scale and geometry remain independent per instrument. Reset appearance or Reset all returns that app to Follow global without changing other apps.
 
 **Suggested corner gear** in General → Basics is enabled by default for GT7 and selected Dial layouts. Digital Original, Column, Floating, Offset and Orbit stack the recommendation under the smaller current gear. Bridge, Core Capsule, Radial, Concentric, Shelf and Spoke shift the current gear left and put a larger recommendation to its right. Column keeps the two rows close to clear the lower indicators. Core Capsule uses the open space in its left readout cell. Snap Selector uses the side-by-side arrangement and highlights the suggested gear around the selector. Analog Original and other unlisted Dial variants do not show this cue. GT7 places the current gear on the left and the larger recommendation on the right. The cue appears only when the estimated gear for the next corner differs from the selected gear. Corner detection starts 200 m before the first detected curvature point to give more lead time. It samples the CSP AI fast lane once per track and uses corner radius with a fixed 0.9 g target; the car's torque curve selects the gear when available, otherwise it uses the shortest ratio below 90% of the RPM limiter. The cue turns red above a 10 km/h speed difference and flashes near the estimated braking point. It is hidden in replays, pits, neutral/reverse, AI control, or when track/drivetrain data is unavailable. Diagnostic messages prefixed `[Retro UI corner gear]` are written to the CSP Lua log on state changes (rate-limited to one per second); a persistent state is repeated at most every 10 seconds. This is a fixed estimate; it does not adapt to wetness or tyre grip.
 
@@ -15,7 +15,7 @@ Shared light/dark themes, speed units, Celsius/Fahrenheit, psi/bar/kPa, content/
 - **Dark:** 01, 02, 06, 07, 08, 13, 14, 15, 25, 26, 28, 32.
 - **Light:** 04, 05, 09, 10, 11, 12, 19, 27, 22, 30, 31.
 
-Palette 19 (Cyan Night) is included in Light. Headlight illumination follows the selected palette; official flag and race classification colors retain their meanings. General **Reset appearance** restores both palette selections to Original.
+Palette 19 (Cyan Night) is included in Light. Headlight illumination follows the selected palette; official flag and race classification colors retain their meanings. General **Reset appearance** restores both shared palette selections to Original. An app set to **Follow global** uses these shared theme and palette choices.
 
 With a numbered palette, Classic Shelf, Fan, Concentric and Spoke use native colored shell geometry instead of the factory PNG material textures.
 
@@ -116,6 +116,5 @@ Radial uses a steering sphere around the central speed/gear circle, with auxilia
 Bridge uses a graduated steering line above the speed readout. Column and Offset omit auxiliary units and place channel icons below their perimeter bars. Orbit raises its central circle and uses a graduated steering ring. Standalone fuel readouts turn red below 15% and flash below 10%.
 
 Analog pedal tracks fill upward in Classic Shelf, Fan, Track and Concentric; Spoke fills both tracks outward from the centre and uses an illuminated steering marker on its hub ring. Concentric has a smaller opaque central readout, a 10% background in its opening, and opposing lower auxiliary and upper fuel arcs with icons and no units.
-
 
 Concentric omits numeric RPM and auxiliary readings; its auxiliary icons sit to the right of their arcs. Its steering track and lower auxiliary arc are raised. The needle draws above pedal tracks and beneath the opaque central readout.

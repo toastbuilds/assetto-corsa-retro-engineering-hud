@@ -13,6 +13,53 @@ local defaults = {
 }
 M.values = ac.storage(defaults, 'retro-ui.general.')
 
+local appearances = {}
+local appIds = { 'dial', 'gt7', 'condition', 'relative', 'delta', 'timer', 'laps',
+	'leaderboard', 'telemetry', 'dash', 'map', 'notices' }
+for _, id in ipairs(appIds) do
+	appearances[id] = ac.storage({ theme = 'global', darkPalette = 'original', lightPalette = 'original' },
+		'retro-ui.appearance.' .. id .. '.')
+end
+
+function M.appearance(id)
+	local values = appearances[id]
+	if not values then return nil end
+	if values.theme ~= 'dark' and values.theme ~= 'light' then values.theme = 'global' end
+	values.darkPalette = ColorPalettes.normalize('dark', values.darkPalette)
+	values.lightPalette = ColorPalettes.normalize('light', values.lightPalette)
+	return values
+end
+
+function M.themeName(id)
+	local values = M.appearance(id)
+	if values and values.theme ~= 'global' then return values.theme end
+	return M.values.theme == 'light' and 'light' or 'dark'
+end
+
+function M.resetAppearance(id)
+	local values = appearances[id]
+	if values then
+		values.theme, values.darkPalette, values.lightPalette = 'global', 'original', 'original'
+	end
+end
+
+function M.drawAppearance(id)
+	local values = M.appearance(id)
+	if not values then return end
+	SettingsUI.section(id, 'appearance', 'Theme and color', true, function()
+		SettingsUI.choice(id, 'theme', 'Theme', values.theme,
+			{ { label = 'Follow global', value = 'global' }, { label = 'Dark', value = 'dark' },
+				{ label = 'Light',       value = 'light' } }, function(value) values.theme = value end)
+		if values.theme ~= 'global' then
+			local key = values.theme .. 'Palette'
+			SettingsUI.choice(id, 'palette', 'Color palette', values[key],
+				ColorPalettes.choices(values.theme), function(value) values[key] = value end)
+		else
+			ui.textWrapped('Uses the theme and color palette selected in General.')
+		end
+	end)
+end
+
 local function clamp(value, low, high, fallback)
   value = tonumber(value)
   if not value or value ~= value then return fallback end
@@ -59,22 +106,27 @@ function M.normalize()
   end
 end
 
-function M.apply(target)
+function M.apply(target, appId)
   M.normalize()
   for key in pairs(defaults) do
     if key ~= 'version' then target[key] = M.values[key] end
   end
-  target.instrumentOpacity, target.backdropOpacity = M.values.opacity, M.values.backgroundOpacity
+  target.theme = M.themeName(appId)
+	target.darkPalette = M.selectedPalette('dark', appId)
+	target.lightPalette = M.selectedPalette('light', appId)
+	target.instrumentOpacity, target.backdropOpacity = M.values.opacity, M.values.backgroundOpacity
   return target
 end
 
-function M.selectedPalette(name)
+function M.selectedPalette(name, appId)
   name = name == 'light' and 'light' or 'dark'
-  return ColorPalettes.normalize(name, M.values[name .. 'Palette'])
+  local localValues = M.appearance(appId)
+	local values = localValues and localValues.theme ~= 'global' and localValues or M.values
+	return ColorPalettes.normalize(name, values[name .. 'Palette'])
 end
 
-function M.themePalette(source, name)
-  return ColorPalettes.resolve(source, name, M.selectedPalette(name))
+function M.themePalette(source, name, appId)
+  return ColorPalettes.resolve(source, name, M.selectedPalette(name, appId))
 end
 
 -- Draw backgrounds at their authored 72% reference, then scale their colors

@@ -617,7 +617,7 @@ function M.draw(state,settings,origin,scale)
   local layout=Layouts.get(settings.digitalVariant)
   if not layout then return false end
   local c={layout=layout,state=state,settings=settings,origin=origin,scale=scale,
-    C=General.palette(Theme.get(settings.theme),settings.backgroundOpacity)}
+    C=General.palette(Theme.get(settings.theme, 'dial'),settings.backgroundOpacity)}
   c.L=Light.resolve(c.C,settings.theme,state.gt7Instruments and state.gt7Instruments.light or (state.headlights and 1 or 0))
   frame(c)
   if layout.selector then gearSelector(c) end

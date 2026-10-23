@@ -8,7 +8,7 @@ local DigitalVariants = require('src/digital_dial_variants')
 M.lastChange = 'Ready'
 
 -- Legacy shared fields are retained for one-time migration and older GT7
--- installs. Renderers consume current(), with General as the sole authority.
+-- installs. Renderers consume current(), combining shared and local appearance.
 M.values = ac.storage({
   layoutVersion = 1,
   hudScale = 0.72,
@@ -156,7 +156,7 @@ function M.current()
       'showClutch', 'showLights', 'showTcAbsLevels', 'showSteering', 'animateGearSelector', 'debug'}) do
     values[key] = M.values[key]
   end
-  return GeneralSettings.apply(values)
+  return GeneralSettings.apply(values, 'dial')
 end
 
 function M.draw()

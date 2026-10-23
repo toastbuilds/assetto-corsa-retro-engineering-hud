@@ -7,11 +7,11 @@ local M = {}
 
 function M.windowMain(state)
   Panel.draw(state, Settings.current(), {
-    palette = GeneralSettings.palette(Theme.get(GeneralSettings.values.theme)),
+    palette = GeneralSettings.palette(Theme.get(GeneralSettings.themeName('dash'), 'dash')),
     contentOpacity = GeneralSettings.values.opacity,
     pressureUnit = GeneralSettings.values.pressureUnit,
     speedUnit = GeneralSettings.values.speedUnit,
-    theme = GeneralSettings.values.theme,
+    theme = GeneralSettings.themeName('dash'),
     light = state.available and state.gt7Instruments and state.gt7Instruments.light
       or (state.available and state.lightsAvailable and state.headlights and 1 or 0),
     animateIndicators = GeneralSettings.values.animateIndicators,

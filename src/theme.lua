@@ -79,30 +79,90 @@ Theme.colors = Theme.palettes.dark
 -- Targets belong to the side instruments, never to external status lamps.
 Theme.dialBacklight = {
   dark = {
-    warm = rgbm(1, 0.985, 0.90, 1), core = rgbm(1, 1, 0.95, 1),
-    amber = rgbm(1, 0.81, 0.46, 1), cyan = rgbm(0.52, 0.87, 0.96, 1), cyanDim = rgbm(0.28, 0.61, 0.71, 1),
-    red = rgbm(1, 0.33, 0.20, 1), ambient = rgbm(0.52, 0.35, 0.16, 1),
+    warm = rgbm(1, 0.985, 0.90, 1), secondary = rgbm(1, 0.88, 0.68, 1),
+		core = rgbm(1, 1, 0.95, 1),
+    amber = rgbm(1, 0.81, 0.46, 1), amberDim = rgbm(0.67, 0.47, 0.22, 1),
+		coreAmber = rgbm(1, 0.75, 0.36, 0.94),
+		coreRed = rgbm(1, 0.36, 0.27, 0.94),
+		flagWhite = rgbm(1, 1, 1, 1),
+		cyan = rgbm(0.52, 0.87, 0.96, 1), cyanDim = rgbm(0.34, 0.67, 0.78, 1),
+		shiftBlue = rgbm(0.55, 0.83, 0.96, 1),
+		shiftBlueDim = rgbm(0.34, 0.59, 0.75, 1),
+    red = rgbm(1, 0.33, 0.20, 1),
+		redDim = rgbm(0.72, 0.35, 0.30, 1),
+		green = rgbm(0.53, 0.91, 0.43, 1),
+		metal = rgbm(0.65, 0.55, 0.39, 1),
+		metalDim = rgbm(0.40, 0.34, 0.25, 1),
+		outline = rgbm(0.64, 0.46, 0.25, 1),
+		outlineSoft = rgbm(0.68, 0.51, 0.31, 1),
+		outlineDim = rgbm(0.37, 0.28, 0.19, 1),
+		flagYellow = rgbm(1, 0.87, 0.30, 1),
+		flagPurple = rgbm(0.86, 0.59, 1, 1), ambient = rgbm(0.52, 0.35, 0.16, 1),
   },
   light = {
-    warm = rgbm(0.42, 0.31, 0.15, 1), core = rgbm(0.48, 0.34, 0.15, 1),
-    amber = rgbm(0.66, 0.35, 0.04, 1), cyan = rgbm(0.04, 0.48, 0.61, 1), cyanDim = rgbm(0.35, 0.56, 0.64, 1),
-    red = rgbm(0.75, 0.17, 0.10, 1), ambient = rgbm(0.60, 0.40, 0.18, 1),
+    warm = rgbm(0.42, 0.31, 0.15, 1), secondary = rgbm(0.47, 0.39, 0.27, 1),
+		core = rgbm(0.48, 0.34, 0.15, 1),
+    amber = rgbm(0.66, 0.35, 0.04, 1), amberDim = rgbm(0.97, 0.89, 0.75, 1),
+		coreAmber = rgbm(0.99, 0.93, 0.84, 0.94),
+		coreRed = rgbm(0.99, 0.90, 0.88, 0.94),
+		flagWhite = rgbm(1, 1, 1, 1),
+		cyan = rgbm(0.04, 0.48, 0.61, 1), cyanDim = rgbm(0.62, 0.78, 0.82, 1),
+		shiftBlue = rgbm(0.20, 0.56, 0.69, 1),
+		shiftBlueDim = rgbm(0.67, 0.84, 0.91, 1),
+    red = rgbm(0.75, 0.17, 0.10, 1),
+		redDim = rgbm(0.97, 0.83, 0.81, 1),
+		green = rgbm(0.25, 0.57, 0.34, 1),
+		metal = rgbm(0.48, 0.38, 0.24, 1),
+		metalDim = rgbm(0.84, 0.80, 0.72, 1),
+		outline = rgbm(0.72, 0.55, 0.34, 1),
+		outlineSoft = rgbm(0.79, 0.69, 0.54, 1),
+		outlineDim = rgbm(0.86, 0.81, 0.70, 1),
+		flagYellow = rgbm(0.88, 0.68, 0.10, 1),
+		flagPurple = rgbm(0.62, 0.32, 0.78, 1), ambient = rgbm(0.60, 0.40, 0.18, 1),
   },
 }
 
-function Theme.get(name)
-  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name)
+function Theme.get(name, appId)
+  return GeneralSettings.themePalette(Theme.palettes[name] or Theme.palettes.dark, name, appId)
 end
 
 local backlightCache = setmetatable({}, {__mode='k'})
+local function brighten(color, amount)
+	return rgbm(color.r + (1 - color.r) * amount, color.g + (1 - color.g) * amount,
+		color.b + (1 - color.b) * amount, color.mult)
+end
+
 function Theme.backlight(name, palette)
-  if GeneralSettings.selectedPalette(name) == 'original' then
+  if palette.primary == (Theme.palettes[name] or Theme.palettes.dark).primary then
     return Theme.dialBacklight[name] or Theme.dialBacklight.dark
   end
   local targets = backlightCache[palette]
   if not targets then
-    targets = {warm=palette.primary, core=palette.primary, amber=palette.amber,
-      cyan=palette.cyan, cyanDim=palette.cyanDim, red=palette.red, ambient=palette.metal}
+    targets = {warm=brighten(palette.primary, 0.42),
+			secondary = brighten(palette.secondary, 0.42),
+			core=brighten(palette.primary, 0.66),
+			amber=brighten(palette.amber,
+      0.38),
+			amberDim = brighten(palette.amberDim, 0.30),
+			cyan=brighten(palette.cyan, 0.38),
+			cyanDim=brighten(palette.cyanDim, 0.30),
+			shiftBlue = brighten(palette.shiftBlue or palette.cyan, 0.38),
+			shiftBlueDim = brighten(palette.shiftBlueDim or palette.cyanDim, 0.30),
+			red=brighten(palette.red, 0.36),
+			redDim =brighten(palette.redDim, 0.30),
+			green = brighten(palette.green, 0.40),
+			coreAmber = brighten(palette.coreAmber, 0.38),
+			coreRed = brighten(palette.coreRed, 0.36),
+			flagWhite = brighten(palette.flagWhite, 0.12),
+			metal = brighten(palette.metal, 0.34),
+			metalDim = brighten(palette.metalDim, 0.42),
+			outline = brighten(palette.outline, 0.38),
+			outlineSoft = brighten(palette.outlineSoft, 0.30),
+			outlineDim = brighten(palette.outlineDim, 0.30),
+			flagYellow = brighten(palette.flagYellow, 0.32),
+			flagPurple = brighten(palette.flagPurple, 0.34),
+			ambient = brighten(palette.metal, 0.18)
+		}
     backlightCache[palette] = targets
   end
   return targets

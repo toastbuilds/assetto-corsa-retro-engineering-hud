@@ -60,6 +60,7 @@ io.dirExists=function() return true end
 io.exists=function(path) return files[path]~=nil end
 
 local pending, items, drawing, alphaStack = {}, {}, {}, {}
+local combos = {}
 local alpha, width = 1, 800
 local function item(label) items[label]=alpha end
 local function press(label)
@@ -83,7 +84,8 @@ ui = {
   slider=function(label,value)
     item(label); local nextValue=press(label); return nextValue or value,nextValue~=nil
   end,
-  combo=function(label,value)
+  combo=function(label,value, flags, labels)
+    combos[label] = { value = value, labels = labels }
     item(label); local nextValue=press(label); return nextValue or value,nextValue~=nil
   end,
   colorButton=function(label) item(label) end,
@@ -115,7 +117,7 @@ local Condition=require('src/condition_settings')
 local Config=require('src/instrument_config')
 local function near(a,b) return math.abs(a-b)<0.000001 end
 local function frame(draw)
-  items,drawing={},{}
+  items,drawing, combos ={}, {},{}
   draw()
   assert(alpha==1 and #alphaStack==0,'all paths must balance opacity styles')
   assert(#errors==0,table.concat(errors,'\n'))
@@ -203,7 +205,8 @@ General.values.darkPalette='07'
 local nextPalette=SharedTheme.get('dark')
 assert(first~=nextPalette and near(nextPalette.primary.r,0xE9/255),'switching must invalidate composed colors')
 local lighting=SharedTheme.backlight('dark',nextPalette)
-assert(lighting.warm==nextPalette.primary and lighting.red==nextPalette.red,'headlights must follow the palette')
+assert(lighting.warm.r > nextPalette.primary .r and lighting.warm.g > nextPalette.primary.g
+	and lighting.red.r > nextPalette.red.r and lighting.red.g > nextPalette.red.g,'headlights must brighten every selected palette')
 General.values.darkPalette='04';General.values.lightPalette='01';General.normalize()
 assert(General.values.darkPalette=='original' and General.values.lightPalette=='original','reject cross-theme IDs')
 General.values.darkPalette='01';General.values.lightPalette='19'
@@ -489,3 +492,189 @@ for _,page in ipairs(pages) do
 end
 
 print('Settings: twelve pages, migration, sliders, presets, resets and shared opacity consumers passed')
+-- Appearance belongs to the app settings shell, including Dash, not each page body.
+local appearanceApps = {
+	{ 'dial',  'Dial' }, { 'gt7', 'GT7' }, { 'condition', 'Condition' }, { 'relative', 'Relative' },
+	{ 'delta', 'Delta' }, { 'timer', 'Timer' }, { 'laps', 'Laps' }, { 'leaderboard', 'Leaderboard' },
+	{ 'telemetry', 'Telemetry' }, { 'dash', 'Dash' }, { 'map', 'Map' }, { 'notices', 'Race Notices' }
+}
+local function appSettings(app)
+	local selected = stores['retro-ui.settings-ui.'].selectedPage == app[1]
+	pending[(selected and '> ' or '  ') .. app[2] .. '##nav-' .. app[1]] = true
+	return frame(script.settingsMain)
+end
+local function appearanceIs(id, theme, dark, light)
+	local v = General.appearance(id)
+	assert(v and v.theme == theme and v.darkPalette == dark and v.lightPalette == light,
+		'unexpected persisted appearance: ' .. id)
+end
+local function snapshot(values)
+	local copy = {}
+	-- Inspect backing stores because storage proxies intentionally do not support pairs.
+	for key, value in pairs(values) do copy[key] = value end
+	return copy
+end
+local function unchanged(values, before, label)
+	for key, value in pairs(before) do assert(values[key] == value, label .. ' changed ' .. key) end
+	for key in pairs(values) do assert(before[key] ~= nil, label .. ' added ' .. key) end
+end
+General.values.theme = 'light'
+General.values.darkPalette, General.values.lightPalette = '01', '04'
+local globalBefore = snapshot(stores['retro-ui.general.'])
+assert(General.appearance(nil) == nil and General.appearance('unknown') == nil)
+for index, app in ipairs(appearanceApps) do
+	local id = app[1]
+	local v = General.appearance(id)
+	appearanceIs(id, 'global', 'original', 'original')
+	assert(stores['retro-ui.appearance.' .. id .. '.'], 'missing appearance storage: ' .. id)
+	local visible = appSettings(app)
+	assert(visible['v  Theme and color##' .. id .. '.appearance'], 'appearance must start open: ' .. id)
+	assert(combos['##' .. id .. '.theme'].value == 0 and not visible['##' .. id .. '.palette'])
+	local labels = combos['##' .. id .. '.theme'].labels
+	assert(labels[0] == 'Follow global' and labels[1] == 'Dark' and labels[2] == 'Light' and labels[3] == nil)
+	assert(General.themeName(id) == 'light' and General.selectedPalette('dark', id) == '01'
+		and General.selectedPalette('light', id) == '04', 'follow global uses shared palettes')
+	for _, sample in ipairs({ { 1, 'dark', '07' }, { 2, 'light', '10' } }) do
+		pending['##' .. id .. '.theme'] = sample[1]; visible = appSettings(app)
+		assert(v.theme == sample[2] and General.themeName(id) == sample[2])
+		visible = appSettings(app)
+		assert(combos['##' .. id .. '.theme'].value == sample[1] and visible['##' .. id .. '.palette'])
+		assert(combos['##' .. id .. '.palette'].value == 0)
+		for i, option in ipairs(ColorPalettes.choices(sample[2])) do
+			assert(combos['##' .. id .. '.palette'].labels[i - 1] == option.label)
+			if option.value == sample[3] then pending['##' .. id .. '.palette'] = i - 1 end
+		end
+		appSettings(app)
+		assert(v[sample[2] .. 'Palette'] == sample[3])
+	end
+	appearanceIs(id, 'light', '07', '10')
+	pending['##' .. id .. '.theme'] = 1; appSettings(app)
+	assert(combos['##' .. id .. '.palette'].value == 4, 'dark palette survives switching themes')
+	local target = { sentinel = id, theme = 'invalid', darkPalette = 'invalid', lightPalette = 'invalid' }
+	assert(General.apply(target, id) == target and target.sentinel == id and target.version == nil)
+	assert(target.theme == 'dark' and target.darkPalette == '07' and target.lightPalette == '10')
+	for key, value in pairs(globalBefore) do
+		if key ~= 'version' and key ~= 'theme' and key ~= 'darkPalette' and key ~= 'lightPalette' then
+			assert(target[key] == value, 'apply must retain shared setting ' .. key .. ': ' .. id)
+		end
+	end
+	assert(target.instrumentOpacity == General.values.opacity and target.backdropOpacity ==
+	General.values.backgroundOpacity)
+	for _, name in ipairs({ 'dark', 'light' }) do
+		local source = SharedTheme.palettes[name]
+		assert(General.themePalette(source, name, id) == ColorPalettes.resolve(source, name, name == 'dark' and '07' or '10'),
+			'themePalette must resolve local colors: ' .. id)
+	end
+	pending['##' .. id .. '.theme'] = 0; visible = appSettings(app)
+	appearanceIs(id, 'global', '07', '10')
+	assert(not visible['##' .. id .. '.palette'] and General.themeName(id) == 'light')
+	assert(General.selectedPalette('dark', id) == '01' and General.selectedPalette('light', id) == '04')
+	local inherited = General.apply({}, id)
+	assert(inherited.theme == 'light' and inherited.darkPalette == '01' and inherited.lightPalette == '04')
+	for _, name in ipairs({ 'dark', 'light' }) do
+		local source = SharedTheme.palettes[name]
+		assert(General.themePalette(source, name, id) == ColorPalettes.resolve(source, name, name == 'dark' and '01' or '04'),
+			'follow global must resolve shared colors: ' .. id)
+	end
+	v.theme = index % 2 == 0 and 'light' or 'dark'
+	for other = 1, index - 1 do
+		appearanceIs(appearanceApps[other][1], other % 2 == 0 and 'light' or 'dark', '07', '10')
+	end
+end
+unchanged(stores['retro-ui.general.'], globalBefore, 'local appearance UI')
+
+-- Restore the cached module even if reload fails: existing consumers retain references.
+local cachedGeneral = package.loaded['src/general_settings']
+package.loaded['src/general_settings'] = nil
+local reloadOK, persisted = pcall(require, 'src/general_settings')
+package.loaded['src/general_settings'] = cachedGeneral
+assert(reloadOK, persisted)
+persisted.initialize({ theme = 'dark', speedUnit = 'km/h', temperatureUnit = 'C' })
+for index, app in ipairs(appearanceApps) do
+	local v = persisted.appearance(app[1])
+	assert(v.theme == (index % 2 == 0 and 'light' or 'dark') and v.darkPalette == '07' and v.lightPalette == '10',
+		'reload must preserve local appearance: ' .. app[1])
+	assert(persisted.themeName(app[1]) == General.themeName(app[1]))
+end
+unchanged(stores['retro-ui.general.'], globalBefore, 'appearance reload')
+
+-- Timer and Laps share timing code, but never appearance storage or resolution.
+General.appearance('timer').theme = 'dark'
+local lapsAppearance = General.appearance('laps')
+lapsAppearance.theme, lapsAppearance.darkPalette, lapsAppearance.lightPalette = 'light', '28', '31'
+for _, name in ipairs({ 'dark', 'light' }) do
+	General.values.theme = name
+	General.values.darkPalette, General.values.lightPalette = '02', '05'
+	assert(General.themeName('timer') == 'dark' and General.themeName('laps') == 'light')
+	assert(General.apply({}, 'timer').darkPalette == '07' and General.apply({}, 'laps').lightPalette == '31')
+	for _, app in ipairs(appearanceApps) do
+		assert(General.selectedPalette('dark', app[1]) == (app[1] == 'laps' and '28' or '07'))
+		assert(General.selectedPalette('light', app[1]) == (app[1] == 'laps' and '31' or '10'))
+	end
+end
+General.appearance('timer').theme = 'global'
+assert(General.themeName('timer') == 'light' and General.selectedPalette('light', 'timer') == '05')
+General.values.theme = 'dark'; General.values.darkPalette = '32'
+assert(General.themeName('timer') == 'dark' and General.apply({}, 'timer').darkPalette == '32')
+appearanceIs('timer', 'global', '07', '10')
+appearanceIs('laps', 'light', '28', '31')
+for _, id in ipairs({ 'unknown', false }) do
+	assert(General.themeName(id) == 'dark' and General.selectedPalette('dark', id) == '32')
+	assert(General.apply({}, id).darkPalette == '32')
+end
+assert(General.themeName() == 'dark' and General.selectedPalette('light') == '05')
+assert(General.themePalette(SharedTheme.palettes.dark, 'dark') ==
+ColorPalettes.resolve(SharedTheme.palettes.dark, 'dark', '32'))
+
+-- Normalize invalid persisted data, including IDs from the opposite theme.
+for _, app in ipairs(appearanceApps) do
+	local id = app[1]
+	for _, invalid in ipairs({ {}, { theme = 'invalid', darkPalette = '04', lightPalette = '01' },
+		{ theme = false, darkPalette = false, lightPalette = false }, { theme = 3, darkPalette = 7, lightPalette = 10 },
+		{ theme = 'global', darkPalette = 'missing', lightPalette = 'missing' } }) do
+		local raw = stores['retro-ui.appearance.' .. id .. '.']
+		raw.theme, raw.darkPalette, raw.lightPalette = invalid.theme, invalid.darkPalette, invalid.lightPalette
+		appearanceIs(id, 'global', 'original', 'original')
+		assert(raw.theme == 'global' and raw.darkPalette == 'original' and raw.lightPalette == 'original')
+		assert(General.themeName(id) == 'dark' and General.apply({}, id).darkPalette == '32')
+	end
+	for _, name in ipairs({ 'dark', 'light' }) do
+		local v = General.appearance(id)
+		v.theme, v.darkPalette, v.lightPalette = name, '04', '01'
+		appearanceIs(id, name, 'original', 'original')
+		assert(General.selectedPalette(name, id) == 'original')
+		assert(General.themePalette(SharedTheme.palettes[name], name, id) == SharedTheme.palettes[name])
+	end
+end
+
+-- Dash exposes only Reset all; its appearance reset is exercised through the API.
+for _, app in ipairs(appearanceApps) do
+	local id = app[1]
+	for _, kind in ipairs({ 'appearance', 'all' }) do
+		for _, other in ipairs(appearanceApps) do
+			local v = General.appearance(other[1])
+			v.theme, v.darkPalette, v.lightPalette = 'light', '28', '31'
+		end
+		local before = snapshot(stores['retro-ui.general.'])
+		if kind == 'appearance' and id == 'dash' then
+			General.resetAppearance(id)
+		else
+			pending['Reset ' .. kind .. '##' .. id] = true; appSettings(app)
+			if kind == 'all' then
+				appearanceIs(id, 'light', '28', '31')
+				pending['Cancel##' .. id] = true; appSettings(app)
+				appearanceIs(id, 'light', '28', '31')
+				pending['Reset all##' .. id] = true; appSettings(app)
+				pending['Confirm reset##' .. id] = true; appSettings(app)
+			end
+		end
+		appearanceIs(id, 'global', 'original', 'original')
+		assert(General.themeName(id) == General.values.theme and General.selectedPalette('dark', id) == '32')
+		unchanged(stores['retro-ui.general.'], before, 'local ' .. kind .. ' reset: ' .. id)
+		for _, other in ipairs(appearanceApps) do
+			if other[1] ~= id then appearanceIs(other[1], 'light', '28', '31') end
+		end
+	end
+end
+
+print('Settings: twelve apps, local appearance, persistence, isolation, normalization and resets passed')
