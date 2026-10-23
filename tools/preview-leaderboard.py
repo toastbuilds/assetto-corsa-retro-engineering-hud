@@ -59,7 +59,7 @@ def main():
       end}
       previewSnapshot = {
         header = {typeLabel='RACE',timeText='28:36',currentLapText='12',lapsText='LAPS: ~31',
-          isTimed=true,ambientText='24 C',trackText='32 C'},
+          isTimed=true},
         enteredAt=0,sessionBest=90325,online=true,shownRows={},
         fuel={available=true,fuel=38.4,maxFuel=100,fuelText='38.4 L',averageText='2.6 L/LAP',
           estimatedLapsText='14 LAPS',finishAvailable=true,fuelNeeded=42.6,finishText='-4.2 L'}

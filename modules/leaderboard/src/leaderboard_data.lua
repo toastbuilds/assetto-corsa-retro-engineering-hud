@@ -252,7 +252,7 @@ end
 
 function M.empty()
   return {
-    header = { typeLabel = 'WAIT', timeText = '--:--', currentLapText = '--', lapsText = 'LAPS: --', ambientText = '--', trackText = '--' },
+    header = { typeLabel = 'WAIT', timeText = '--:--', currentLapText = '--', lapsText = 'LAPS: --' },
     rows = {}, shownRows = {}, localRow = nil, session = nil, sim = nil, online = false,
     flagLabel = nil, flagRole = nil, lapsRemaining = nil, enteredAt = ui.time(), error = nil
   }

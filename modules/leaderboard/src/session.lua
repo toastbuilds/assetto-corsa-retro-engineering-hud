@@ -182,8 +182,6 @@ function M.snapshotHeader(sim, session, localRow, leaderRow, sessionBest, settin
     timeText = timeLeft and M.formatDuration(timeLeft) or '--:--',
     currentLapText = M.currentLap(localRow),
     lapsText = M.lapHeader(session, sim, leaderRow, sessionBest, settings.showLapEstimate),
-    ambientText = M.temperature(sim, 'ambientTemperature', settings.temperatureUnit),
-    trackText = M.temperature(sim, 'trackTemperature', settings.temperatureUnit),
     flagLabel = flag,
     flagRole = flagRole,
     isTimed = M.isTimed(session)

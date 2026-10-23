@@ -20,6 +20,9 @@ assert(Session.lapsRemaining(session,sim,localRow,leader,60000)==2)
 session.isTimedRace=false; session.laps=10
 assert(Session.lapsRemaining(session,sim,localRow,leader,60000)==8)
 assert(Session.lapHeader(session,sim,leader,nil,true)=='LAPS: 10')
+local cleanHeader = Session.snapshotHeader({sessionTimeLeft=90000,ambientTemperature=24,trackTemperature=32},
+  session,localRow,leader,nil,{showLapEstimate=true})
+assert(cleanHeader.ambientText==nil and cleanHeader.trackText==nil, 'weather data is removed from leaderboard snapshots')
 local Fuel = require('modules/leaderboard/src/fuel')
 ui = {time=function() return 1 end}
 local car = {fuel=30,maxFuel=100,lapCount=0,isLastLapValid=true,previousLapTimeMs=90000}
@@ -49,25 +52,42 @@ for _,theme in ipairs({'dark','light'}) do
  for _,scale in ipairs({0.55,1.25}) do
   ui.windowWidth=function() return 1040*scale end
   ui.windowHeight=function() return 470*scale end
-  for _,flags in ipairs({false,true}) do
-   texts={}
-   Display.draw({header={lapsText='LAPS: ~123',timeText='12:34'},shownRows={},enteredAt=0,
-    fuel={available=true,fuelText='123.4 L',averageText='12.3 L/LAP',estimatedLapsText='123 LAPS'}},
-    {hudScale=scale,showFlags=flags},{palette=Theme.get(theme),instrumentOpacity=0.7})
-   local values=0
-   for _,t in ipairs(texts) do
-    assert(not t.value:find('AIR') and not t.value:find('TARMAC'))
-    local m=ui.measureDWriteText(t.value,t.size)
-    assert(t.pos.x>=0 and t.pos.x+m.x<=1040*scale+0.01)
-    if t.value=='123.4 L' or t.value=='12.3 L/LAP' or t.value=='123 LAPS' then
-     assert(t.size==24*scale); values=values+1
+  for _,fuelVisible in ipairs({false,true}) do
+   for _,flags in ipairs({false,true}) do
+    texts={}
+    Display.draw({header={typeLabel='RACE',lapsText='LAPS: ~123',currentLapText='9',
+      timeText='12:34',isTimed=true,ambientText='18 C',trackText='25 C'},shownRows={},enteredAt=0,
+      fuel={available=true,fuelText='123.4 L',averageText='12.3 L/LAP',estimatedLapsText='123 LAPS'}},
+      {hudScale=scale,showFlags=flags,showFuel=fuelVisible},
+      {palette=Theme.get(theme),instrumentOpacity=0.7})
+    local seen={}
+    for _,t in ipairs(texts) do
+     seen[t.value]=t
+     assert(not t.value:find('AIR') and not t.value:find('TARMAC'))
+     assert(t.value~='18 C' and t.value~='25 C', 'retired temperatures must never render')
+     local m=ui.measureDWriteText(t.value,t.size)
+     assert(t.pos.x>=0 and t.pos.x+m.x<=1040*scale+0.01)
     end
+    for _,caption in ipairs({'SESSION','TIME','TIME LEFT','LAP / TOTAL','LAP / ESTIMATE','CURRENT LAP','RACE','FLAG'}) do
+      assert(not seen[caption], 'the header should render values without redundant captions')
+    end
+    assert(seen['12:34'] and seen['9 / ~123'])
+    assert(seen['12:34'].size >= 39*scale and seen['9 / ~123'].size >= 39*scale,
+      'the two main header values should use the freed space')
+    assert(ui.measureDWriteText('12:34',seen['12:34'].size).y
+      < (81-25)*scale,
+      'countdown must stay clear of the flag strip')
+    assert(math.abs(seen['12:34'].pos.x/scale-36)<0.001)
+    assert(math.abs(seen['9 / ~123'].pos.x/scale-(fuelVisible and 330 or 530))<0.001)
+    assert((seen.CLEAR~=nil)==flags)
+    assert((seen['FUEL 123.4 L']~=nil)==fuelVisible)
+    assert((seen['USE 12.3 L/LAP']~=nil)==fuelVisible)
+    assert((seen['RANGE 123 LAPS']~=nil)==fuelVisible)
    end
-   assert(values==3)
   end
  end
 end
-print('Leaderboard: leader references, missing times, countdown, fuel, reset and 8 header drawings passed')
+print('Leaderboard: leader references, missing times, countdown, fuel, reset and 16 header drawings passed')
 
 -- Preserve all header regressions above and exercise actual row content at
 -- every supported count, in shared palettes and window sizes.
@@ -168,7 +188,7 @@ for _, source in ipairs(palettes) do
             assert(rect[1] >= -0.01 and rect[2] >= -0.01 and rect[3] <= windowW + 0.01 and rect[4] <= windowH + 0.01)
           end
           assert(drivers == count, 'must render every selected row including 6 through 10')
-          assert(has('30.0 L') and has('3.0 L/LAP') and has('9 LAPS'))
+          assert(has('FUEL 30.0 L') and has('USE 3.0 L/LAP') and has('RANGE 9 LAPS'))
           for _,label in ipairs({'INTERVAL','LAST LAP','GAP','BEST LAP','SB','0'}) do
             assert(not has(label), 'compact rows must not contain redundant subtext: '..label)
           end
@@ -218,13 +238,13 @@ Display.draw({header = {typeLabel = 'HOTLAP'}, personal = true, localRow = perso
   {hudScale = 0.84, maxRows = 10}, {palette = Theme.get('dark')})
 local drivers = 0
 for _, t in ipairs(texts) do if t.value:find('^DRIVER_') then drivers = drivers + 1 end end
-assert(drivers == 1 and has('HOTLAP') and has('30.0 L') and has('S1') and not has('S2') and not has('S3'))
+assert(drivers == 1 and not has('HOTLAP') and has('PERSONAL') and has('FUEL 30.0 L') and has('S1') and not has('S2') and not has('S3'))
 assert(#circles == 1, 'one-sector track must have exactly one active sector indicator')
 personal.status = 'FIN'
 texts, circles = {}, {}
 Display.draw({header = {typeLabel = 'TA'}, personal = true, localRow = personal, shownRows = personalRows},
   {hudScale = 0.84, maxRows = 10, showFuel = false, showClass = false}, {palette = SharedTheme.get('light')})
-assert(has('TA') and has('FIN') and #circles == 0)
+assert(not has('TA') and has('PERSONAL') and has('FIN') and #circles == 0)
 print('Leaderboard: stored settings, ' .. drawCases .. ' row drawings, shared palettes and personal one-sector cases passed')
 
 -- Compact race rows retain one meaningful gain/loss beside the position.
@@ -263,7 +283,7 @@ for _, size in ipairs({{572, 259}, {1040, 470}}) do
         {hudScale = 0.84, maxRows = count, showFlags = true}, {palette = Theme.get('dark')})
       local found = 0
       for _, t in ipairs(texts) do
-        if t.value == 'PRAC' or t.value:find('^DRIVER_') then
+        if t.value == '--:--' or t.value:find('^DRIVER_') then
           found = found + 1
           local previous = reference[t.value]
           if previous then

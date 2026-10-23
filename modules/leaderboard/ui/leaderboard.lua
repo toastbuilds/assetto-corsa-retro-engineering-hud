@@ -167,35 +167,48 @@ local function drawHeader(origin, scale, width, snapshot, settings, palette, opa
     role(palette, 'void', surfaceOpacity * 0.96), role(palette, 'outlineDim', 0.90), 0.8 * scale)
 
   local h = snapshot.header or {}
-  fittedText(h.typeLabel or 'WAIT', 28 * scale, origin + vec2(36 * scale, 35 * scale), 112 * scale, role(palette, 'primary'))
-  if snapshot.final or snapshot.personal then
-    text(snapshot.final and 'FINAL' or 'PERSONAL', 15 * scale, origin + vec2(36 * scale, 62 * scale),
-      textRole(palette, snapshot.final and 'green' or 'secondary'))
-  end
-  ui.drawLine(origin + vec2(152 * scale, 29 * scale), origin + vec2(152 * scale, 71 * scale), role(palette, 'outlineSoft'), scale)
-  fittedText(h.timeText or '--:--', 38 * scale, origin + vec2(172 * scale, 29 * scale), 158 * scale, role(palette, 'primary'))
+  local fuelVisible = settings.showFuel ~= false
   local race = h.typeLabel == 'RACE'
   local total = tostring(h.lapsText or ''):match('LAPS:%s*(.+)') or '--'
   local lapText = tostring(h.currentLapText or '--') .. (race and (' / ' .. total) or '')
-  fittedText(lapText, 38 * scale, origin + vec2(350 * scale, 29 * scale), 246 * scale, role(palette, 'amber'))
+  -- Keep the header focused on the two values. Session labels and captions
+  -- would steal height from the timer and lap progression.
+  local timeWidth, lapX, lapWidth, divider = 252, 330, 272, 310
+  if not fuelVisible then
+    timeWidth, lapX, lapWidth, divider = 435, 530, 470, 504
+  end
+  fittedText(h.timeText or '--:--', 40 * scale, origin + vec2(36 * scale, 25 * scale),
+    timeWidth * scale, role(palette, 'primary'))
+  fittedText(lapText, 40 * scale, origin + vec2(lapX * scale, 25 * scale),
+    lapWidth * scale, role(palette, 'amber'))
+  ui.drawLine(origin + vec2(divider * scale, 30 * scale), origin + vec2(divider * scale, 75 * scale),
+    role(palette, 'outlineSoft'), scale)
+
+  local status = snapshot.final and 'FINAL' or snapshot.personal and 'PERSONAL' or nil
+  local statusColor = snapshot.final and 'green' or 'cyan'
 
   if settings.showFlags ~= false then
     local flagColors = {green = 'green', yellow = 'flagYellow', red = 'red', blue = 'blue', white = 'white'}
     local flagColor = flagColors[h.flagRole] or 'green'
     local pulse = flagPulse(h.flagLabel, ui.time())
-    local flagTL, flagBR = origin + vec2(32 * scale, 78 * scale), origin + vec2(228 * scale, 100 * scale)
+    local flagTL = origin + vec2(32 * scale, 81 * scale)
+    local flagBR = origin + vec2((fuelVisible and 604 or width - 32) * scale, 103 * scale)
     chamferRect(flagTL, flagBR, 4 * scale, role(palette, flagColor, (0.14 + 0.26 * pulse) * surfaceOpacity),
       role(palette, flagColor, 0.58 + 0.40 * pulse), 0.9 * scale)
-    fittedText(h.flagLabel or 'CLEAR', 17 * scale, flagTL + vec2(10 * scale, scale), 176 * scale, textRole(palette, flagColor))
+    ui.drawRectFilled(flagTL + vec2(4 * scale, 4 * scale), flagTL + vec2(7 * scale, 18 * scale),
+      role(palette, flagColor, 0.9))
+    fittedText(h.flagLabel or 'CLEAR', 16 * scale, flagTL + vec2(16 * scale, scale),
+      (flagBR.x - flagTL.x) - (status and 120 or 26) * scale, textRole(palette, flagColor))
+    if status then
+      fittedText(status, 13 * scale, flagBR - vec2(100 * scale, 20 * scale),
+        90 * scale, textRole(palette, statusColor))
+    end
+  elseif status then
+    fittedText(status, 15 * scale, origin + vec2(36 * scale, 82 * scale),
+      150 * scale, textRole(palette, statusColor))
   end
 
-  if settings.showFuel == false then
-    fittedText(h.ambientText or '--', 38 * scale, origin + vec2(650 * scale, 34 * scale), 158 * scale, role(palette, 'primary'))
-    fittedText(h.trackText or '--', 38 * scale, origin + vec2(830 * scale, 34 * scale), 158 * scale, role(palette, 'primary'))
-    return
-  end
-  fittedText(h.ambientText or '--', 26 * scale, origin + vec2(247 * scale, 73 * scale), 166 * scale, role(palette, 'primary'))
-  fittedText(h.trackText or '--', 26 * scale, origin + vec2(426 * scale, 73 * scale), 170 * scale, role(palette, 'primary'))
+  if not fuelVisible then return end
 
   local x, y = origin.x + 620 * scale, origin.y + 21 * scale
   chamferRect(vec2(x, y), vec2(origin.x + (width - 25) * scale, y + 80 * scale), 6 * scale,
@@ -295,7 +308,7 @@ local function drawRow(origin, scale, width, top, row, snapshot, settings, palet
     or row.flagCauseKind == 'blue' and 'blue' or nil
   if flagRole and settings.showFlags ~= false then
     local pulse = 0.5 + 0.5 * math.sin(now * math.pi * 2.4)
-    local alpha = (GeneralSettings.values.theme == 'light' and 0.18 or 0.22) + 0.08 * pulse
+    local alpha = (GeneralSettings.themeName('leaderboard') == 'light' and 0.18 or 0.22) + 0.08 * pulse
     chamferRect(vec2(left, top), vec2(right, bottom), 4 * scale,
       role(palette, flagRole, alpha * opacity),
       role(palette, flagRole, (0.65 + 0.30 * pulse) * opacity), 1.1 * scale)
@@ -367,7 +380,7 @@ end
 function M.draw(snapshot, settings, visual)
   snapshot = snapshot or {}
   settings, visual = settings or {}, visual or {}
-  local palette = visual.palette or Theme.get(settings.theme)
+  local palette = visual.palette or Theme.get(GeneralSettings.themeName('leaderboard'))
   local width, height = ui.windowWidth(), ui.windowHeight()
   if width <= 0 or height <= 0 then return end
   local rows = snapshot.shownRows or {}
