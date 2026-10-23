@@ -271,6 +271,7 @@ function State:isFinalLap(sim, player)
   session = session or {}
   local state = self.raceEnd or { observations = {} }
   local remaining = Session.timeLeftSeconds(sim, session)
+  local timed = Session.isTimed(session) or Timing.field(sim, 'isTimedRace', false) == true
   local frame = sim.isReplayActive == true and tonumber(sim.replayCurrentFrame) or nil
   local completed = math.max(0, math.floor(numberOr(Timing.field(player,'lapCount',
     Timing.field(player,'sessionLapCount',0)),0)))
@@ -283,15 +284,17 @@ function State:isFinalLap(sim, player)
   state.frame, state.playerLaps, state.remaining = frame, completed, remaining
 
   local flag = Session.flag(sim, session)
-  if flag == 'FINISH' or sim.isSessionFinished == true or session.isSessionFinished == true
-      or session.isFinished == true or Timing.field(player,'isRaceFinished',false) then
+  local nativeLastLap = Timing.field(sim, 'leaderLastLap', false) == true
+    or Timing.field(sim, 'timeRaceLastLap', false) == true
+  if flag == 'FINISH' or Timing.field(player, 'isRaceFinished', false) == true
+      or (not timed and (sim.isSessionFinished == true or session.isSessionFinished == true
+        or session.isFinished == true or session.isOver == true)) then
     state.active, state.expired = false, false
     return false
   end
-  -- AC exposes the race's final-lap state separately from the current flag.
-  -- Flags can stay green or show a caution while its native timer says FINAL LAP.
-  if flag == 'LAST LAP' or Timing.field(sim,'leaderLastLap',false) == true
-      or Timing.field(sim,'timeRaceLastLap',false) == true then state.active = true end
+  -- A timed race can still be running after the session clock reports finished.
+  -- Only the player's actual finish (or the official finish flag) ends the banner.
+  if flag == 'LAST LAP' or nativeLastLap then state.active = true end
 
   local leader, observations, leaderPosition, leaderProgress = nil, {}, math.huge, -math.huge
   for _, car in ipairs(Timing.cars()) do
@@ -322,19 +325,32 @@ function State:isFinalLap(sim, player)
     end
   end
   local crossed = false
+  local leaderLapSeconds = nil
   if leader then
     local index = Timing.field(leader,'index',nil)
     crossed = observations[index] ~= nil and observations[index].crossed == true
+    local reference = positive(Timing.previousLapTime(leader))
+      or positive(Timing.field(leader, 'bestLapTimeMs', nil))
+    if reference and reference >= 10000 and reference <= 1200000 then
+      leaderLapSeconds = reference / 1000
+    end
   end
   state.observations = observations
 
-  local timed = Session.isTimed(session) or Timing.field(sim,'isTimedRace',false) == true
   if not timed then
     local total = positive(session.laps)
     if total and completed >= math.max(0,math.floor(total+0.5)-1) then state.active = true end
   else
-    if remaining ~= nil and remaining <= 0 then state.expired = true end
-    if state.expired and (session.hasAdditionalLap ~= true or crossed) then state.active = true end
+    if (remaining ~= nil and remaining <= 0)
+        or Timing.field(sim, 'timeRaceEnded', false) == true then state.expired = true end
+    if Timing.field(sim, 'timeRaceAdditionalLap', false) == true then state.active = true end
+    if state.expired then
+      if session.hasAdditionalLap ~= true or crossed then state.active = true end
+    elseif session.hasAdditionalLap ~= true and crossed and leaderLapSeconds
+        and remaining ~= nil and remaining > 0 and remaining <= leaderLapSeconds then
+      -- The leader has just begun the lap which should run past the time limit.
+      state.active = true
+    end
   end
   return state.active == true
 end

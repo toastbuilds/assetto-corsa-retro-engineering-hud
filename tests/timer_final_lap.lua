@@ -13,9 +13,10 @@ local State=require('modules/timer/src/state')
 local function new(extra)
  sim.sessionTimeLeft=1000; sim.currentSessionIndex=0; sim.raceFlagType=nil
  sim.isReplayActive=false; sim.isSessionFinished=false; sim.replayCurrentFrame=nil
- sim.leaderLastLap=nil; sim.timeRaceLastLap=nil; sim.raceSessionType=nil; sim.isTimedRace=nil
- session.isTimedRace=true; session.hasAdditionalLap=extra; session.laps=nil
- player.lapCount=2; player.racePosition=2; player.splinePosition=0.5
+ sim.leaderLastLap=nil; sim.timeRaceLastLap=nil; sim.timeRaceEnded=nil
+ sim.timeRaceAdditionalLap=nil; sim.raceSessionType=nil; sim.isTimedRace=nil
+ session.isTimedRace=true; session.hasAdditionalLap=extra; session.laps=nil; session.isOver=nil
+ player.lapCount=2; player.racePosition=2; player.splinePosition=0.5; player.isRaceFinished=false
  rival.lapCount=3; rival.racePosition=1; rival.splinePosition=0.8
  local state=State.new({freezeDuration=3}); assert(state:update()); return state
 end
@@ -37,7 +38,9 @@ rival.splinePosition=0.01
 final(timer,true,'spline crossing starts extra final lap before counter update')
 rival.lapCount=4; final(timer,true,'later counter update must retain the notice')
 sim.raceFlagType=1; sim.sessionTimeLeft=-10000; final(timer,true,'negative countdown keeps final lap')
-sim.isSessionFinished=true; final(timer,false,'session completion clears final lap')
+sim.isSessionFinished=true
+final(timer,true,'timed racing remains active after the session countdown finishes')
+player.isRaceFinished=true; final(timer,false,'player crossing the finish clears final lap')
 
 timer=new(true)
 sim.sessionTimeLeft=-1; final(timer,false)
@@ -90,6 +93,30 @@ sim.raceFlagType=13; final(timer,false,'finish clears a native last-lap notice')
 timer=new(true)
 sim.raceFlagType=2; sim.timeRaceLastLap=true
 final(timer,true,'native timeRaceLastLap must show during a caution with time remaining')
+
+timer=new(false)
+sim.sessionTimeLeft=15000; sim.timeRaceEnded=true
+final(timer,true,'native timeRaceEnded must handle servers with a stale positive countdown')
+
+timer=new(true)
+sim.sessionTimeLeft=20000; sim.timeRaceAdditionalLap=true
+final(timer,true,'native additional-lap state must show when the session timer is stale')
+
+timer=new(false)
+sim.sessionTimeLeft=85000
+final(timer,false,'countdown restarts must not infer a leader crossing')
+rival.previousLapTimeMs=90000; rival.lapCount=4; rival.splinePosition=0.01
+final(timer,true,'leader starting their last timed lap before expiry must trigger the notice')
+
+timer=new(true)
+sim.sessionTimeLeft=85000
+final(timer,false)
+rival.previousLapTimeMs=90000; rival.lapCount=4; rival.splinePosition=0.01
+final(timer,false,'additional-lap races must not anticipate the final lap early')
+
+timer=new(false)
+session.isTimedRace=false; sim.isTimedRace=true; sim.timeRaceEnded=true
+final(timer,true,'native timed race state overrides incomplete session metadata')
 
 timer=new(true)
 local getSession=ac.getSession
