@@ -5,7 +5,7 @@
 ### Added
 
 - Added Dash, a horizontal telemetry display with two layouts for the readings you want close at hand.
-- Added 16 selectable GT7 mini-gauge families and more ways to personalize the main instruments, including 24 needle designs.
+- Added 16 selectable GT7 mini-gauge families, with independent style selections for speed and RPM.
 - Added a live slipstream glow behind GT7 speed dials. It responds to the car ahead and follows the selected car.
 - Added Race Notices summaries after overtakes, with recent rival flags, track exits and an optional four-lap gap graph.
 - Added Suggested corner gear to help choose a gear for the next corner, with independent placement controls.
