@@ -4,11 +4,13 @@
 
 ### Added
 
+- Per-app themes and color palettes.
 - New horizontal Dash with two layouts.
 - 16 GT7 mini-gauge styles, selectable separately for speed and RPM.
-- Slipstream glow on GT7 speed dials, plus overtake recaps and an optional four-lap gap graph in Race Notices.
+- Slipstream glow on GT7 speed dials.
+- Race Notices overtake recaps and an optional four-lap gap graph.
 - Suggested corner gear and pedal traces that show input alongside estimated output, including TC and ABS.
-- Per-app themes and color palettes, plus online connection bars on the Leaderboard.
+- Online connection bars on the Leaderboard.
 
 ### Improved
 
