@@ -121,7 +121,7 @@ for _, theme in ipairs({'dark','light'}) do
   for _, mode in ipairs({'analog','digital'}) do
     local off = draw(mode,theme,0)
     local on = draw(mode,theme,1)
-    local index, changed, mainValue = {}, 0, false
+    local index, changed, externalChanged, mainValue = {}, 0, 0, false
     for _, c in ipairs(on) do
       if not ring(c) then
         local key = geometry(c)
@@ -139,9 +139,10 @@ for _, theme in ipairs({'dark','light'}) do
       if c.color == Theme.get(theme).inactive then
         assert(same, 'inactive segments must keep their original color')
       end
-      if not inDial(c) and not ring(c) then assert(same, 'external controls must remain unchanged') end
+      if not inDial(c) and not ring(c) and not same then externalChanged=externalChanged+1 end
     end
     assert(changed > 60, 'backlight must change the interior independently of its outer ring')
+    assert(externalChanged > 0, 'backlight now illuminates center controls while preserving geometry')
     assert(mode == 'analog' or mainValue, 'digital values must remain present')
     local half = draw(mode,theme,0.5)
     assert(#half == #on, 'intermediate light must reuse luminous geometry')
@@ -159,6 +160,6 @@ for _, mode in ipairs({'analog','digital'}) do
   local calls = draw(mode,'dark',1)
   local labels = {}
   for _, c in ipairs(calls) do if c.kind == 'text' then labels[c.text]=true end end
-  assert(labels['N/A'] and labels['AERO'])
+  assert(labels['N/A'] and not labels['AERO'], 'missing readings remain visible with an aero icon')
 end
-print('Backlight: timing, reversal, cached styles, hierarchy, color identity, unchanged geometry/controls, inactive faces and missing readings passed')
+print('Backlight: timing, reversal, cached styles, hierarchy, color identity, preserved geometry, lit controls, inactive faces and missing readings passed')

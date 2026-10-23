@@ -130,10 +130,11 @@ local digital = harness.draw('classic', { gt7SpeedNeedleMode = 'digital', gt7Rpm
 assert(contains(digital, '139') and contains(digital, '5200') and contains(digital, 'RPM'))
 local analog = harness.draw('classic', { gt7SpeedNeedleMode = 'analog', gt7RpmNeedleMode = 'analog' })
 assert(not contains(analog, '5200'), 'Analog must present the principal value through the hand and scale')
+local subY = 258 + Config.sub.offsetY * 0.95 -- Original face lifts the sub-dials by 5%.
 for _, x in ipairs({175, 1265}) do
   local container, printedScale, rimCount, ledCount = nil, nil, 0, 0
   for _, call in ipairs(analog) do
-    if call.kind == 'arc' and near(call.a.x, x) and near(call.a.y, 258 + Config.sub.offsetY) then
+    if call.kind == 'arc' and near(call.a.x, x) and near(call.a.y, subY) then
       if near(call.radius, Config.sub.housingRadius) then container = call end
       if near(call.radius, Config.sub.analogRadius) then printedScale = call end
     end
@@ -144,7 +145,7 @@ for _, x in ipairs({175, 1265}) do
     if call.kind == 'polygon' and #call.points == 4 then
       local segment = true
       for _, p in ipairs(call.points) do
-        local distance = math.sqrt((p.x-x)^2 + (p.y-258-Config.sub.offsetY)^2)
+        local distance = math.sqrt((p.x-x)^2 + (p.y-subY)^2)
         if distance < Config.sub.analogRadius-Config.sub.segmentDepth-0.01 or distance > Config.sub.analogRadius+0.01 then
           segment = false
         end
@@ -158,8 +159,9 @@ for _, x in ipairs({175, 1265}) do
   assert(ledCount == Config.sub.segmentCount, 'fuel/boost fill must cover the printed scale at the same radius')
 end
 -- Analog redline uses digital blocks while numbered labels remain in front.
+state.headlights, state.lightsAvailable, state.gt7Instruments = false, false, nil
 local oldFraction = state.rpmGaugeNormalized
-local colors = Theme.get('dark')
+local colors = Theme.get('dark', 'gt7')
 for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
   state.rpmGaugeNormalized = sample[1]
   local count = 0
@@ -177,7 +179,9 @@ for _, sample in ipairs({{0.5, colors.redDim}, {1, colors.red}}) do
       if segment then
         count = count + 1
         lastRedlineBlock = index
-        assert(call.color.r == sample[2].r and call.color.g == sample[2].g and call.color.b == sample[2].b)
+        assert(call.color.r == sample[2].r and call.color.g == sample[2].g and call.color.b == sample[2].b,
+          string.format('redline ink actual %.3f,%.3f,%.3f expected %.3f,%.3f,%.3f',
+            call.color.r,call.color.g,call.color.b,sample[2].r,sample[2].g,sample[2].b))
       end
     end
     if call.kind == 'text' and (call.text == '7' or call.text == '8') then numberOnTop = index end
@@ -202,7 +206,7 @@ state.fuel, state.maxFuel = nil, nil
 assert(contains(harness.draw('classic'), 'N/A'), 'missing fuel must be distinct from an empty tank')
 state.available, state.rpm, state.turboAvailable = true, 5200, false
 state.aeroLoadNormalized = 0.5
-assert(contains(harness.draw('classic'), 'AERO'))
+assert(not contains(harness.draw('classic'), 'AERO'), 'aero gauge uses an icon instead of a caption')
 state.fuel, state.maxFuel, state.fuelNormalized = 5, 50, 0.1
 state.turboAvailable = true
 local cases = 0

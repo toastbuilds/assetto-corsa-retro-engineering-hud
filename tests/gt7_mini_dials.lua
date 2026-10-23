@@ -189,7 +189,12 @@ for _,mode in ipairs({'analog','digital'}) do
         elseif customizable then
           assert(not text['BOOST'] and not text['FUEL'] and not text['AERO'],
             'fuel, boost and aero icons replace their captions')
-          assert(text[kind=='fuel' and 'E' or kind=='aero' and '100' or '1.5'])
+          if kind=='fuel' then
+            assert(text['E'] and text['F'],'speed mini dial keeps fuel endpoints')
+          else
+            assert(not text[kind=='aero' and '100' or '1.5'],
+              'RPM mini dial hides auxiliary endpoints to avoid clutter')
+          end
         end
         drawings=drawings+1
       end
