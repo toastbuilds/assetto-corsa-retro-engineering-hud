@@ -1,5 +1,6 @@
 """Render the Dash styles at their default and minimum window sizes."""
 import importlib.util
+import math
 from pathlib import Path
 
 from lupa.lua52 import LuaRuntime
@@ -112,6 +113,14 @@ def main():
     state = lua.globals().DASH_STATE
     general = lua.globals().DASH_GENERAL
     settings = lua.eval("require('modules/dash/src/settings')")
+    lua.execute("""
+      DASH_PEDAL_API=require('src/pedal_history')
+      DASH_PEDAL_HISTORY=DASH_PEDAL_API.new()
+      function updateDashPreviewHistory(dt, throttle, brake)
+        DASH_PEDAL_API.update(DASH_PEDAL_HISTORY,dt,throttle,brake)
+        DASH_STATE.pedalHistory=DASH_PEDAL_HISTORY
+      end
+    """)
 
     def render(style, theme, width, height, name):
         settings['values']['style'] = style
@@ -129,6 +138,58 @@ def main():
             for width, height, size_name in ((1280, 220, 'default'), (900, 160, 'minimum')):
                 general['values']['pressureUnit'] = 'psi'
                 render(style, theme, width, height, size_name)
+
+    # Render the actual Lua panel through a short sequence of simulated telemetry.
+    # Keep animated previews compact enough for the release page and inline viewer.
+    for style in ('rpm-top', 'side-tach'):
+        settings['values']['style'] = style
+        general['values']['theme'] = 'dark'
+        general['values']['pressureUnit'] = 'psi'
+        frames = []
+        frame_count = 18
+        preview_width, preview_height = 720, 124
+        for frame in range(frame_count):
+            gear_index = min(3, frame * 4 // frame_count)
+            shift_phase = min(1, (frame - gear_index * frame_count / 4) / (frame_count / 4 - 1))
+            gear = 2 + gear_index
+            throttle = 0.52 + 0.43 * (0.5 - 0.5 * math.cos(frame * 0.31))
+            brake = 0.48 if frame % 18 in (16, 17) else 0.04
+            rpm = 3300 + 4400 * shift_phase
+            state['speedText'] = str(round(94 + frame * 2.6))
+            state['gearText'] = str(gear)
+            state['gear'] = gear
+            state['rpm'] = rpm
+            state['rpmGaugeNormalized'] = rpm / state['rpmDisplayLimiter']
+            state['fuel'] = 12.4 - frame * 0.012
+            state['fuelNormalized'] = state['fuel'] / state['maxFuel']
+            state['turboBoost'] = round(0.3 + throttle * 1.85, 2)
+            state['brake'] = brake
+            state['throttle'] = throttle
+            state['steeringInput'] = 0.24 * math.sin(frame * 0.19)
+            state['steeringAngle'] = round(108 + 38 * math.sin(frame * 0.19))
+            state['clock'] = frame / 10
+            state['headlights'] = True
+            state['leftIndicator'] = frame >= 14
+            state['indicatorPhase'] = frame % 2 == 0
+            lua.globals().updateDashPreviewHistory(1 / 12, throttle, brake)
+            lua.globals().setSize(1280, 220)
+            lua.globals().DASH_MAIN.windowMain(state)
+            calls = lua.globals().takeCalls()
+            background = '#101216'
+            picture = preview.raster(calls, 1280, 220, background)
+            frames.append(picture.resize((preview_width, preview_height), preview.Image.Resampling.LANCZOS))
+
+        palette_source = preview.Image.new('RGB', (preview_width * 4, preview_height * 4), background)
+        for index, picture in enumerate(frames):
+            palette_source.paste(picture, ((index % 4) * preview_width, (index // 4) * preview_height))
+        palette = palette_source.quantize(colors=96, method=preview.Image.Quantize.MEDIANCUT)
+        frames = [picture.quantize(palette=palette, dither=preview.Image.Dither.NONE)
+                  for picture in frames]
+        frames[0].convert('RGB').save(output / f'{style}-preview.png')
+        path = output / f'{style}-animated.gif'
+        frames[0].save(path, save_all=True, append_images=frames[1:], duration=135,
+                       loop=0, optimize=True, disposal=2)
+        print(path)
 
     general['values']['pressureUnit'] = 'bar'
     for key,value in dict(turboBoost=0,throttle=0.15,tcActive=True,absActive=True,

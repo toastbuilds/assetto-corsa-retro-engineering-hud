@@ -15,7 +15,7 @@ The Lua runner isolates suites in Lua 5.2 runtimes. Checks cover settings migrat
 
 ## Dash previews
 
-Run `python tools/preview-dashboard.py` to render both Dash compositions in dark/light themes at the default 1280 × 220 and minimum 900 × 160 sizes, plus vacuum, active telltales and headlights on/off. The images are written to `output/dashboard/` and use simulated vehicle telemetry; CSP antialiasing and live signals still require an in-game check.
+Run `python tools/preview-dashboard.py` to render both Dash compositions in dark/light themes at the default 1280 × 220 and minimum 900 × 160 sizes, plus vacuum, active telltales and headlights on/off. It also exports animated `rpm-top-animated.gif` and `side-tach-animated.gif` previews using simulated telemetry. Images are written to `output/dashboard/`; CSP antialiasing and live signals still require an in-game check.
 
 ## Race Notices previews
 
