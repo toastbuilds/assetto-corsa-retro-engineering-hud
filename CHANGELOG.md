@@ -4,24 +4,17 @@
 
 ### Added
 
-- Added Dash, a horizontal telemetry display with two layouts for the readings you want close at hand.
-- Added 16 selectable GT7 mini-gauge families, with independent style selections for speed and RPM.
-- Added a live slipstream glow behind GT7 speed dials. It responds to the car ahead and follows the selected car.
-- Added Race Notices summaries after overtakes, with recent rival flags, track exits and an optional four-lap gap graph.
-- Added Suggested corner gear to help choose a gear for the next corner, with independent placement controls.
-- Added layered pedal displays that show driver input alongside the resulting throttle and brake output, including ABS and traction-control activity.
-- Added per-app themes and color palettes, so each HUD window can have its own look.
-- Added online connection-quality bars to the Leaderboard.
+- New horizontal Dash with two layouts.
+- 16 GT7 mini-gauge styles, selectable separately for speed and RPM.
+- Slipstream glow on GT7 speed dials, plus overtake recaps and an optional four-lap gap graph in Race Notices.
+- Suggested corner gear and pedal traces that show input alongside estimated output, including TC and ABS.
+- Per-app themes and color palettes, plus online connection bars on the Leaderboard.
 
 ### Improved
 
-- GT7 instruments and auxiliary gauges now respond more smoothly to headlights, with clearer, more consistent illumination.
-- Reworked the Leaderboard header to make session time and lap progress easier to scan; air and track temperatures are no longer shown.
-- Timer now catches the final lap in timed races, centers its clock and keeps sector and delta text at a steady size.
-- Estimated lap times are clearly marked, and connection indicators and key Leaderboard values are easier to read.
-- Refined GT7 auxiliary-gauge layouts, needle response, low-fuel warnings, RPM redline details and dense scale labels.
-- Improved pedal trace alignment and pass detection for race notices.
-- Expanded package support for provisional and custom builds.
+- Leaderboard puts session time and lap progress up front, marks estimates with `~`, and drops air and track temperatures.
+- Timer catches the last lap in timed races. Its clock stays centered, and sector/delta text stays the same size.
+- Smoother GT7 lighting and needles, clearer fuel warnings and redline marks, and more reliable overtake detection.
 
 ## 2.7.0
 
